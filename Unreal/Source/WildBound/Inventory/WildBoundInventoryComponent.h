@@ -74,6 +74,12 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
 	FString GetItemDisplayName(FName ItemId) const;
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Rarity")
+	int32 GetItemRarityTier(FName ItemId) const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Rarity")
+	FString GetItemRarityName(FName ItemId) const;
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Hotbar")
 	int32 GetHotbarSlotCount() const { return HotbarSlots.Num(); }
 
