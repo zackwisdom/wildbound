@@ -22,6 +22,7 @@ private:
 	int32 SelectedHotbarSlot = 0;
 
 	void TryInteract(AActor* TargetActor);
+	void SearchLootContainer(AActor* TargetActor);
 	FString GetInteractionPrompt(const AActor* TargetActor) const;
 	void DestroyInteractionGroup(const FName& GroupTag);
 	void HandleHotbarSelection(class APlayerController& PlayerController);
