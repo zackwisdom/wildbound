@@ -55,6 +55,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
 	bool IsExposed() const { return CurrentExposure > 1.0f; }
 
+	UFUNCTION(BlueprintCallable, Category="WildBound|Radiation")
+	void ReduceDose(float Amount);
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> GeigerAudioComponent;
