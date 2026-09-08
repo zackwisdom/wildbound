@@ -126,7 +126,16 @@ namespace
 			Settings.bOverride_ColorGainShadows = true;
 			Settings.ColorGainShadows = FVector4(0.97f, 0.99f, 1.03f, 1.0f);
 
-			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle post-process grade applied."));
+			// Sixth mood pass: restrained ambient occlusion to ground objects where they meet surfaces.
+			// Keep the radius tight and intensity moderate so it adds contact depth without dirty halos.
+			Settings.bOverride_AmbientOcclusionIntensity = true;
+			Settings.AmbientOcclusionIntensity = 0.65f;
+			Settings.bOverride_AmbientOcclusionRadius = true;
+			Settings.AmbientOcclusionRadius = 120.0f;
+			Settings.bOverride_AmbientOcclusionPower = true;
+			Settings.AmbientOcclusionPower = 1.15f;
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle post-process and contact shadow grade applied."));
 		}
 	}
 }
