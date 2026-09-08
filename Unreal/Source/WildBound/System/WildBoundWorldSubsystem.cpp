@@ -1,7 +1,9 @@
 #include "WildBoundWorldSubsystem.h"
 
+#include "Components/ExponentialHeightFogComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Widgets/SOverlay.h"
@@ -9,6 +11,40 @@
 #include "../Player/WildBoundSprintComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "../UI/SWildBoundHUDWidget.h"
+
+namespace
+{
+	void ApplyWildBoundAtmosphere(UWorld& World)
+	{
+		for (TActorIterator<AActor> It(&World); It; ++It)
+		{
+			UExponentialHeightFogComponent* Fog = It->FindComponentByClass<UExponentialHeightFogComponent>();
+			if (!Fog)
+			{
+				continue;
+			}
+
+			// First WildBound atmosphere pass: a restrained, dusty post-disaster haze.
+			// Keep nearby visibility clean while letting distance feel dry and contaminated.
+			Fog->SetFogDensity(0.012f);
+			Fog->SetFogHeightFalloff(0.20f);
+			Fog->SetStartDistance(1000.0f);
+			Fog->SetFogMaxOpacity(0.45f);
+			Fog->SetFogInscatteringColor(
+				FLinearColor::FromSRGBColor(FColor(190, 184, 168)));
+
+			// Very light volumetric body so the warmer sun can catch suspended dust.
+			Fog->SetVolumetricFog(true);
+			Fog->SetVolumetricFogScatteringDistribution(0.20f);
+			Fog->SetVolumetricFogExtinctionScale(0.35f);
+			Fog->SetVolumetricFogAlbedo(FColor(205, 200, 185));
+			Fog->SetVolumetricFogDistance(9000.0f);
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle dust haze applied."));
+			break;
+		}
+	}
+}
 
 void UWildBoundWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -35,6 +71,7 @@ void UWildBoundWorldSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		return;
 	}
 
+	ApplyWildBoundAtmosphere(InWorld);
 	EnsureWildBoundPlayerSetup();
 
 	InWorld.GetTimerManager().SetTimer(
