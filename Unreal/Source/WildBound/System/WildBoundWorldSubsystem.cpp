@@ -149,7 +149,18 @@ namespace
 			Settings.bOverride_BloomThreshold = true;
 			Settings.BloomThreshold = 1.35f;
 
-			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: restrained sunlight bloom applied."));
+			// Ninth mood pass: constrain eye adaptation to stop extreme brightness pumping.
+			// Extended luminance range is enabled, so these Min/Max values are EV100 limits.
+			Settings.bOverride_AutoExposureMinBrightness = true;
+			Settings.AutoExposureMinBrightness = -2.0f;
+			Settings.bOverride_AutoExposureMaxBrightness = true;
+			Settings.AutoExposureMaxBrightness = 12.0f;
+			Settings.bOverride_AutoExposureSpeedUp = true;
+			Settings.AutoExposureSpeedUp = 2.2f;
+			Settings.bOverride_AutoExposureSpeedDown = true;
+			Settings.AutoExposureSpeedDown = 1.0f;
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: controlled auto exposure applied."));
 		}
 	}
 }
