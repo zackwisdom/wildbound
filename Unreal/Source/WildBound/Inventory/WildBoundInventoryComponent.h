@@ -41,6 +41,9 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="WildBound|Inventory")
 	TArray<FWildBoundInventoryStack> Stacks;
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="WildBound|Inventory|Hotbar")
+	TArray<FName> HotbarSlots;
+
 	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
 	bool AddItem(FName ItemId, int32 Quantity);
 
@@ -70,4 +73,21 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
 	FString GetItemDisplayName(FName ItemId) const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Hotbar")
+	int32 GetHotbarSlotCount() const { return HotbarSlots.Num(); }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Hotbar")
+	FName GetHotbarItemId(int32 SlotIndex) const;
+
+	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory|Hotbar")
+	bool AssignHotbarSlot(int32 SlotIndex, FName ItemId);
+
+	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory|Hotbar")
+	void ClearHotbarSlot(int32 SlotIndex);
+
+	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory|Hotbar")
+	void ClearItemFromHotbar(FName ItemId);
+
+	bool IsItemInHotbar(FName ItemId, int32& OutSlotIndex) const;
 };
