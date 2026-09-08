@@ -56,17 +56,19 @@ namespace
 	}
 }
 
-void WildBoundTownBlockout::Spawn(UWorld& World)
+bool WildBoundTownBlockout::Spawn(UWorld& World, const FVector& Origin)
 {
 	for (TActorIterator<AStaticMeshActor> It(&World); It; ++It)
 	{
 		if (It->ActorHasTag(TEXT("WildBoundTownBlockout")))
 		{
-			return;
+			return false;
 		}
 	}
 
-	const FVector Origin(3500.0f, 0.0f, 0.0f);
+	// Temporary elevated foundation keeps this prototype town clear of the
+	// First Person example geometry while we replace the template map.
+	SpawnBox(World, Origin + FVector(0.0f, 0.0f, -25.0f), FVector(80.0f, 80.0f, 0.50f), FRotator::ZeroRotator, TEXT("WB_TownFoundation"));
 
 	// Main crossroad: broad enough for vehicles, debris, and future encounters.
 	SpawnBox(World, Origin + FVector(0.0f, 0.0f, 5.0f), FVector(60.0f, 8.0f, 0.10f), FRotator::ZeroRotator, TEXT("WB_Road_EastWest"));
@@ -100,5 +102,6 @@ void WildBoundTownBlockout::Spawn(UWorld& World)
 	SpawnBox(World, Origin + FVector(-720.0f, -720.0f, 300.0f), FVector(0.18f, 0.18f, 6.0f), FRotator::ZeroRotator, TEXT("WB_UtilityPole_01"));
 	SpawnBox(World, Origin + FVector(720.0f, 720.0f, 300.0f), FVector(0.18f, 0.18f, 6.0f), FRotator(0.0f, 3.0f, 0.0f), TEXT("WB_UtilityPole_02"));
 
-	UE_LOG(LogTemp, Log, TEXT("WildBound environment: first abandoned town intersection spawned."));
+	UE_LOG(LogTemp, Log, TEXT("WildBound environment: first abandoned town intersection spawned at %s."), *Origin.ToCompactString());
+	return true;
 }
