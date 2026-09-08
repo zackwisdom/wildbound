@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
 #include "Widgets/SCompoundWidget.h"
 
 class UWildBoundSurvivalComponent;
@@ -22,10 +23,13 @@ private:
 	TOptional<float> GetHungerPercent() const;
 	TOptional<float> GetThirstPercent() const;
 	TOptional<float> GetStaminaPercent() const;
+	TOptional<float> GetRadiationDosePercent() const;
 
 	FText GetHealthText() const;
 	FText GetHungerText() const;
 	FText GetThirstText() const;
 	FText GetStaminaText() const;
+	FText GetRadiationText() const;
+	FSlateColor GetRadiationColor() const;
 	FText GetInventoryText() const;
 };
