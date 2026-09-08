@@ -144,7 +144,6 @@ void UWildBoundRadiationComponent::InitializeGeigerAudio()
 	GeigerAudioComponent->SetVolumeMultiplier(GeigerVolume);
 	GeigerAudioComponent->RegisterComponent();
 
-	// Prime a tiny amount of silence so the procedural stream starts cleanly.
 	QueueGeigerAudioFrame(false, 0.0f);
 	QueueGeigerAudioFrame(false, 0.0f);
 	GeigerAudioComponent->Play();
@@ -189,9 +188,6 @@ float UWildBoundRadiationComponent::GetGeigerClickInterval(float ExposurePercent
 {
 	const float ExposureAlpha = FMath::Clamp(ExposurePercent / 100.0f, 0.0f, 1.0f);
 	const float ShapedExposure = FMath::Pow(ExposureAlpha, 1.20f);
-
-	// Roughly one click every 1.4 seconds at the fringe, accelerating to
-	// about fourteen clicks per second at the center of the hotspot.
 	const float ClicksPerSecond = FMath::Lerp(0.70f, 14.0f, ShapedExposure);
 	return 1.0f / FMath::Max(ClicksPerSecond, 0.1f);
 }
@@ -229,7 +225,6 @@ void UWildBoundRadiationComponent::QueueGeigerAudioFrame(bool bEmitClick, float 
 			const float Noise = FMath::FRandRange(-1.0f, 1.0f);
 			float Signal = (Ring * 0.34f + Noise * 0.66f) * Envelope * ClickAmplitude;
 
-			// A very short leading impulse gives the counter its dry mechanical snap.
 			if (ClickSample < 4)
 			{
 				Signal += (1.0f - static_cast<float>(ClickSample) / 4.0f) * 0.32f * ClickAmplitude;
@@ -253,4 +248,13 @@ float UWildBoundRadiationComponent::GetExposurePercent() const
 float UWildBoundRadiationComponent::GetDosePercent() const
 {
 	return MaxDose > 0.0f ? FMath::Clamp(AccumulatedDose / MaxDose, 0.0f, 1.0f) : 0.0f;
+}
+
+void UWildBoundRadiationComponent::ReduceDose(float Amount)
+{
+	if (Amount <= 0.0f)
+	{
+		return;
+	}
+	AccumulatedDose = FMath::Clamp(AccumulatedDose - Amount, 0.0f, MaxDose);
 }
