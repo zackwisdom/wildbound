@@ -86,9 +86,10 @@ void WildBoundTownBlockout::Spawn(UWorld& World)
 		return;
 	}
 
-	// Build the prototype town well above the First Person sample arena so none of
-	// Epic's blockout walls or floors can hide/intersect the WildBound environment.
-	const FVector Origin = Pawn->GetActorLocation() + FVector(0.0f, 0.0f, 3000.0f);
+	// Put the WildBound prototype roughly 1.4 km diagonally away from Epic's
+	// First Person sample arena. This keeps the sample geometry completely out
+	// of sight while still letting us reuse the map's sky/atmosphere setup.
+	const FVector Origin = Pawn->GetActorLocation() + FVector(100000.0f, 100000.0f, 0.0f);
 
 	SpawnBox(World, Origin + FVector(0.0f, 0.0f, -25.0f), FVector(80.0f, 80.0f, 0.50f), FRotator::ZeroRotator, TEXT("WB_TownFoundation"));
 
@@ -128,5 +129,5 @@ void WildBoundTownBlockout::Spawn(UWorld& World)
 	// environment is being tested.
 	Pawn->SetActorLocation(Origin + FVector(0.0f, 0.0f, 140.0f), false, nullptr, ETeleportType::TeleportPhysics);
 
-	UE_LOG(LogTemp, Log, TEXT("WildBound environment: player moved into abandoned town intersection at %s."), *Origin.ToCompactString());
+	UE_LOG(LogTemp, Log, TEXT("WildBound environment: player moved to isolated abandoned town at %s."), *Origin.ToCompactString());
 }
