@@ -50,6 +50,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
 	bool RemoveItem(FName ItemId, int32 Quantity);
 
+	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
+	bool RemoveFromStack(int32 StackIndex, int32 Quantity);
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
 	int32 GetItemCount(FName ItemId) const;
 
@@ -61,6 +64,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
 	bool MoveStack(int32 SourceIndex, int32 TargetIndex);
+
+	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
+	bool SplitStack(int32 StackIndex, int32 SplitQuantity);
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Weight")
 	float GetItemUnitWeight(FName ItemId) const;
@@ -76,6 +82,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
 	FString GetItemDisplayName(FName ItemId) const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
+	FString GetItemCategoryName(FName ItemId) const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
+	FString GetItemDescription(FName ItemId) const;
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Rarity")
 	int32 GetItemRarityTier(FName ItemId) const;
