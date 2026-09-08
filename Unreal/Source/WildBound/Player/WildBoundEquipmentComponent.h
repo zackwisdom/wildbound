@@ -4,8 +4,9 @@
 #include "Components/ActorComponent.h"
 #include "WildBoundEquipmentComponent.generated.h"
 
+class AActor;
+class APlayerController;
 class UCameraComponent;
-class ULightComponent;
 class USpotLightComponent;
 class UWildBoundInventoryComponent;
 
@@ -28,8 +29,13 @@ private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	TObjectPtr<USpotLightComponent> FlashlightLight = nullptr;
 	bool bFlashlightOn = false;
+	float ToolInteractionDistance = 450.0f;
 
 	void EnsureFlashlightLight();
 	void ToggleFlashlight();
 	void SetFlashlightOn(bool bNewOn);
+	void HandleCrowbarInteraction(APlayerController& PlayerController);
+	AActor* GetPryTarget(APlayerController& PlayerController) const;
+	void PryTarget(AActor& TargetActor);
+	void DestroyPryGroup(const FName& GroupTag);
 };
