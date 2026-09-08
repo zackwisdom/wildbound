@@ -1,6 +1,7 @@
 #include "WildBoundWorldSubsystem.h"
 
 #include "Components/ExponentialHeightFogComponent.h"
+#include "Components/SkyAtmosphereComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "EngineUtils.h"
@@ -41,6 +42,23 @@ namespace
 			Fog->SetVolumetricFogDistance(9000.0f);
 
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle dust haze applied."));
+			break;
+		}
+
+		for (TActorIterator<AActor> It(&World); It; ++It)
+		{
+			USkyAtmosphereComponent* SkyAtmosphere = It->FindComponentByClass<USkyAtmosphereComponent>();
+			if (!SkyAtmosphere)
+			{
+				continue;
+			}
+
+			// Second mood pass: make the daylight sky feel slightly dirtier and less pristine.
+			// A small Mie increase adds aerosol haze, while the luminance factor gently mutes the clean blue.
+			SkyAtmosphere->SetMieScatteringScale(1.08f);
+			SkyAtmosphere->SetSkyLuminanceFactor(FLinearColor(0.96f, 0.97f, 0.94f, 1.0f));
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: muted post-disaster sky applied."));
 			break;
 		}
 	}
