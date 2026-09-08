@@ -1,5 +1,7 @@
 #include "WildBoundSurvivalComponent.h"
 
+#include "GameFramework/Actor.h"
+
 UWildBoundSurvivalComponent::UWildBoundSurvivalComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -33,7 +35,15 @@ void UWildBoundSurvivalComponent::TickComponent(float DeltaTime, ELevelTick Tick
 
 	Hunger = FMath::Clamp(Hunger - (HungerDrainPerSecond * DeltaTime), 0.0f, MaxHunger);
 	Thirst = FMath::Clamp(Thirst - (ThirstDrainPerSecond * DeltaTime), 0.0f, MaxThirst);
-	Stamina = FMath::Clamp(Stamina + (StaminaRegenPerSecond * DeltaTime), 0.0f, MaxStamina);
+
+	const AActor* Owner = GetOwner();
+	const float Speed2D = Owner ? Owner->GetVelocity().Size2D() : StationaryVelocityThreshold + 1.0f;
+	const bool bCompletelyStill = Speed2D <= StationaryVelocityThreshold;
+	const float RegenMultiplier = bCompletelyStill ? StationaryStaminaRegenMultiplier : 1.0f;
+	Stamina = FMath::Clamp(
+		Stamina + (StaminaRegenPerSecond * RegenMultiplier * DeltaTime),
+		0.0f,
+		MaxStamina);
 
 	float SurvivalDamage = 0.0f;
 	if (Hunger <= 0.0f)
