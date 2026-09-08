@@ -134,6 +134,34 @@ bool UWildBoundBackpackComponent::ReorderStackFromMouse(int32 SourceIndex, int32
 	return true;
 }
 
+bool UWildBoundBackpackComponent::SplitStackFromMouse(int32 StackIndex)
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
+	{
+		return false;
+	}
+
+	const int32 Quantity = Inventory->Stacks[StackIndex].Quantity;
+	if (Quantity < 2)
+	{
+		return false;
+	}
+
+	const int32 SplitQuantity = Quantity / 2;
+	if (!Inventory->SplitStack(StackIndex, SplitQuantity))
+	{
+		if (GEngine && Inventory->Stacks.Num() >= Inventory->MaxSlots)
+		{
+			GEngine->AddOnScreenDebugMessage(91032, 1.6f, FColor(220, 160, 115), TEXT("No free inventory slot to split this stack."));
+		}
+		return false;
+	}
+
+	SelectedStackIndex = FMath::Clamp(StackIndex + 1, 0, Inventory->Stacks.Num() - 1);
+	return true;
+}
+
 bool UWildBoundBackpackComponent::AssignItemToHotbarFromMouse(FName ItemId, int32 SlotIndex)
 {
 	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
@@ -176,7 +204,7 @@ bool UWildBoundBackpackComponent::DropStackFromMouse(int32 StackIndex, bool bDro
 		return false;
 	}
 
-	if (!Inventory->RemoveItem(ItemId, DropQuantity))
+	if (!Inventory->RemoveFromStack(StackIndex, DropQuantity))
 	{
 		DroppedActor->Destroy();
 		return false;
