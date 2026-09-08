@@ -59,6 +59,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
 	void ClearInventory();
 
+	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
+	bool MoveStack(int32 SourceIndex, int32 TargetIndex);
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Weight")
 	float GetItemUnitWeight(FName ItemId) const;
 
