@@ -11,6 +11,9 @@
 
 namespace
 {
+	const FName ReinforcedBackpackItemId(TEXT("ReinforcedBackpack"));
+	const FName FilterMaskItemId(TEXT("FilterMask"));
+
 	const FWildBoundCraftingRecipe* GetSelectedRecipe(const UWildBoundCraftingComponent* Crafting)
 	{
 		if (!Crafting)
@@ -21,6 +24,23 @@ namespace
 		const TArray<FWildBoundCraftingRecipe>& Recipes = Crafting->GetRecipes();
 		const int32 Index = Crafting->GetSelectedRecipeIndex();
 		return Recipes.IsValidIndex(Index) ? &Recipes[Index] : nullptr;
+	}
+
+	bool IsUniqueGearItem(const FName& ItemId)
+	{
+		return ItemId == ReinforcedBackpackItemId || ItemId == FilterMaskItemId;
+	}
+
+	bool IsRecipeOwned(const UWildBoundCraftingComponent* Crafting, int32 RecipeIndex)
+	{
+		if (!Crafting || !Crafting->GetRecipes().IsValidIndex(RecipeIndex))
+		{
+			return false;
+		}
+
+		const UWildBoundInventoryComponent* Inventory = Crafting->GetInventoryComponent();
+		const FName OutputItemId = Crafting->GetRecipes()[RecipeIndex].OutputItemId;
+		return Inventory && IsUniqueGearItem(OutputItemId) && Inventory->HasItem(OutputItemId, 1);
 	}
 }
 
@@ -103,6 +123,13 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 								SNew(STextBlock)
 								.Text_Lambda([this]() { return GetRecipeTitle(2); })
 								.ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(2); })
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+							]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 3.0f)
+							[
+								SNew(STextBlock)
+								.Text_Lambda([this]() { return GetRecipeTitle(3); })
+								.ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(3); })
 								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
 							]
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 16.0f, 0.0f, 0.0f)
@@ -212,6 +239,11 @@ FSlateColor SWildBoundCraftingWidget::GetRecipeTextColor(int32 RecipeIndex) cons
 		return FSlateColor(FLinearColor(0.94f, 0.90f, 0.70f, 1.0f));
 	}
 
+	if (IsRecipeOwned(Crafting, RecipeIndex))
+	{
+		return FSlateColor(FLinearColor(0.48f, 0.64f, 0.72f, 1.0f));
+	}
+
 	return Crafting->CanCraftRecipe(RecipeIndex)
 		? FSlateColor(FLinearColor(0.66f, 0.80f, 0.60f, 1.0f))
 		: FSlateColor(FLinearColor(0.58f, 0.59f, 0.55f, 1.0f));
@@ -227,7 +259,9 @@ FText SWildBoundCraftingWidget::GetRecipeTitle(int32 RecipeIndex) const
 
 	const FWildBoundCraftingRecipe& Recipe = Crafting->GetRecipes()[RecipeIndex];
 	const TCHAR* Marker = Crafting->GetSelectedRecipeIndex() == RecipeIndex ? TEXT(">") : TEXT(" ");
-	const TCHAR* Status = Crafting->CanCraftRecipe(RecipeIndex) ? TEXT("READY") : TEXT("MISSING");
+	const TCHAR* Status = IsRecipeOwned(Crafting, RecipeIndex)
+		? TEXT("OWNED")
+		: (Crafting->CanCraftRecipe(RecipeIndex) ? TEXT("READY") : TEXT("MISSING"));
 	return FText::FromString(FString::Printf(TEXT("%s %-20s  %s"), Marker, *Recipe.DisplayName, Status));
 }
 
@@ -318,7 +352,13 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 		return FText::FromString(TEXT("CRAFTING UNAVAILABLE"));
 	}
 
-	return Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex())
+	const int32 RecipeIndex = Crafting->GetSelectedRecipeIndex();
+	if (IsRecipeOwned(Crafting, RecipeIndex))
+	{
+		return FText::FromString(TEXT("GEAR ALREADY OWNED / ACTIVE"));
+	}
+
+	return Crafting->CanCraftRecipe(RecipeIndex)
 		? FText::FromString(TEXT("ENTER   CRAFT ITEM"))
 		: FText::FromString(TEXT("MISSING MATERIALS"));
 }
@@ -326,6 +366,11 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 FSlateColor SWildBoundCraftingWidget::GetCraftStatusColor() const
 {
 	const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+	if (Crafting && IsRecipeOwned(Crafting, Crafting->GetSelectedRecipeIndex()))
+	{
+		return FSlateColor(FLinearColor(0.48f, 0.68f, 0.80f, 1.0f));
+	}
+
 	const bool bReady = Crafting && Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex());
 	return bReady
 		? FSlateColor(FLinearColor(0.57f, 0.83f, 0.49f, 1.0f))
