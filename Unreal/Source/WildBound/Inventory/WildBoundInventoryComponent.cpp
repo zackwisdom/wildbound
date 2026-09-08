@@ -234,6 +234,49 @@ FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 	return ItemId.ToString();
 }
 
+int32 UWildBoundInventoryComponent::GetItemRarityTier(FName ItemId) const
+{
+	// 0 Common, 1 Uncommon, 2 Rare, 3 Epic.
+	if (ItemId == ReinforcedBackpackItem
+		|| ItemId == FilterMaskItem
+		|| ItemId == TraumaKitItem
+		|| ItemId == UtilityBeltItem)
+	{
+		return 3;
+	}
+
+	if (ItemId == FlashlightItem
+		|| ItemId == CrowbarItem
+		|| ItemId == CanteenItem
+		|| ItemId == RadTreatmentItem)
+	{
+		return 2;
+	}
+
+	if (ItemId == MedicalItem
+		|| ItemId == ElectronicsItem
+		|| ItemId == ChemicalsItem
+		|| ItemId == AdhesiveItem
+		|| ItemId == BatteryItem
+		|| ItemId == MechanicalPartsItem)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
+FString UWildBoundInventoryComponent::GetItemRarityName(FName ItemId) const
+{
+	switch (GetItemRarityTier(ItemId))
+	{
+	case 3: return TEXT("EPIC");
+	case 2: return TEXT("RARE");
+	case 1: return TEXT("UNCOMMON");
+	default: return TEXT("COMMON");
+	}
+}
+
 FName UWildBoundInventoryComponent::GetHotbarItemId(int32 SlotIndex) const
 {
 	if (!HotbarSlots.IsValidIndex(SlotIndex))
