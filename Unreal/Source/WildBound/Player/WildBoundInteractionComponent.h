@@ -20,4 +20,6 @@ private:
 	void TryInteract(AActor* TargetActor);
 	FString GetInteractionPrompt(const AActor* TargetActor) const;
 	void DestroyInteractionGroup(const FName& GroupTag);
+	void HandleQuickUse(class APlayerController& PlayerController);
+	void TryUseInventoryItem(FName ItemId);
 };
