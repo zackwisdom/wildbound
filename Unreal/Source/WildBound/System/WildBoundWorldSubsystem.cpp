@@ -31,13 +31,13 @@ namespace
 
 			// First WildBound atmosphere pass: a restrained, dusty post-disaster haze.
 			// Keep nearby visibility clean while letting distance feel dry and contaminated.
-			Fog->SetFogDensity(0.012f);
+			Fog->SetFogDensity(0.014f);
 			Fog->SetFogHeightFalloff(0.20f);
-			Fog->SetStartDistance(1000.0f);
-			Fog->SetFogMaxOpacity(0.45f);
+			Fog->SetStartDistance(1800.0f);
+			Fog->SetFogMaxOpacity(0.48f);
 
 			// Fourth mood pass: a barely perceptible sickly cast in distant airborne dust only.
-			// The 1000 cm start distance keeps the player's immediate surroundings neutral.
+			// The increased start distance keeps the playable foreground crisp while distant forms soften.
 			Fog->SetFogInscatteringColor(
 				FLinearColor::FromSRGBColor(FColor(184, 188, 166)));
 
@@ -46,7 +46,7 @@ namespace
 			Fog->SetVolumetricFogScatteringDistribution(0.20f);
 			Fog->SetVolumetricFogExtinctionScale(0.35f);
 			Fog->SetVolumetricFogAlbedo(FColor(198, 202, 184));
-			Fog->SetVolumetricFogDistance(9000.0f);
+			Fog->SetVolumetricFogDistance(11000.0f);
 
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle contaminated distance haze applied."));
 			break;
