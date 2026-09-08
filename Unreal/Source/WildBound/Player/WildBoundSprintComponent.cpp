@@ -4,7 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
-#include "Survival/WildBoundSurvivalComponent.h"
+#include "../Survival/WildBoundSurvivalComponent.h"
 
 UWildBoundSprintComponent::UWildBoundSprintComponent()
 {
