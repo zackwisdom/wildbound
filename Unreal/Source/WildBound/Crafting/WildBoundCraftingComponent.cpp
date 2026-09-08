@@ -17,6 +17,8 @@ namespace
 	const FName WorkbenchTag(TEXT("WBWorkbench"));
 	const FName ReinforcedBackpackItemId(TEXT("ReinforcedBackpack"));
 	const FName FilterMaskItemId(TEXT("FilterMask"));
+	const FName CanteenItemId(TEXT("Canteen"));
+	const FName UtilityBeltItemId(TEXT("UtilityBelt"));
 
 	FWildBoundCraftingIngredient Ingredient(const TCHAR* ItemId, int32 Quantity)
 	{
@@ -28,7 +30,10 @@ namespace
 
 	bool IsUniqueGearItem(const FName& ItemId)
 	{
-		return ItemId == ReinforcedBackpackItemId || ItemId == FilterMaskItemId;
+		return ItemId == ReinforcedBackpackItemId
+			|| ItemId == FilterMaskItemId
+			|| ItemId == CanteenItemId
+			|| ItemId == UtilityBeltItemId;
 	}
 }
 
@@ -143,7 +148,7 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 		FWildBoundCraftingRecipe FirstAid;
 		FirstAid.RecipeId = TEXT("FirstAidKit");
 		FirstAid.DisplayName = TEXT("HAND: FIRST-AID KIT");
-		FirstAid.Description = TEXT("Hand-craft a usable field medical kit from scavenged cloth, disinfectant chemicals, and adhesive.");
+		FirstAid.Description = TEXT("Assemble a basic medical kit from cloth, disinfectant chemicals, and adhesive.");
 		FirstAid.OutputItemId = TEXT("MedicalSupplies");
 		FirstAid.OutputQuantity = 1;
 		FirstAid.Ingredients =
@@ -153,13 +158,41 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 			Ingredient(TEXT("Adhesive"), 1)
 		};
 		Recipes.Add(FirstAid);
+
+		FWildBoundCraftingRecipe TraumaKit;
+		TraumaKit.RecipeId = TEXT("TraumaKit");
+		TraumaKit.DisplayName = TEXT("HAND: FIELD TRAUMA KIT");
+		TraumaKit.Description = TEXT("Combine medical stock into a heavier emergency kit. Restores 80 health when used from the hotbar.");
+		TraumaKit.OutputItemId = TEXT("TraumaKit");
+		TraumaKit.OutputQuantity = 1;
+		TraumaKit.Ingredients =
+		{
+			Ingredient(TEXT("MedicalSupplies"), 2),
+			Ingredient(TEXT("Cloth"), 2),
+			Ingredient(TEXT("Adhesive"), 1)
+		};
+		Recipes.Add(TraumaKit);
+
+		FWildBoundCraftingRecipe RadTreatment;
+		RadTreatment.RecipeId = TEXT("RadTreatment");
+		RadTreatment.DisplayName = TEXT("HAND: RADIATION TREATMENT");
+		RadTreatment.Description = TEXT("Prepare a single-use emergency radiation treatment. Removes 30 accumulated dose when used from the hotbar.");
+		RadTreatment.OutputItemId = TEXT("RadTreatment");
+		RadTreatment.OutputQuantity = 1;
+		RadTreatment.Ingredients =
+		{
+			Ingredient(TEXT("MedicalSupplies"), 1),
+			Ingredient(TEXT("Chemicals"), 2),
+			Ingredient(TEXT("Water"), 1)
+		};
+		Recipes.Add(RadTreatment);
 	}
 	else
 	{
 		FWildBoundCraftingRecipe Flashlight;
 		Flashlight.RecipeId = TEXT("Flashlight");
 		Flashlight.DisplayName = TEXT("BENCH: FLASHLIGHT");
-		Flashlight.Description = TEXT("Use the workbench to assemble a working handheld light from electronics, batteries, plastic housing, and wire.");
+		Flashlight.Description = TEXT("Assemble a working handheld light from electronics, batteries, plastic housing, and wire.");
 		Flashlight.OutputItemId = TEXT("Flashlight");
 		Flashlight.OutputQuantity = 1;
 		Flashlight.Ingredients =
@@ -174,7 +207,7 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 		FWildBoundCraftingRecipe Crowbar;
 		Crowbar.RecipeId = TEXT("Crowbar");
 		Crowbar.DisplayName = TEXT("BENCH: IMPROVISED CROWBAR");
-		Crowbar.Description = TEXT("Use the vice and bench tools to shape and reinforce salvaged metal into a heavy pry tool.");
+		Crowbar.Description = TEXT("Shape and reinforce salvaged metal into a heavy pry tool for sealed containers and barred routes.");
 		Crowbar.OutputItemId = TEXT("Crowbar");
 		Crowbar.OutputQuantity = 1;
 		Crowbar.Ingredients =
@@ -188,7 +221,7 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 		FWildBoundCraftingRecipe Backpack;
 		Backpack.RecipeId = TEXT("ReinforcedBackpack");
 		Backpack.DisplayName = TEXT("BENCH: REINFORCED BACKPACK");
-		Backpack.Description = TEXT("Reinforce the pack frame and straps with scavenged metal, plastic, cloth, and adhesive. Increases carrying capacity by 12 kg while carried.");
+		Backpack.Description = TEXT("Reinforce the pack frame and straps. Increases carrying capacity by 12 kg while carried.");
 		Backpack.OutputItemId = ReinforcedBackpackItemId;
 		Backpack.OutputQuantity = 1;
 		Backpack.Ingredients =
@@ -204,7 +237,7 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 		FWildBoundCraftingRecipe FilterMask;
 		FilterMask.RecipeId = TEXT("FilterMask");
 		FilterMask.DisplayName = TEXT("BENCH: FILTER MASK");
-		FilterMask.Description = TEXT("Build a sealed particulate mask from layered cloth, plastic, chemicals, and adhesive. Reduces radiation dose accumulation by 45% while carried.");
+		FilterMask.Description = TEXT("Build a sealed particulate mask. Reduces radiation dose accumulation by 45% while carried.");
 		FilterMask.OutputItemId = FilterMaskItemId;
 		FilterMask.OutputQuantity = 1;
 		FilterMask.Ingredients =
@@ -215,6 +248,35 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 			Ingredient(TEXT("Adhesive"), 1)
 		};
 		Recipes.Add(FilterMask);
+
+		FWildBoundCraftingRecipe Canteen;
+		Canteen.RecipeId = TEXT("Canteen");
+		Canteen.DisplayName = TEXT("BENCH: SEALED CANTEEN");
+		Canteen.Description = TEXT("Build a reusable sealed canteen. While carried, drinking water restores 45 thirst instead of 35.");
+		Canteen.OutputItemId = CanteenItemId;
+		Canteen.OutputQuantity = 1;
+		Canteen.Ingredients =
+		{
+			Ingredient(TEXT("ScrapMetal"), 2),
+			Ingredient(TEXT("Plastic"), 2),
+			Ingredient(TEXT("Adhesive"), 1)
+		};
+		Recipes.Add(Canteen);
+
+		FWildBoundCraftingRecipe UtilityBelt;
+		UtilityBelt.RecipeId = TEXT("UtilityBelt");
+		UtilityBelt.DisplayName = TEXT("BENCH: UTILITY BELT");
+		UtilityBelt.Description = TEXT("Build a rugged tool belt with extra pouches. Adds 4 inventory slots while carried.");
+		UtilityBelt.OutputItemId = UtilityBeltItemId;
+		UtilityBelt.OutputQuantity = 1;
+		UtilityBelt.Ingredients =
+		{
+			Ingredient(TEXT("Cloth"), 4),
+			Ingredient(TEXT("ScrapMetal"), 2),
+			Ingredient(TEXT("Adhesive"), 1),
+			Ingredient(TEXT("MechanicalParts"), 1)
+		};
+		Recipes.Add(UtilityBelt);
 	}
 
 	SelectedRecipeIndex = 0;
@@ -368,7 +430,7 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 	{
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(91021, 1.8f, FColor(190, 190, 175), TEXT("You already have this gear equipped."));
+			GEngine->AddOnScreenDebugMessage(91021, 1.8f, FColor(190, 190, 175), TEXT("You already have this gear."));
 		}
 		return;
 	}
