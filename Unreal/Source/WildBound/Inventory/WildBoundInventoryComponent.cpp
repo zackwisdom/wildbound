@@ -1,4 +1,4 @@
-#include "Inventory/WildBoundInventoryComponent.h"
+#include "WildBoundInventoryComponent.h"
 
 UWildBoundInventoryComponent::UWildBoundInventoryComponent()
 {
