@@ -2,10 +2,10 @@
 
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Widgets/Layout/SOverlay.h"
-#include "Widgets/SWeakWidget.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundSprintComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
