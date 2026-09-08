@@ -14,8 +14,8 @@ namespace
 	const FName TownTag(TEXT("WildBoundTownBlockout"));
 	const FName PryableSetTag(TEXT("WildBoundPryables"));
 	const FName InteractableTag(TEXT("WBInteractable"));
-	const FName ContainerTypeTag(TEXT("WBTypeContainer"));
 	const FName PryLockedTag(TEXT("WBPryLocked"));
+	const FName PryContainerTag(TEXT("WBPryContainer"));
 	const FName PryAccessTag(TEXT("WBPryAccess"));
 	const FName IndustrialPoolTag(TEXT("WBLootIndustrial"));
 	const FName CivicPoolTag(TEXT("WBLootCivic"));
@@ -128,8 +128,8 @@ namespace
 	void MarkLockedContainer(AStaticMeshActor& Actor, const FName& PoolTag, const FName& ContainerTag)
 	{
 		Actor.Tags.AddUnique(InteractableTag);
-		Actor.Tags.AddUnique(ContainerTypeTag);
 		Actor.Tags.AddUnique(PryLockedTag);
+		Actor.Tags.AddUnique(PryContainerTag);
 		Actor.Tags.AddUnique(PoolTag);
 		Actor.Tags.AddUnique(ContainerTag);
 	}
@@ -214,11 +214,8 @@ namespace
 
 	void BuildPryables(UWorld& World, const FVector& Origin)
 	{
-		// Higher-value sealed targets make the crafted crowbar immediately useful.
 		SpawnSealedCrate(World, Origin + FVector(3950.0f, -7100.0f, 0.0f));
 		SpawnSealedLocker(World, Origin + FVector(8350.0f, 6750.0f, 0.0f));
-
-		// A barred maintenance cut-through in the commercial alley becomes a genuine shortcut once pried open.
 		SpawnCommercialMaintenanceGate(World, Origin + FVector(4100.0f, 5200.0f, 0.0f));
 	}
 }
