@@ -15,6 +15,8 @@
 namespace
 {
 	const FName WorkbenchTag(TEXT("WBWorkbench"));
+	const FName ReinforcedBackpackItemId(TEXT("ReinforcedBackpack"));
+	const FName FilterMaskItemId(TEXT("FilterMask"));
 
 	FWildBoundCraftingIngredient Ingredient(const TCHAR* ItemId, int32 Quantity)
 	{
@@ -22,6 +24,11 @@ namespace
 		Result.ItemId = FName(ItemId);
 		Result.Quantity = Quantity;
 		return Result;
+	}
+
+	bool IsUniqueGearItem(const FName& ItemId)
+	{
+		return ItemId == ReinforcedBackpackItemId || ItemId == FilterMaskItemId;
 	}
 }
 
@@ -177,6 +184,37 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 			Ingredient(TEXT("Cloth"), 1)
 		};
 		Recipes.Add(Crowbar);
+
+		FWildBoundCraftingRecipe Backpack;
+		Backpack.RecipeId = TEXT("ReinforcedBackpack");
+		Backpack.DisplayName = TEXT("BENCH: REINFORCED BACKPACK");
+		Backpack.Description = TEXT("Reinforce the pack frame and straps with scavenged metal, plastic, cloth, and adhesive. Increases carrying capacity by 12 kg while carried.");
+		Backpack.OutputItemId = ReinforcedBackpackItemId;
+		Backpack.OutputQuantity = 1;
+		Backpack.Ingredients =
+		{
+			Ingredient(TEXT("ScrapMetal"), 3),
+			Ingredient(TEXT("Cloth"), 6),
+			Ingredient(TEXT("Plastic"), 3),
+			Ingredient(TEXT("Adhesive"), 2),
+			Ingredient(TEXT("MechanicalParts"), 1)
+		};
+		Recipes.Add(Backpack);
+
+		FWildBoundCraftingRecipe FilterMask;
+		FilterMask.RecipeId = TEXT("FilterMask");
+		FilterMask.DisplayName = TEXT("BENCH: FILTER MASK");
+		FilterMask.Description = TEXT("Build a sealed particulate mask from layered cloth, plastic, chemicals, and adhesive. Reduces radiation dose accumulation by 45% while carried.");
+		FilterMask.OutputItemId = FilterMaskItemId;
+		FilterMask.OutputQuantity = 1;
+		FilterMask.Ingredients =
+		{
+			Ingredient(TEXT("Cloth"), 3),
+			Ingredient(TEXT("Plastic"), 2),
+			Ingredient(TEXT("Chemicals"), 2),
+			Ingredient(TEXT("Adhesive"), 1)
+		};
+		Recipes.Add(FilterMask);
 	}
 
 	SelectedRecipeIndex = 0;
@@ -301,7 +339,13 @@ bool UWildBoundCraftingComponent::CanCraftRecipe(int32 RecipeIndex) const
 		return false;
 	}
 
-	for (const FWildBoundCraftingIngredient& Requirement : Recipes[RecipeIndex].Ingredients)
+	const FWildBoundCraftingRecipe& Recipe = Recipes[RecipeIndex];
+	if (IsUniqueGearItem(Recipe.OutputItemId) && Inventory->HasItem(Recipe.OutputItemId, 1))
+	{
+		return false;
+	}
+
+	for (const FWildBoundCraftingIngredient& Requirement : Recipe.Ingredients)
 	{
 		if (!Inventory->HasItem(Requirement.ItemId, Requirement.Quantity))
 		{
@@ -320,6 +364,15 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 	}
 
 	const FWildBoundCraftingRecipe& Recipe = Recipes[SelectedRecipeIndex];
+	if (IsUniqueGearItem(Recipe.OutputItemId) && Inventory->HasItem(Recipe.OutputItemId, 1))
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(91021, 1.8f, FColor(190, 190, 175), TEXT("You already have this gear equipped."));
+		}
+		return;
+	}
+
 	if (!CanCraftRecipe(SelectedRecipeIndex))
 	{
 		if (GEngine)
