@@ -4,6 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "WildBoundBackpackComponent.generated.h"
 
+class SWidget;
 class SWildBoundBackpackWidget;
 class UWildBoundInventoryComponent;
 
