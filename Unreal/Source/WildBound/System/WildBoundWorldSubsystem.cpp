@@ -18,6 +18,7 @@
 #include "../Survival/WildBoundRadiationComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "../UI/SWildBoundHUDWidget.h"
+#include "../UI/SWildBoundInteractionPromptWidget.h"
 
 namespace
 {
@@ -31,25 +32,16 @@ namespace
 				continue;
 			}
 
-			// First WildBound atmosphere pass: a restrained, dusty post-disaster haze.
-			// Keep nearby visibility clean while letting distance feel dry and contaminated.
 			Fog->SetFogDensity(0.014f);
 			Fog->SetFogHeightFalloff(0.20f);
 			Fog->SetStartDistance(1800.0f);
 			Fog->SetFogMaxOpacity(0.48f);
-
-			// Fourth mood pass: a barely perceptible sickly cast in distant airborne dust only.
-			// The increased start distance keeps the playable foreground crisp while distant forms soften.
-			Fog->SetFogInscatteringColor(
-				FLinearColor::FromSRGBColor(FColor(184, 188, 166)));
-
-			// Very light volumetric body so the warmer sun can catch suspended dust.
+			Fog->SetFogInscatteringColor(FLinearColor::FromSRGBColor(FColor(184, 188, 166)));
 			Fog->SetVolumetricFog(true);
 			Fog->SetVolumetricFogScatteringDistribution(0.20f);
 			Fog->SetVolumetricFogExtinctionScale(0.35f);
 			Fog->SetVolumetricFogAlbedo(FColor(198, 202, 184));
 			Fog->SetVolumetricFogDistance(11000.0f);
-
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle contaminated distance haze applied."));
 			break;
 		}
@@ -62,16 +54,12 @@ namespace
 				continue;
 			}
 
-			// Second mood pass: make the daylight sky feel slightly dirtier and less pristine.
 			SkyAtmosphere->SetMieScatteringScale(1.08f);
 			SkyAtmosphere->SetSkyLuminanceFactor(FLinearColor(0.96f, 0.97f, 0.94f, 1.0f));
-
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: muted post-disaster sky applied."));
 			break;
 		}
 
-		// Fifth mood pass: slightly harsher direct sun against cooler, weaker ambient fill.
-		// This adds depth and makes the abandoned town feel more exposed without crushing visibility.
 		for (TActorIterator<AActor> It(&World); It; ++It)
 		{
 			UDirectionalLightComponent* Sun = It->FindComponentByClass<UDirectionalLightComponent>();
@@ -85,7 +73,6 @@ namespace
 			Sun->SetTemperature(5750.0f);
 			Sun->SetIndirectLightingIntensity(0.92f);
 			Sun->SetVolumetricScatteringIntensity(1.30f);
-
 			UE_LOG(LogTemp, Log, TEXT("WildBound lighting: exposed sunlight applied."));
 			break;
 		}
@@ -101,13 +88,10 @@ namespace
 			SkyLight->SetIntensity(0.78f);
 			SkyLight->SetLightColor(FLinearColor(0.92f, 0.95f, 1.0f, 1.0f));
 			SkyLight->SetIndirectLightingIntensity(0.85f);
-
 			UE_LOG(LogTemp, Log, TEXT("WildBound lighting: cooler ambient sky fill applied."));
 			break;
 		}
 
-		// Third mood pass: a restrained global grade. Keep it natural and readable,
-		// but remove some of the pristine template color and cool the deepest shadows.
 		APostProcessVolume* PostProcessVolume = World.SpawnActor<APostProcessVolume>();
 		if (PostProcessVolume)
 		{
@@ -118,41 +102,26 @@ namespace
 			PostProcessVolume->BlendWeight = 1.0f;
 
 			FPostProcessSettings& Settings = PostProcessVolume->Settings;
-
 			Settings.bOverride_ColorSaturation = true;
 			Settings.ColorSaturation = FVector4(0.94f, 0.94f, 0.94f, 1.0f);
-
 			Settings.bOverride_ColorContrast = true;
 			Settings.ColorContrast = FVector4(1.04f, 1.04f, 1.04f, 1.0f);
-
 			Settings.bOverride_ColorGainShadows = true;
 			Settings.ColorGainShadows = FVector4(0.97f, 0.99f, 1.03f, 1.0f);
-
-			// Sixth mood pass: restrained ambient occlusion to ground objects where they meet surfaces.
-			// Keep the radius tight and intensity moderate so it adds contact depth without dirty halos.
 			Settings.bOverride_AmbientOcclusionIntensity = true;
 			Settings.AmbientOcclusionIntensity = 0.65f;
 			Settings.bOverride_AmbientOcclusionRadius = true;
 			Settings.AmbientOcclusionRadius = 120.0f;
 			Settings.bOverride_AmbientOcclusionPower = true;
 			Settings.AmbientOcclusionPower = 1.15f;
-
-			// Seventh mood pass: add a little more separation inside sheltered structural shadows.
-			// This keeps sunlit streets readable while giving walls, recesses, and debris clusters more shape.
 			Settings.bOverride_ColorContrastShadows = true;
 			Settings.ColorContrastShadows = FVector4(1.06f, 1.06f, 1.06f, 1.0f);
 			Settings.bOverride_ColorGammaShadows = true;
 			Settings.ColorGammaShadows = FVector4(0.97f, 0.98f, 1.0f, 1.0f);
-
-			// Eighth mood pass: restrained bloom for harsh outdoor highlights and sun glare.
-			// Keep the threshold high so ordinary surfaces stay crisp and only strong highlights bloom.
 			Settings.bOverride_BloomIntensity = true;
 			Settings.BloomIntensity = 0.22f;
 			Settings.bOverride_BloomThreshold = true;
 			Settings.BloomThreshold = 1.35f;
-
-			// Ninth mood pass: constrain eye adaptation to stop extreme brightness pumping.
-			// Extended luminance range is enabled, so these Min/Max values are EV100 limits.
 			Settings.bOverride_AutoExposureMinBrightness = true;
 			Settings.AutoExposureMinBrightness = -2.0f;
 			Settings.bOverride_AutoExposureMaxBrightness = true;
@@ -161,12 +130,8 @@ namespace
 			Settings.AutoExposureSpeedUp = 2.2f;
 			Settings.bOverride_AutoExposureSpeedDown = true;
 			Settings.AutoExposureSpeedDown = 1.0f;
-
-			// Tenth mood pass: extremely light grain to break up the pristine digital image.
-			// UE 5.8 exposes grain intensity here, but not the older texel-size override.
 			Settings.bOverride_FilmGrainIntensity = true;
 			Settings.FilmGrainIntensity = 0.08f;
-
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: restrained film grain applied."));
 		}
 	}
@@ -289,6 +254,14 @@ void UWildBoundWorldSubsystem::EnsureHUD(UWildBoundSurvivalComponent* SurvivalCo
 	.Padding(FMargin(0.0f))
 	[
 		SAssignNew(HUDWidget, SWildBoundHUDWidget)
+		.SurvivalComponent(SurvivalComponent)
+	]
+	+ SOverlay::Slot()
+	.HAlign(HAlign_Center)
+	.VAlign(VAlign_Center)
+	.Padding(FMargin(0.0f, 110.0f, 0.0f, 0.0f))
+	[
+		SNew(SWildBoundInteractionPromptWidget)
 		.SurvivalComponent(SurvivalComponent)
 	];
 
