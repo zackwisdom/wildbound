@@ -56,8 +56,17 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Crafting", meta=(ClampMin="100.0"))
+	float WorkbenchUseRadius = 425.0f;
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
 	bool IsCraftingOpen() const { return bCraftingOpen; }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
+	bool IsWorkbenchMode() const { return bWorkbenchMode; }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
+	bool IsNearWorkbench() const;
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
 	int32 GetSelectedRecipeIndex() const { return SelectedRecipeIndex; }
@@ -74,11 +83,13 @@ private:
 	TSharedPtr<SWildBoundCraftingWidget> CraftingWidget;
 	TSharedPtr<SWidget> CraftingViewportRoot;
 	bool bCraftingOpen = false;
+	bool bWorkbenchMode = false;
 	int32 SelectedRecipeIndex = 0;
 
-	void BuildStarterRecipes();
+	void BuildRecipesForCurrentMode();
 	void EnsureCraftingWidget();
 	void ToggleCrafting();
+	void OpenCrafting(bool bUseWorkbench);
 	void SetCraftingOpen(bool bOpen);
 	void MoveSelection(int32 Direction);
 	void CraftSelectedRecipe();
