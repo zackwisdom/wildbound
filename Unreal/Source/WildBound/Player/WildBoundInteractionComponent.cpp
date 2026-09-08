@@ -26,6 +26,11 @@ namespace
 	const FName PryAccessTag(TEXT("WBPryAccess"));
 	const FName CommercialGateGroupTag(TEXT("WBPryGroupCommercialGate"));
 
+	const FName QualityCommonTag(TEXT("WBLootQualityCommon"));
+	const FName QualityUncommonTag(TEXT("WBLootQualityUncommon"));
+	const FName QualityRareTag(TEXT("WBLootQualityRare"));
+	const FName QualityEpicTag(TEXT("WBLootQualityEpic"));
+
 	const FName WaterTag(TEXT("WBItemWater"));
 	const FName MedicalTag(TEXT("WBItemMedical"));
 	const FName FoodTag(TEXT("WBItemFood"));
@@ -109,6 +114,36 @@ namespace
 		return Quantity <= Capacity;
 	}
 
+	int32 GetContainerQualityTier(const AActor& Container)
+	{
+		if (Container.ActorHasTag(QualityEpicTag)) return 3;
+		if (Container.ActorHasTag(QualityRareTag)) return 2;
+		if (Container.ActorHasTag(QualityUncommonTag)) return 1;
+		return 0;
+	}
+
+	FString GetContainerQualityName(const AActor& Container)
+	{
+		switch (GetContainerQualityTier(Container))
+		{
+		case 3: return TEXT("EPIC");
+		case 2: return TEXT("RARE");
+		case 1: return TEXT("UNCOMMON");
+		default: return TEXT("COMMON");
+		}
+	}
+
+	FColor GetRarityColor(int32 Tier)
+	{
+		switch (Tier)
+		{
+		case 3: return FColor(205, 145, 235);
+		case 2: return FColor(120, 175, 235);
+		case 1: return FColor(145, 205, 150);
+		default: return FColor(205, 220, 190);
+		}
+	}
+
 	FName RollLootItem(const AActor& Container, FRandomStream& Random)
 	{
 		const int32 Roll = Random.RandRange(0, 99);
@@ -123,6 +158,7 @@ namespace
 			if (Roll < 94) return AdhesiveItemId;
 			return ElectronicsItemId;
 		}
+
 		if (Container.ActorHasTag(MarketPoolTag))
 		{
 			if (Roll < 34) return FoodItemId;
@@ -132,6 +168,7 @@ namespace
 			if (Roll < 93) return AdhesiveItemId;
 			return BatteryItemId;
 		}
+
 		if (Container.ActorHasTag(ResidentialPoolTag))
 		{
 			if (Roll < 18) return FoodItemId;
@@ -144,6 +181,7 @@ namespace
 			if (Roll < 96) return ElectronicsItemId;
 			return FlashlightItemId;
 		}
+
 		if (Container.ActorHasTag(IndustrialPoolTag))
 		{
 			if (Roll < 29) return ScrapItemId;
@@ -155,6 +193,7 @@ namespace
 			if (Roll < 97) return PlasticItemId;
 			return CrowbarItemId;
 		}
+
 		if (Container.ActorHasTag(CivicPoolTag))
 		{
 			if (Roll < 25) return ElectronicsItemId;
@@ -194,30 +233,64 @@ namespace
 		return 1;
 	}
 
-	FString GetLootDisplayName(const FName& ItemId)
+	void AddQualityBonusLoot(const AActor& Container, int32 QualityTier, FRandomStream& Random, TMap<FName, int32>& Grants)
 	{
-		if (ItemId == WaterItemId) return TEXT("Water");
-		if (ItemId == FoodItemId) return TEXT("Food");
-		if (ItemId == MedicalItemId) return TEXT("Medical Supplies");
-		if (ItemId == ScrapItemId) return TEXT("Scrap Metal");
-		if (ItemId == ClothItemId) return TEXT("Cloth");
-		if (ItemId == WoodItemId) return TEXT("Wood");
-		if (ItemId == PlasticItemId) return TEXT("Plastic");
-		if (ItemId == ElectronicsItemId) return TEXT("Electronics");
-		if (ItemId == ChemicalsItemId) return TEXT("Chemicals");
-		if (ItemId == AdhesiveItemId) return TEXT("Adhesive");
-		if (ItemId == WireItemId) return TEXT("Wire");
-		if (ItemId == BatteryItemId) return TEXT("Battery");
-		if (ItemId == MechanicalPartsItemId) return TEXT("Mechanical Parts");
-		if (ItemId == FlashlightItemId) return TEXT("Flashlight");
-		if (ItemId == CrowbarItemId) return TEXT("Crowbar");
-		if (ItemId == CanteenItemId) return TEXT("Canteen");
-		if (ItemId == TraumaKitItemId) return TEXT("Field Trauma Kit");
-		if (ItemId == RadTreatmentItemId) return TEXT("Radiation Treatment");
-		if (ItemId == UtilityBeltItemId) return TEXT("Utility Belt");
-		if (ItemId == ReinforcedBackpackItemId) return TEXT("Reinforced Backpack");
-		if (ItemId == FilterMaskItemId) return TEXT("Filter Mask");
-		return ItemId.ToString();
+		const float TierBonus = static_cast<float>(QualityTier) * 0.07f;
+
+		if (Container.ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.10f + TierBonus)
+		{
+			Grants.FindOrAdd(CrowbarItemId) += 1;
+		}
+		else if (Container.ActorHasTag(ResidentialPoolTag) && Random.FRand() < 0.08f + TierBonus)
+		{
+			Grants.FindOrAdd(FlashlightItemId) += 1;
+		}
+
+		if (Container.ActorHasTag(MedicalPoolTag) && Random.FRand() < 0.05f + TierBonus)
+		{
+			Grants.FindOrAdd(RadTreatmentItemId) += 1;
+		}
+		if (Container.ActorHasTag(MedicalPoolTag) && Random.FRand() < 0.025f + TierBonus * 0.55f)
+		{
+			Grants.FindOrAdd(TraumaKitItemId) += 1;
+		}
+		if ((Container.ActorHasTag(ResidentialPoolTag) || Container.ActorHasTag(MarketPoolTag))
+			&& Random.FRand() < 0.04f + TierBonus)
+		{
+			Grants.FindOrAdd(CanteenItemId) += 1;
+		}
+		if (Container.ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.02f + TierBonus * 0.60f)
+		{
+			Grants.FindOrAdd(UtilityBeltItemId) += 1;
+		}
+
+		if (QualityTier >= 3)
+		{
+			if (Container.ActorHasTag(MedicalPoolTag))
+			{
+				Grants.FindOrAdd(TraumaKitItemId) += 1;
+				Grants.FindOrAdd(RadTreatmentItemId) += 2;
+			}
+			else if (Container.ActorHasTag(IndustrialPoolTag))
+			{
+				Grants.FindOrAdd(UtilityBeltItemId) += 1;
+				Grants.FindOrAdd(CrowbarItemId) += 1;
+			}
+			else if (Container.ActorHasTag(CivicPoolTag))
+			{
+				Grants.FindOrAdd(FilterMaskItemId) += 1;
+				Grants.FindOrAdd(ElectronicsItemId) += 2;
+			}
+			else if (Container.ActorHasTag(ResidentialPoolTag) || Container.ActorHasTag(MarketPoolTag))
+			{
+				Grants.FindOrAdd(CanteenItemId) += 1;
+				Grants.FindOrAdd(FlashlightItemId) += 1;
+			}
+			else
+			{
+				Grants.FindOrAdd(ReinforcedBackpackItemId) += 1;
+			}
+		}
 	}
 }
 
@@ -444,42 +517,50 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 		return TEXT("Interact");
 	}
 
+	const UWildBoundInventoryComponent* Inventory = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>() : nullptr;
+
 	if (TargetActor->ActorHasTag(DroppedItemTag))
 	{
 		FName ItemId;
 		int32 Quantity = 0;
 		if (ParseDroppedItem(*TargetActor, ItemId, Quantity))
 		{
-			const UWildBoundInventoryComponent* Inventory = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>() : nullptr;
 			const FString DisplayName = Inventory ? Inventory->GetItemDisplayName(ItemId) : ItemId.ToString();
-			return FString::Printf(TEXT("Pick up %s x%d"), *DisplayName, Quantity);
+			const FString Rarity = Inventory ? Inventory->GetItemRarityName(ItemId) : TEXT("COMMON");
+			return FString::Printf(TEXT("Pick up [%s] %s x%d"), *Rarity, *DisplayName, Quantity);
 		}
 		return TEXT("Pick up item");
 	}
 
 	if (TargetActor->ActorHasTag(PryLockedTag))
 	{
-		const UWildBoundInventoryComponent* Inventory = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>() : nullptr;
 		const bool bHasCrowbar = Inventory && Inventory->HasItem(CrowbarItemId, 1);
 		const bool bAccessGate = TargetActor->ActorHasTag(PryAccessTag);
 		if (bAccessGate)
 		{
 			return bHasCrowbar ? TEXT("Pry open maintenance gate") : TEXT("Locked gate - crowbar required");
 		}
-		return bHasCrowbar ? TEXT("Pry open sealed container") : TEXT("Sealed - crowbar required");
+
+		const FString Quality = GetContainerQualityName(*TargetActor);
+		return bHasCrowbar
+			? FString::Printf(TEXT("Pry open [%s] locked cache"), *Quality)
+			: FString::Printf(TEXT("[%s] cache locked - crowbar required"), *Quality);
 	}
 
 	if (TargetActor->ActorHasTag(ContainerTag))
 	{
-		if (TargetActor->ActorHasTag(ToolboxContainerTag)) return TEXT("Search toolbox");
-		if (TargetActor->ActorHasTag(MedicalPoolTag) && TargetActor->ActorHasTag(CabinetContainerTag)) return TEXT("Search medical cabinet");
-		if (TargetActor->ActorHasTag(LockerContainerTag)) return TEXT("Search locker");
-		if (TargetActor->ActorHasTag(DumpsterContainerTag)) return TEXT("Search dumpster");
-		if (TargetActor->ActorHasTag(CoolerContainerTag)) return TEXT("Search cooler");
-		if (TargetActor->ActorHasTag(CabinetContainerTag)) return TEXT("Search cabinet");
-		if (TargetActor->ActorHasTag(CrateContainerTag)) return TEXT("Search crate");
-		return TEXT("Search container");
+		FString ContainerName(TEXT("container"));
+		if (TargetActor->ActorHasTag(ToolboxContainerTag)) ContainerName = TEXT("toolbox");
+		else if (TargetActor->ActorHasTag(MedicalPoolTag) && TargetActor->ActorHasTag(CabinetContainerTag)) ContainerName = TEXT("medical cabinet");
+		else if (TargetActor->ActorHasTag(LockerContainerTag)) ContainerName = TEXT("locker");
+		else if (TargetActor->ActorHasTag(DumpsterContainerTag)) ContainerName = TEXT("dumpster");
+		else if (TargetActor->ActorHasTag(CoolerContainerTag)) ContainerName = TEXT("cooler");
+		else if (TargetActor->ActorHasTag(CabinetContainerTag)) ContainerName = TEXT("cabinet");
+		else if (TargetActor->ActorHasTag(CrateContainerTag)) ContainerName = TEXT("crate");
+
+		return FString::Printf(TEXT("[%s] Search %s"), *GetContainerQualityName(*TargetActor), *ContainerName);
 	}
+
 	if (TargetActor->ActorHasTag(WaterTag)) return TEXT("Take bottled water");
 	if (TargetActor->ActorHasTag(MedicalTag)) return TEXT("Take first-aid kit");
 	if (TargetActor->ActorHasTag(FoodTag)) return TEXT("Take preserved food");
@@ -515,7 +596,12 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 		}
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(91002, 1.8f, FColor(205, 220, 190), FString::Printf(TEXT("Picked up %s x%d"), *Inventory->GetItemDisplayName(ItemId), Quantity));
+			const int32 RarityTier = Inventory->GetItemRarityTier(ItemId);
+			GEngine->AddOnScreenDebugMessage(
+				91002,
+				2.1f,
+				GetRarityColor(RarityTier),
+				FString::Printf(TEXT("Picked up [%s] %s x%d"), *Inventory->GetItemRarityName(ItemId), *Inventory->GetItemDisplayName(ItemId), Quantity));
 		}
 		TargetActor->Destroy();
 		return;
@@ -545,15 +631,24 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 
 		if (TargetActor->ActorHasTag(WaterTag))
 		{
-			ItemId = WaterItemId; GroupTag = WaterGroupTag; Quantity = 4; PickupMessage = TEXT("Collected 4 bottled waters");
+			ItemId = WaterItemId;
+			GroupTag = WaterGroupTag;
+			Quantity = 4;
+			PickupMessage = TEXT("Collected 4 bottled waters");
 		}
 		else if (TargetActor->ActorHasTag(MedicalTag))
 		{
-			ItemId = MedicalItemId; GroupTag = MedicalGroupTag; Quantity = 1; PickupMessage = TEXT("Collected first-aid kit");
+			ItemId = MedicalItemId;
+			GroupTag = MedicalGroupTag;
+			Quantity = 1;
+			PickupMessage = TEXT("Collected first-aid kit");
 		}
 		else if (TargetActor->ActorHasTag(FoodTag))
 		{
-			ItemId = FoodItemId; GroupTag = FoodGroupTag; Quantity = 3; PickupMessage = TEXT("Collected 3 preserved food rations");
+			ItemId = FoodItemId;
+			GroupTag = FoodGroupTag;
+			Quantity = 3;
+			PickupMessage = TEXT("Collected 3 preserved food rations");
 		}
 
 		if (ItemId.IsNone() || Quantity <= 0 || !CanInventoryFit(*Inventory, ItemId, Quantity) || !Inventory->AddItem(ItemId, Quantity))
@@ -562,7 +657,7 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 			return;
 		}
 
-		if (GEngine) GEngine->AddOnScreenDebugMessage(91002, 2.5f, FColor(205, 220, 190), PickupMessage);
+		if (GEngine) GEngine->AddOnScreenDebugMessage(91002, 2.5f, GetRarityColor(Inventory->GetItemRarityTier(ItemId)), PickupMessage);
 		DestroyInteractionGroup(GroupTag);
 		return;
 	}
@@ -607,7 +702,14 @@ void UWildBoundInteractionComponent::TryPryTarget(AActor* TargetActor)
 		TargetActor->Tags.Remove(PryLockedTag);
 		TargetActor->Tags.Remove(PryContainerTag);
 		TargetActor->Tags.AddUnique(ContainerTag);
-		if (GEngine) GEngine->AddOnScreenDebugMessage(91041, 2.2f, FColor(185, 205, 165), TEXT("Seal forced open. Search the container."));
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91041,
+				2.2f,
+				GetRarityColor(GetContainerQualityTier(*TargetActor)),
+				FString::Printf(TEXT("[%s] cache forced open. Search it."), *GetContainerQualityName(*TargetActor)));
+		}
 	}
 }
 
@@ -620,8 +722,12 @@ void UWildBoundInteractionComponent::SearchLootContainer(AActor* TargetActor)
 
 	AActor* Owner = GetOwner();
 	UWildBoundInventoryComponent* Inventory = Owner ? Owner->FindComponentByClass<UWildBoundInventoryComponent>() : nullptr;
-	if (!Inventory) return;
+	if (!Inventory)
+	{
+		return;
+	}
 
+	const int32 QualityTier = GetContainerQualityTier(*TargetActor);
 	const FVector Location = TargetActor->GetActorLocation();
 	const int32 LocationSeed = HashCombine(
 		GetTypeHash(FMath::RoundToInt(Location.X)),
@@ -629,37 +735,64 @@ void UWildBoundInteractionComponent::SearchLootContainer(AActor* TargetActor)
 	FRandomStream Random(HashCombine(LocationSeed, FMath::Rand()));
 
 	float EmptyChance = 0.18f;
+	int32 MinRolls = 2;
+	int32 MaxRolls = 4;
+	if (QualityTier == 1)
+	{
+		EmptyChance = 0.09f;
+		MinRolls = 3;
+		MaxRolls = 4;
+	}
+	else if (QualityTier == 2)
+	{
+		EmptyChance = 0.03f;
+		MinRolls = 3;
+		MaxRolls = 5;
+	}
+	else if (QualityTier >= 3)
+	{
+		EmptyChance = 0.0f;
+		MinRolls = 4;
+		MaxRolls = 6;
+	}
+
 	if (TargetActor->ActorHasTag(MedicalPoolTag) || TargetActor->ActorHasTag(IndustrialPoolTag))
 	{
-		EmptyChance = 0.10f;
+		EmptyChance = FMath::Max(0.0f, EmptyChance - 0.03f);
 	}
 
 	if (Random.FRand() < EmptyChance)
 	{
 		TargetActor->Tags.AddUnique(SearchedContainerTag);
 		TargetActor->Tags.Remove(InteractableTag);
-		if (GEngine) GEngine->AddOnScreenDebugMessage(91002, 2.2f, FColor(155, 155, 145), TEXT("Empty. Someone got here first."));
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91002,
+				2.2f,
+				FColor(155, 155, 145),
+				FString::Printf(TEXT("[%s] Empty. Someone got here first."), *GetContainerQualityName(*TargetActor)));
+		}
 		return;
 	}
 
 	TMap<FName, int32> Grants;
-	const int32 Rolls = Random.RandRange(2, 4);
+	const int32 Rolls = Random.RandRange(MinRolls, MaxRolls);
 	for (int32 RollIndex = 0; RollIndex < Rolls; ++RollIndex)
 	{
 		const FName ItemId = RollLootItem(*TargetActor, Random);
 		if (!ItemId.IsNone())
 		{
-			Grants.FindOrAdd(ItemId) += RollLootQuantity(ItemId, Random);
+			int32 Quantity = RollLootQuantity(ItemId, Random);
+			if (QualityTier >= 2 && Inventory->GetItemRarityTier(ItemId) <= 1 && Random.FRand() < 0.55f)
+			{
+				++Quantity;
+			}
+			Grants.FindOrAdd(ItemId) += Quantity;
 		}
 	}
 
-	if (TargetActor->ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.10f) Grants.FindOrAdd(CrowbarItemId) += 1;
-	else if (TargetActor->ActorHasTag(ResidentialPoolTag) && Random.FRand() < 0.08f) Grants.FindOrAdd(FlashlightItemId) += 1;
-
-	if (TargetActor->ActorHasTag(MedicalPoolTag) && Random.FRand() < 0.05f) Grants.FindOrAdd(RadTreatmentItemId) += 1;
-	if (TargetActor->ActorHasTag(MedicalPoolTag) && Random.FRand() < 0.025f) Grants.FindOrAdd(TraumaKitItemId) += 1;
-	if (TargetActor->ActorHasTag(ResidentialPoolTag) && Random.FRand() < 0.04f) Grants.FindOrAdd(CanteenItemId) += 1;
-	if (TargetActor->ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.02f) Grants.FindOrAdd(UtilityBeltItemId) += 1;
+	AddQualityBonusLoot(*TargetActor, QualityTier, Random, Grants);
 
 	int32 NewItemTypes = 0;
 	for (const TPair<FName, int32>& Grant : Grants)
@@ -676,13 +809,29 @@ void UWildBoundInteractionComponent::SearchLootContainer(AActor* TargetActor)
 		return;
 	}
 
-	FString FoundText(TEXT("Found: "));
+	FString FoundText = FString::Printf(TEXT("[%s] Found: "), *GetContainerQualityName(*TargetActor));
 	bool bAddedAnything = false;
+	int32 BestRarityTier = 0;
+
 	for (const TPair<FName, int32>& Grant : Grants)
 	{
-		if (Grant.Value <= 0 || !Inventory->AddItem(Grant.Key, Grant.Value)) continue;
-		if (bAddedAnything) FoundText += TEXT("  |  ");
-		FoundText += FString::Printf(TEXT("%s x%d"), *GetLootDisplayName(Grant.Key), Grant.Value);
+		if (Grant.Value <= 0 || !Inventory->AddItem(Grant.Key, Grant.Value))
+		{
+			continue;
+		}
+
+		if (bAddedAnything)
+		{
+			FoundText += TEXT("  |  ");
+		}
+
+		const int32 ItemRarityTier = Inventory->GetItemRarityTier(Grant.Key);
+		BestRarityTier = FMath::Max(BestRarityTier, ItemRarityTier);
+		FoundText += FString::Printf(
+			TEXT("[%s] %s x%d"),
+			*Inventory->GetItemRarityName(Grant.Key),
+			*Inventory->GetItemDisplayName(Grant.Key),
+			Grant.Value);
 		bAddedAnything = true;
 	}
 
@@ -691,14 +840,21 @@ void UWildBoundInteractionComponent::SearchLootContainer(AActor* TargetActor)
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(91002, 3.4f, FColor(205, 220, 190), bAddedAnything ? FoundText : TEXT("Nothing useful inside."));
+		GEngine->AddOnScreenDebugMessage(
+			91002,
+			QualityTier >= 2 || BestRarityTier >= 2 ? 4.2f : 3.4f,
+			GetRarityColor(FMath::Max(QualityTier, BestRarityTier)),
+			bAddedAnything ? FoundText : TEXT("Nothing useful inside."));
 	}
 }
 
 void UWildBoundInteractionComponent::DestroyInteractionGroup(const FName& GroupTag)
 {
 	UWorld* World = GetWorld();
-	if (!World || GroupTag.IsNone()) return;
+	if (!World || GroupTag.IsNone())
+	{
+		return;
+	}
 
 	TArray<AActor*> ActorsToDestroy;
 	for (TActorIterator<AActor> It(World); It; ++It)
@@ -712,6 +868,9 @@ void UWildBoundInteractionComponent::DestroyInteractionGroup(const FName& GroupT
 
 	for (AActor* Actor : ActorsToDestroy)
 	{
-		if (IsValid(Actor)) Actor->Destroy();
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
+		}
 	}
 }
