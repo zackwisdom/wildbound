@@ -204,6 +204,11 @@ FText SWildBoundBackpackWidget::GetStatusText() const
 			OverPercent));
 	}
 
+	if (Inventory->HasItem(TEXT("ReinforcedBackpack"), 1))
+	{
+		return FText::FromString(TEXT("LOAD STATUS NORMAL — REINFORCED PACK +12 KG ACTIVE"));
+	}
+
 	return FText::FromString(TEXT("LOAD STATUS NORMAL"));
 }
 
@@ -223,7 +228,9 @@ FText SWildBoundBackpackWidget::GetSuppliesText() const
 		TEXT("Food"),
 		TEXT("MedicalSupplies"),
 		TEXT("Flashlight"),
-		TEXT("Crowbar")
+		TEXT("Crowbar"),
+		TEXT("ReinforcedBackpack"),
+		TEXT("FilterMask")
 	};
 
 	return FText::FromString(BuildInventorySection(InventoryComponent.Get(), Supplies));
