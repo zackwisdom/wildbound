@@ -12,6 +12,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Widgets/SOverlay.h"
+#include "../Environment/WildBoundTownBlockout.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundSprintComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
@@ -198,6 +199,7 @@ void UWildBoundWorldSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	}
 
 	ApplyWildBoundAtmosphere(InWorld);
+	WildBoundTownBlockout::Spawn(InWorld);
 	EnsureWildBoundPlayerSetup();
 
 	InWorld.GetTimerManager().SetTimer(
