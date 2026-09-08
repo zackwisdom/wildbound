@@ -17,6 +17,8 @@ namespace
 	const FName MechanicalPartsItem(TEXT("MechanicalParts"));
 	const FName FlashlightItem(TEXT("Flashlight"));
 	const FName CrowbarItem(TEXT("Crowbar"));
+	const FName ReinforcedBackpackItem(TEXT("ReinforcedBackpack"));
+	const FName FilterMaskItem(TEXT("FilterMask"));
 }
 
 UWildBoundInventoryComponent::UWildBoundInventoryComponent()
@@ -149,6 +151,8 @@ float UWildBoundInventoryComponent::GetItemUnitWeight(FName ItemId) const
 	if (ItemId == MechanicalPartsItem) return 0.85f;
 	if (ItemId == FlashlightItem) return 0.70f;
 	if (ItemId == CrowbarItem) return 2.00f;
+	if (ItemId == ReinforcedBackpackItem) return 3.20f;
+	if (ItemId == FilterMaskItem) return 0.90f;
 
 	// Unknown future items still carry mass so newly-added loot never bypasses encumbrance.
 	return 0.50f;
@@ -194,5 +198,7 @@ FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 	if (ItemId == MechanicalPartsItem) return TEXT("Mechanical Parts");
 	if (ItemId == FlashlightItem) return TEXT("Flashlight");
 	if (ItemId == CrowbarItem) return TEXT("Crowbar");
+	if (ItemId == ReinforcedBackpackItem) return TEXT("Reinforced Backpack");
+	if (ItemId == FilterMaskItem) return TEXT("Filter Mask");
 	return ItemId.ToString();
 }
