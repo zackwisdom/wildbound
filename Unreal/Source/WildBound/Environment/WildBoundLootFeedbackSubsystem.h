@@ -5,6 +5,8 @@
 #include "TimerManager.h"
 #include "WildBoundLootFeedbackSubsystem.generated.h"
 
+class AActor;
+
 UCLASS()
 class WILDBOUND_API UWildBoundLootFeedbackSubsystem : public UWorldSubsystem
 {
