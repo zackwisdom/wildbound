@@ -18,6 +18,11 @@ namespace
 	const FName SearchedContainerTag(TEXT("WBContainerSearched"));
 	const FName InspectedTag(TEXT("WBInspected"));
 
+	const FName PryLockedTag(TEXT("WBPryLocked"));
+	const FName PryContainerTag(TEXT("WBPryContainer"));
+	const FName PryAccessTag(TEXT("WBPryAccess"));
+	const FName CommercialGateGroupTag(TEXT("WBPryGroupCommercialGate"));
+
 	const FName WaterTag(TEXT("WBItemWater"));
 	const FName MedicalTag(TEXT("WBItemMedical"));
 	const FName FoodTag(TEXT("WBItemFood"));
@@ -171,7 +176,35 @@ namespace
 UWildBoundInteractionComponent::UWildBoundInteractionComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true;
 	PrimaryComponentTick.TickGroup = TG_PostUpdateWork;
+}
+
+void UWildBoundInteractionComponent::SetContextPrompt(const FString& Prompt, int32 Priority)
+{
+	UWorld* World = GetWorld();
+	if (!World || Prompt.IsEmpty())
+	{
+		return;
+	}
+
+	const float Now = World->GetTimeSeconds();
+	if (Now > ContextPromptExpiresAt || Priority >= ContextPromptPriority)
+	{
+		ContextPrompt = Prompt;
+		ContextPromptPriority = Priority;
+		ContextPromptExpiresAt = Now + 0.12f;
+	}
+}
+
+FString UWildBoundInteractionComponent::GetContextPrompt() const
+{
+	const UWorld* World = GetWorld();
+	if (!World || World->GetTimeSeconds() > ContextPromptExpiresAt)
+	{
+		return FString();
+	}
+	return ContextPrompt;
 }
 
 void UWildBoundInteractionComponent::TickComponent(
@@ -205,14 +238,7 @@ void UWildBoundInteractionComponent::TickComponent(
 
 	if (bHasWorldInteraction)
 	{
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				91001,
-				0.08f,
-				FColor::White,
-				FString::Printf(TEXT("[E] %s"), *GetInteractionPrompt(TargetActor)));
-		}
+		SetContextPrompt(FString::Printf(TEXT("[E] %s"), *GetInteractionPrompt(TargetActor)), 20);
 
 		if (PlayerController->WasInputKeyJustPressed(EKeys::E))
 		{
@@ -301,11 +327,7 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 			}
 			return;
 		}
-
-		if (!Inventory->RemoveItem(ItemId, 1))
-		{
-			return;
-		}
+		if (!Inventory->RemoveItem(ItemId, 1)) return;
 		Survival->AddThirst(35.0f);
 		UseMessage = TEXT("Drank bottled water  +35 THIRST");
 		MessageColor = FColor(145, 195, 225);
@@ -320,11 +342,7 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 			}
 			return;
 		}
-
-		if (!Inventory->RemoveItem(ItemId, 1))
-		{
-			return;
-		}
+		if (!Inventory->RemoveItem(ItemId, 1)) return;
 		Survival->AddHunger(30.0f);
 		UseMessage = TEXT("Ate preserved ration  +30 HUNGER");
 		MessageColor = FColor(215, 185, 120);
@@ -339,11 +357,7 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 			}
 			return;
 		}
-
-		if (!Inventory->RemoveItem(ItemId, 1))
-		{
-			return;
-		}
+		if (!Inventory->RemoveItem(ItemId, 1)) return;
 		Survival->Heal(45.0f);
 		UseMessage = TEXT("Used first-aid kit  +45 HEALTH");
 		MessageColor = FColor(220, 155, 145);
@@ -366,6 +380,21 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 		return TEXT("Interact");
 	}
 
+	if (TargetActor->ActorHasTag(PryLockedTag))
+	{
+		const UWildBoundInventoryComponent* Inventory = GetOwner()
+			? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
+			: nullptr;
+		const bool bHasCrowbar = Inventory && Inventory->HasItem(CrowbarItemId, 1);
+		const bool bAccessGate = TargetActor->ActorHasTag(PryAccessTag);
+
+		if (bAccessGate)
+		{
+			return bHasCrowbar ? TEXT("Pry open maintenance gate") : TEXT("Locked gate - crowbar required");
+		}
+		return bHasCrowbar ? TEXT("Pry open sealed container") : TEXT("Sealed - crowbar required");
+	}
+
 	if (TargetActor->ActorHasTag(ContainerTag))
 	{
 		if (TargetActor->ActorHasTag(ToolboxContainerTag)) return TEXT("Search toolbox");
@@ -377,25 +406,15 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 		if (TargetActor->ActorHasTag(CrateContainerTag)) return TEXT("Search crate");
 		return TEXT("Search container");
 	}
-	if (TargetActor->ActorHasTag(WaterTag))
-	{
-		return TEXT("Take bottled water");
-	}
-	if (TargetActor->ActorHasTag(MedicalTag))
-	{
-		return TEXT("Take first-aid kit");
-	}
-	if (TargetActor->ActorHasTag(FoodTag))
-	{
-		return TEXT("Take preserved food");
-	}
+	if (TargetActor->ActorHasTag(WaterTag)) return TEXT("Take bottled water");
+	if (TargetActor->ActorHasTag(MedicalTag)) return TEXT("Take first-aid kit");
+	if (TargetActor->ActorHasTag(FoodTag)) return TEXT("Take preserved food");
 	if (TargetActor->ActorHasTag(C17ClueTag))
 	{
 		return TargetActor->ActorHasTag(InspectedTag)
 			? TEXT("Re-read Civil Defense survey")
 			: TEXT("Inspect Civil Defense survey");
 	}
-
 	return TEXT("Interact");
 }
 
@@ -403,6 +422,12 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 {
 	if (!TargetActor)
 	{
+		return;
+	}
+
+	if (TargetActor->ActorHasTag(PryLockedTag))
+	{
+		TryPryTarget(TargetActor);
 		return;
 	}
 
@@ -475,7 +500,6 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 	if (TargetActor->ActorHasTag(ClueTag) && TargetActor->ActorHasTag(C17ClueTag))
 	{
 		TargetActor->Tags.AddUnique(InspectedTag);
-
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(
@@ -483,6 +507,47 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 				9.0f,
 				FColor(220, 194, 122),
 				TEXT("CIVIL DEFENSE FIELD SURVEY - SECTOR C-17\nBackground radiation elevated BEFORE the detonation alert.\nThree samples transferred off-site. Receiving authority: [REDACTED]."));
+		}
+	}
+}
+
+void UWildBoundInteractionComponent::TryPryTarget(AActor* TargetActor)
+{
+	if (!TargetActor)
+	{
+		return;
+	}
+
+	const UWildBoundInventoryComponent* Inventory = GetOwner()
+		? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
+		: nullptr;
+	if (!Inventory || !Inventory->HasItem(CrowbarItemId, 1))
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(91041, 1.8f, FColor(220, 145, 100), TEXT("You need a crowbar to force this open."));
+		}
+		return;
+	}
+
+	if (TargetActor->ActorHasTag(PryAccessTag))
+	{
+		DestroyInteractionGroup(CommercialGateGroupTag);
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(91041, 2.2f, FColor(185, 205, 165), TEXT("Maintenance gate forced open."));
+		}
+		return;
+	}
+
+	if (TargetActor->ActorHasTag(PryContainerTag))
+	{
+		TargetActor->Tags.Remove(PryLockedTag);
+		TargetActor->Tags.Remove(PryContainerTag);
+		TargetActor->Tags.AddUnique(ContainerTag);
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(91041, 2.2f, FColor(185, 205, 165), TEXT("Seal forced open. Search the container."));
 		}
 	}
 }
@@ -535,7 +600,6 @@ void UWildBoundInteractionComponent::SearchLootContainer(AActor* TargetActor)
 		}
 	}
 
-	// Rare intact tools are deliberately tied to believable places rather than global random drops.
 	if (TargetActor->ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.10f)
 	{
 		Grants.FindOrAdd(CrowbarItemId) += 1;
