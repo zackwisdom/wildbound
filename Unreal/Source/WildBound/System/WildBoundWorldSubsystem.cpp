@@ -15,6 +15,7 @@
 #include "../Environment/WildBoundTownBlockout.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundSprintComponent.h"
+#include "../Survival/WildBoundRadiationComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "../UI/SWildBoundHUDWidget.h"
 
@@ -230,6 +231,14 @@ void UWildBoundWorldSubsystem::EnsureWildBoundPlayerSetup()
 		Survival = NewObject<UWildBoundSurvivalComponent>(Pawn, TEXT("WildBoundSurvival"));
 		Pawn->AddInstanceComponent(Survival);
 		Survival->RegisterComponent();
+	}
+
+	UWildBoundRadiationComponent* Radiation = Pawn->FindComponentByClass<UWildBoundRadiationComponent>();
+	if (!Radiation)
+	{
+		Radiation = NewObject<UWildBoundRadiationComponent>(Pawn, TEXT("WildBoundRadiation"));
+		Pawn->AddInstanceComponent(Radiation);
+		Radiation->RegisterComponent();
 	}
 
 	UWildBoundInventoryComponent* Inventory = Pawn->FindComponentByClass<UWildBoundInventoryComponent>();
