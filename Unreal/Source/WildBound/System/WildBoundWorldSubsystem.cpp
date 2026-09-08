@@ -1,7 +1,9 @@
 #include "WildBoundWorldSubsystem.h"
 
+#include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
+#include "Components/SkyLightComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/PostProcessVolume.h"
@@ -59,11 +61,46 @@ namespace
 			}
 
 			// Second mood pass: make the daylight sky feel slightly dirtier and less pristine.
-			// A small Mie increase adds aerosol haze, while the luminance factor gently mutes the clean blue.
 			SkyAtmosphere->SetMieScatteringScale(1.08f);
 			SkyAtmosphere->SetSkyLuminanceFactor(FLinearColor(0.96f, 0.97f, 0.94f, 1.0f));
 
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: muted post-disaster sky applied."));
+			break;
+		}
+
+		// Fifth mood pass: slightly harsher direct sun against cooler, weaker ambient fill.
+		// This adds depth and makes the abandoned town feel more exposed without crushing visibility.
+		for (TActorIterator<AActor> It(&World); It; ++It)
+		{
+			UDirectionalLightComponent* Sun = It->FindComponentByClass<UDirectionalLightComponent>();
+			if (!Sun)
+			{
+				continue;
+			}
+
+			Sun->SetIntensity(5.15f);
+			Sun->SetUseTemperature(true);
+			Sun->SetTemperature(5750.0f);
+			Sun->SetIndirectLightingIntensity(0.92f);
+			Sun->SetVolumetricScatteringIntensity(1.30f);
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound lighting: exposed sunlight applied."));
+			break;
+		}
+
+		for (TActorIterator<AActor> It(&World); It; ++It)
+		{
+			USkyLightComponent* SkyLight = It->FindComponentByClass<USkyLightComponent>();
+			if (!SkyLight)
+			{
+				continue;
+			}
+
+			SkyLight->SetIntensity(0.78f);
+			SkyLight->SetLightColor(FLinearColor(0.92f, 0.95f, 1.0f, 1.0f));
+			SkyLight->SetIndirectLightingIntensity(0.85f);
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound lighting: cooler ambient sky fill applied."));
 			break;
 		}
 
