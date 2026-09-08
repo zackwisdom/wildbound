@@ -1,4 +1,4 @@
-#include "Survival/WildBoundSurvivalComponent.h"
+#include "WildBoundSurvivalComponent.h"
 
 UWildBoundSurvivalComponent::UWildBoundSurvivalComponent()
 {
