@@ -36,6 +36,12 @@ public:
 
 	UWildBoundInventoryComponent* GetInventoryComponent() const { return InventoryComponent.Get(); }
 
+	void SelectStackIndex(int32 StackIndex);
+	bool ReorderStackFromMouse(int32 SourceIndex, int32 TargetIndex);
+	bool AssignItemToHotbarFromMouse(FName ItemId, int32 SlotIndex);
+	void ClearHotbarSlotFromMouse(int32 SlotIndex);
+	bool DropStackFromMouse(int32 StackIndex, bool bDropWholeStack = true);
+
 private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	TSharedPtr<SWildBoundBackpackWidget> BackpackWidget;
