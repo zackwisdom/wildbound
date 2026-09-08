@@ -5,7 +5,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "Widgets/Layout/SOverlay.h"
+#include "Widgets/SOverlay.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundSprintComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
