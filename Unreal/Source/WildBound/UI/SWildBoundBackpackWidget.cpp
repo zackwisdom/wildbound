@@ -17,7 +17,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 	ChildSlot
 	[
 		SNew(SBox)
-		.WidthOverride(780.0f)
+		.WidthOverride(840.0f)
 		[
 			SNew(SBorder)
 			.Padding(FMargin(22.0f, 18.0f))
@@ -40,6 +40,13 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
 						.ColorAndOpacity(FLinearColor(0.58f, 0.61f, 0.57f, 1.0f))
 					]
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 7.0f, 0.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("RARITY   COMMON  •  UNCOMMON  •  RARE  •  EPIC")))
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+					.ColorAndOpacity(FLinearColor(0.62f, 0.67f, 0.62f, 1.0f))
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 8.0f, 0.0f, 10.0f)
 				[
@@ -67,7 +74,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 				+ SVerticalBox::Slot().AutoHeight()
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().FillWidth(0.64f).Padding(0.0f, 0.0f, 14.0f, 0.0f)
+					+ SHorizontalBox::Slot().FillWidth(0.66f).Padding(0.0f, 0.0f, 14.0f, 0.0f)
 					[
 						SNew(SBorder)
 						.Padding(FMargin(14.0f, 12.0f))
@@ -89,7 +96,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							]
 						]
 					]
-					+ SHorizontalBox::Slot().FillWidth(0.36f)
+					+ SHorizontalBox::Slot().FillWidth(0.34f)
 					[
 						SNew(SVerticalBox)
 						+ SVerticalBox::Slot().AutoHeight()
@@ -109,7 +116,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 								[
 									SNew(STextBlock)
 									.Text(this, &SWildBoundBackpackWidget::GetHotbarText)
-									.Font(FCoreStyle::GetDefaultFontStyle("Mono", 10))
+									.Font(FCoreStyle::GetDefaultFontStyle("Mono", 9))
 									.ColorAndOpacity(FLinearColor(0.91f, 0.84f, 0.62f, 1.0f))
 								]
 							]
@@ -121,7 +128,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							.BorderBackgroundColor(FLinearColor(0.028f, 0.035f, 0.032f, 0.95f))
 							[
 								SNew(SVerticalBox)
-								+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 6.0f)
+								+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 7.0f)
 								[
 									SNew(STextBlock)
 									.Text(this, &SWildBoundBackpackWidget::GetSelectedItemText)
@@ -178,7 +185,10 @@ FText SWildBoundBackpackWidget::GetWeightText() const
 	const int32 SlotsMax = Inventory ? Inventory->MaxSlots : 0;
 	return FText::FromString(FString::Printf(
 		TEXT("CARRY WEIGHT   %.2f / %.2f kg      SLOTS   %d / %d"),
-		Current, Max, SlotsUsed, SlotsMax));
+		Current,
+		Max,
+		SlotsUsed,
+		SlotsMax));
 }
 
 FText SWildBoundBackpackWidget::GetStatusText() const
@@ -218,9 +228,18 @@ FText SWildBoundBackpackWidget::GetHotbarText() const
 	for (int32 Slot = 0; Slot < 3; ++Slot)
 	{
 		const FName ItemId = Inventory->GetHotbarItemId(Slot);
-		const FString Name = ItemId.IsNone() ? TEXT("— EMPTY —") : Inventory->GetItemDisplayName(ItemId);
-		const int32 Count = ItemId.IsNone() ? 0 : Inventory->GetItemCount(ItemId);
-		Result += FString::Printf(TEXT("%d  %-20s x%d\n"), Slot + 1, *Name, Count);
+		if (ItemId.IsNone())
+		{
+			Result += FString::Printf(TEXT("%d  — EMPTY —\n"), Slot + 1);
+			continue;
+		}
+
+		Result += FString::Printf(
+			TEXT("%d  [%s] %s x%d\n"),
+			Slot + 1,
+			*Inventory->GetItemRarityName(ItemId),
+			*Inventory->GetItemDisplayName(ItemId),
+			Inventory->GetItemCount(ItemId));
 	}
 	return FText::FromString(Result);
 }
@@ -245,9 +264,10 @@ FText SWildBoundBackpackWidget::GetInventoryListText() const
 		const float StackWeight = Inventory->GetItemUnitWeight(Stack.ItemId) * static_cast<float>(Stack.Quantity);
 
 		Result += FString::Printf(
-			TEXT("%s [%s] %-23s x%-3d %5.2f kg\n"),
+			TEXT("%s [%s] [%-8s] %-22s x%-3d %5.2f kg\n"),
 			bSelected ? TEXT(">") : TEXT(" "),
 			*Hotbar,
+			*Inventory->GetItemRarityName(Stack.ItemId),
 			*Inventory->GetItemDisplayName(Stack.ItemId),
 			Stack.Quantity,
 			StackWeight);
@@ -272,7 +292,8 @@ FText SWildBoundBackpackWidget::GetSelectedItemText() const
 	}
 
 	return FText::FromString(FString::Printf(
-		TEXT("SELECTED\n%s x%d\n%.2f kg each"),
+		TEXT("SELECTED\n[%s] %s x%d\n%.2f kg each"),
+		*Inventory->GetItemRarityName(ItemId),
 		*Inventory->GetItemDisplayName(ItemId),
 		Quantity,
 		Inventory->GetItemUnitWeight(ItemId)));
