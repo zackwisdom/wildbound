@@ -1,6 +1,7 @@
 #include "SWildBoundHUDWidget.h"
 
 #include "../Survival/WildBoundSurvivalComponent.h"
+#include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SSeparator.h"
