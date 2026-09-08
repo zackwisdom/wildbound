@@ -5,6 +5,8 @@
 #include "../UI/SWildBoundCraftingWidget.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
@@ -12,6 +14,8 @@
 
 namespace
 {
+	const FName WorkbenchTag(TEXT("WBWorkbench"));
+
 	FWildBoundCraftingIngredient Ingredient(const TCHAR* ItemId, int32 Quantity)
 	{
 		FWildBoundCraftingIngredient Result;
@@ -36,7 +40,8 @@ void UWildBoundCraftingComponent::BeginPlay()
 		? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
 		: nullptr;
 
-	BuildStarterRecipes();
+	bWorkbenchMode = false;
+	BuildRecipesForCurrentMode();
 	EnsureCraftingWidget();
 }
 
@@ -66,6 +71,15 @@ void UWildBoundCraftingComponent::TickComponent(
 	if (!PlayerController)
 	{
 		return;
+	}
+
+	if (!bCraftingOpen && IsNearWorkbench() && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91024,
+			0.08f,
+			FColor(205, 190, 135),
+			TEXT("[C] USE WORKBENCH"));
 	}
 
 	if (PlayerController->WasInputKeyJustPressed(EKeys::C))
@@ -101,54 +115,83 @@ void UWildBoundCraftingComponent::TickComponent(
 	}
 }
 
-void UWildBoundCraftingComponent::BuildStarterRecipes()
+bool UWildBoundCraftingComponent::IsNearWorkbench() const
+{
+	const UWorld* World = GetWorld();
+	const AActor* Owner = GetOwner();
+	if (!World || !Owner)
+	{
+		return false;
+	}
+
+	const float RadiusSq = FMath::Square(WorkbenchUseRadius);
+	for (TActorIterator<AActor> It(const_cast<UWorld*>(World)); It; ++It)
+	{
+		const AActor* Actor = *It;
+		if (Actor
+			&& Actor->ActorHasTag(WorkbenchTag)
+			&& FVector::DistSquared(Owner->GetActorLocation(), Actor->GetActorLocation()) <= RadiusSq)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 {
 	Recipes.Reset();
 
-	FWildBoundCraftingRecipe FirstAid;
-	FirstAid.RecipeId = TEXT("FirstAidKit");
-	FirstAid.DisplayName = TEXT("FIRST-AID KIT");
-	FirstAid.Description = TEXT("Rebuild a usable field medical kit from scavenged cloth, disinfectant chemicals, and adhesive.");
-	FirstAid.OutputItemId = TEXT("MedicalSupplies");
-	FirstAid.OutputQuantity = 1;
-	FirstAid.Ingredients =
+	if (!bWorkbenchMode)
 	{
-		Ingredient(TEXT("Cloth"), 3),
-		Ingredient(TEXT("Chemicals"), 1),
-		Ingredient(TEXT("Adhesive"), 1)
-	};
-	Recipes.Add(FirstAid);
-
-	FWildBoundCraftingRecipe Flashlight;
-	Flashlight.RecipeId = TEXT("Flashlight");
-	Flashlight.DisplayName = TEXT("FLASHLIGHT");
-	Flashlight.Description = TEXT("Assemble a working handheld light from intact electronics, batteries, plastic housing, and wire.");
-	Flashlight.OutputItemId = TEXT("Flashlight");
-	Flashlight.OutputQuantity = 1;
-	Flashlight.Ingredients =
+		FWildBoundCraftingRecipe FirstAid;
+		FirstAid.RecipeId = TEXT("FirstAidKit");
+		FirstAid.DisplayName = TEXT("HAND: FIRST-AID KIT");
+		FirstAid.Description = TEXT("Hand-craft a usable field medical kit from scavenged cloth, disinfectant chemicals, and adhesive.");
+		FirstAid.OutputItemId = TEXT("MedicalSupplies");
+		FirstAid.OutputQuantity = 1;
+		FirstAid.Ingredients =
+		{
+			Ingredient(TEXT("Cloth"), 3),
+			Ingredient(TEXT("Chemicals"), 1),
+			Ingredient(TEXT("Adhesive"), 1)
+		};
+		Recipes.Add(FirstAid);
+	}
+	else
 	{
-		Ingredient(TEXT("Electronics"), 1),
-		Ingredient(TEXT("Battery"), 2),
-		Ingredient(TEXT("Plastic"), 1),
-		Ingredient(TEXT("Wire"), 1)
-	};
-	Recipes.Add(Flashlight);
+		FWildBoundCraftingRecipe Flashlight;
+		Flashlight.RecipeId = TEXT("Flashlight");
+		Flashlight.DisplayName = TEXT("BENCH: FLASHLIGHT");
+		Flashlight.Description = TEXT("Use the workbench to assemble a working handheld light from electronics, batteries, plastic housing, and wire.");
+		Flashlight.OutputItemId = TEXT("Flashlight");
+		Flashlight.OutputQuantity = 1;
+		Flashlight.Ingredients =
+		{
+			Ingredient(TEXT("Electronics"), 1),
+			Ingredient(TEXT("Battery"), 2),
+			Ingredient(TEXT("Plastic"), 1),
+			Ingredient(TEXT("Wire"), 1)
+		};
+		Recipes.Add(Flashlight);
 
-	FWildBoundCraftingRecipe Crowbar;
-	Crowbar.RecipeId = TEXT("Crowbar");
-	Crowbar.DisplayName = TEXT("IMPROVISED CROWBAR");
-	Crowbar.Description = TEXT("Shape and reinforce salvaged metal into a heavy pry tool for future access and utility interactions.");
-	Crowbar.OutputItemId = TEXT("Crowbar");
-	Crowbar.OutputQuantity = 1;
-	Crowbar.Ingredients =
-	{
-		Ingredient(TEXT("ScrapMetal"), 5),
-		Ingredient(TEXT("MechanicalParts"), 2),
-		Ingredient(TEXT("Cloth"), 1)
-	};
-	Recipes.Add(Crowbar);
+		FWildBoundCraftingRecipe Crowbar;
+		Crowbar.RecipeId = TEXT("Crowbar");
+		Crowbar.DisplayName = TEXT("BENCH: IMPROVISED CROWBAR");
+		Crowbar.Description = TEXT("Use the vice and bench tools to shape and reinforce salvaged metal into a heavy pry tool.");
+		Crowbar.OutputItemId = TEXT("Crowbar");
+		Crowbar.OutputQuantity = 1;
+		Crowbar.Ingredients =
+		{
+			Ingredient(TEXT("ScrapMetal"), 5),
+			Ingredient(TEXT("MechanicalParts"), 2),
+			Ingredient(TEXT("Cloth"), 1)
+		};
+		Recipes.Add(Crowbar);
+	}
 
-	SelectedRecipeIndex = FMath::Clamp(SelectedRecipeIndex, 0, FMath::Max(Recipes.Num() - 1, 0));
+	SelectedRecipeIndex = 0;
 }
 
 void UWildBoundCraftingComponent::EnsureCraftingWidget()
@@ -191,6 +234,11 @@ void UWildBoundCraftingComponent::ToggleCrafting()
 		return;
 	}
 
+	OpenCrafting(IsNearWorkbench());
+}
+
+void UWildBoundCraftingComponent::OpenCrafting(bool bUseWorkbench)
+{
 	const UWildBoundBackpackComponent* Backpack = GetOwner()
 		? GetOwner()->FindComponentByClass<UWildBoundBackpackComponent>()
 		: nullptr;
@@ -203,7 +251,20 @@ void UWildBoundCraftingComponent::ToggleCrafting()
 		return;
 	}
 
+	bWorkbenchMode = bUseWorkbench;
+	BuildRecipesForCurrentMode();
 	SetCraftingOpen(true);
+
+	if (bCraftingOpen && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91023,
+			1.6f,
+			bWorkbenchMode ? FColor(205, 190, 135) : FColor(175, 205, 165),
+			bWorkbenchMode
+				? TEXT("WORKBENCH CRAFTING — advanced recipes available")
+				: TEXT("HAND CRAFTING — find a workbench for advanced recipes"));
+	}
 }
 
 void UWildBoundCraftingComponent::SetCraftingOpen(bool bOpen)
