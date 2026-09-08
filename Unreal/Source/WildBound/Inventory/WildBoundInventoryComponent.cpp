@@ -19,11 +19,20 @@ namespace
 	const FName CrowbarItem(TEXT("Crowbar"));
 	const FName ReinforcedBackpackItem(TEXT("ReinforcedBackpack"));
 	const FName FilterMaskItem(TEXT("FilterMask"));
+	const FName CanteenItem(TEXT("Canteen"));
+	const FName TraumaKitItem(TEXT("TraumaKit"));
+	const FName RadTreatmentItem(TEXT("RadTreatment"));
+	const FName UtilityBeltItem(TEXT("UtilityBelt"));
 }
 
 UWildBoundInventoryComponent::UWildBoundInventoryComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+
+	HotbarSlots.SetNum(3);
+	HotbarSlots[0] = WaterItem;
+	HotbarSlots[1] = FoodItem;
+	HotbarSlots[2] = MedicalItem;
 }
 
 bool UWildBoundInventoryComponent::AddItem(FName ItemId, int32 Quantity)
@@ -101,6 +110,17 @@ bool UWildBoundInventoryComponent::RemoveItem(FName ItemId, int32 Quantity)
 		return Stack.Quantity <= 0 || Stack.ItemId.IsNone();
 	});
 
+	if (!HasItem(ItemId, 1))
+	{
+		for (FName& HotbarItem : HotbarSlots)
+		{
+			if (HotbarItem == ItemId)
+			{
+				HotbarItem = NAME_None;
+			}
+		}
+	}
+
 	OnInventoryChanged.Broadcast();
 	return true;
 }
@@ -125,12 +145,16 @@ bool UWildBoundInventoryComponent::HasItem(FName ItemId, int32 Quantity) const
 
 void UWildBoundInventoryComponent::ClearInventory()
 {
-	if (Stacks.IsEmpty())
+	if (Stacks.IsEmpty() && HotbarSlots.IsEmpty())
 	{
 		return;
 	}
 
 	Stacks.Reset();
+	for (FName& HotbarItem : HotbarSlots)
+	{
+		HotbarItem = NAME_None;
+	}
 	OnInventoryChanged.Broadcast();
 }
 
@@ -153,8 +177,11 @@ float UWildBoundInventoryComponent::GetItemUnitWeight(FName ItemId) const
 	if (ItemId == CrowbarItem) return 2.00f;
 	if (ItemId == ReinforcedBackpackItem) return 3.20f;
 	if (ItemId == FilterMaskItem) return 0.90f;
+	if (ItemId == CanteenItem) return 1.00f;
+	if (ItemId == TraumaKitItem) return 1.80f;
+	if (ItemId == RadTreatmentItem) return 0.35f;
+	if (ItemId == UtilityBeltItem) return 1.40f;
 
-	// Unknown future items still carry mass so newly-added loot never bypasses encumbrance.
 	return 0.50f;
 }
 
@@ -200,5 +227,83 @@ FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 	if (ItemId == CrowbarItem) return TEXT("Crowbar");
 	if (ItemId == ReinforcedBackpackItem) return TEXT("Reinforced Backpack");
 	if (ItemId == FilterMaskItem) return TEXT("Filter Mask");
+	if (ItemId == CanteenItem) return TEXT("Canteen");
+	if (ItemId == TraumaKitItem) return TEXT("Field Trauma Kit");
+	if (ItemId == RadTreatmentItem) return TEXT("Radiation Treatment");
+	if (ItemId == UtilityBeltItem) return TEXT("Utility Belt");
 	return ItemId.ToString();
+}
+
+FName UWildBoundInventoryComponent::GetHotbarItemId(int32 SlotIndex) const
+{
+	if (!HotbarSlots.IsValidIndex(SlotIndex))
+	{
+		return NAME_None;
+	}
+
+	const FName ItemId = HotbarSlots[SlotIndex];
+	return !ItemId.IsNone() && HasItem(ItemId, 1) ? ItemId : NAME_None;
+}
+
+bool UWildBoundInventoryComponent::AssignHotbarSlot(int32 SlotIndex, FName ItemId)
+{
+	if (!HotbarSlots.IsValidIndex(SlotIndex) || ItemId.IsNone() || !HasItem(ItemId, 1))
+	{
+		return false;
+	}
+
+	for (int32 Index = 0; Index < HotbarSlots.Num(); ++Index)
+	{
+		if (Index != SlotIndex && HotbarSlots[Index] == ItemId)
+		{
+			HotbarSlots[Index] = NAME_None;
+		}
+	}
+
+	HotbarSlots[SlotIndex] = ItemId;
+	OnInventoryChanged.Broadcast();
+	return true;
+}
+
+void UWildBoundInventoryComponent::ClearHotbarSlot(int32 SlotIndex)
+{
+	if (!HotbarSlots.IsValidIndex(SlotIndex) || HotbarSlots[SlotIndex].IsNone())
+	{
+		return;
+	}
+
+	HotbarSlots[SlotIndex] = NAME_None;
+	OnInventoryChanged.Broadcast();
+}
+
+void UWildBoundInventoryComponent::ClearItemFromHotbar(FName ItemId)
+{
+	bool bChanged = false;
+	for (FName& HotbarItem : HotbarSlots)
+	{
+		if (HotbarItem == ItemId)
+		{
+			HotbarItem = NAME_None;
+			bChanged = true;
+		}
+	}
+
+	if (bChanged)
+	{
+		OnInventoryChanged.Broadcast();
+	}
+}
+
+bool UWildBoundInventoryComponent::IsItemInHotbar(FName ItemId, int32& OutSlotIndex) const
+{
+	OutSlotIndex = INDEX_NONE;
+	for (int32 Index = 0; Index < HotbarSlots.Num(); ++Index)
+	{
+		if (HotbarSlots[Index] == ItemId && HasItem(ItemId, 1))
+		{
+			OutSlotIndex = Index;
+			return true;
+		}
+	}
+	return false;
 }
