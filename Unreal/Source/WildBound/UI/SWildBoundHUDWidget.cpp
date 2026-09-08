@@ -2,6 +2,7 @@
 
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
+#include "GameFramework/Actor.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
