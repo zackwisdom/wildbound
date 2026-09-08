@@ -5,6 +5,9 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+#include "TimerManager.h"
 #include "UObject/UObjectGlobals.h"
 
 namespace
@@ -56,18 +59,37 @@ namespace
 	}
 }
 
-bool WildBoundTownBlockout::Spawn(UWorld& World, const FVector& Origin)
+void WildBoundTownBlockout::Spawn(UWorld& World)
 {
 	for (TActorIterator<AStaticMeshActor> It(&World); It; ++It)
 	{
 		if (It->ActorHasTag(TEXT("WildBoundTownBlockout")))
 		{
-			return false;
+			return;
 		}
 	}
 
-	// Temporary elevated foundation keeps this prototype town clear of the
-	// First Person example geometry while we replace the template map.
+	APlayerController* PlayerController = World.GetFirstPlayerController();
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		// World subsystems can begin before the template pawn is possessed.
+		// Retry next tick instead of guessing a fixed world-space spawn location.
+		TWeakObjectPtr<UWorld> WeakWorld(&World);
+		World.GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([WeakWorld]()
+		{
+			if (UWorld* RetryWorld = WeakWorld.Get())
+			{
+				WildBoundTownBlockout::Spawn(*RetryWorld);
+			}
+		}));
+		return;
+	}
+
+	// Build the prototype town well above the First Person sample arena so none of
+	// Epic's blockout walls or floors can hide/intersect the WildBound environment.
+	const FVector Origin = Pawn->GetActorLocation() + FVector(0.0f, 0.0f, 3000.0f);
+
 	SpawnBox(World, Origin + FVector(0.0f, 0.0f, -25.0f), FVector(80.0f, 80.0f, 0.50f), FRotator::ZeroRotator, TEXT("WB_TownFoundation"));
 
 	// Main crossroad: broad enough for vehicles, debris, and future encounters.
@@ -102,6 +124,9 @@ bool WildBoundTownBlockout::Spawn(UWorld& World, const FVector& Origin)
 	SpawnBox(World, Origin + FVector(-720.0f, -720.0f, 300.0f), FVector(0.18f, 0.18f, 6.0f), FRotator::ZeroRotator, TEXT("WB_UtilityPole_01"));
 	SpawnBox(World, Origin + FVector(720.0f, 720.0f, 300.0f), FVector(0.18f, 0.18f, 6.0f), FRotator(0.0f, 3.0f, 0.0f), TEXT("WB_UtilityPole_02"));
 
-	UE_LOG(LogTemp, Log, TEXT("WildBound environment: first abandoned town intersection spawned at %s."), *Origin.ToCompactString());
-	return true;
+	// Put the player directly on the new street so there is no ambiguity about which
+	// environment is being tested.
+	Pawn->SetActorLocation(Origin + FVector(0.0f, 0.0f, 140.0f), false, nullptr, ETeleportType::TeleportPhysics);
+
+	UE_LOG(LogTemp, Log, TEXT("WildBound environment: player moved into abandoned town intersection at %s."), *Origin.ToCompactString());
 }
