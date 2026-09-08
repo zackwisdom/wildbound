@@ -7,7 +7,10 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
 #include "Widgets/SOverlay.h"
+#include "Widgets/Text/STextBlock.h"
 
 UWildBoundBackpackComponent::UWildBoundBackpackComponent()
 {
@@ -24,6 +27,7 @@ void UWildBoundBackpackComponent::BeginPlay()
 		? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
 		: nullptr;
 	EnsureBackpackWidget();
+	EnsureEncumbranceWarning();
 }
 
 void UWildBoundBackpackComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -45,6 +49,7 @@ void UWildBoundBackpackComponent::TickComponent(
 	}
 
 	EnsureBackpackWidget();
+	EnsureEncumbranceWarning();
 
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	APlayerController* PlayerController = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
@@ -92,6 +97,61 @@ void UWildBoundBackpackComponent::EnsureBackpackWidget()
 	GEngine->GameViewport->AddViewportWidgetContent(BackpackViewportRoot.ToSharedRef(), 130);
 }
 
+void UWildBoundBackpackComponent::EnsureEncumbranceWarning()
+{
+	if (EncumbranceViewportRoot.IsValid())
+	{
+		return;
+	}
+
+	if (!InventoryComponent.IsValid() || !GEngine || !GEngine->GameViewport)
+	{
+		return;
+	}
+
+	const TWeakObjectPtr<UWildBoundInventoryComponent> WeakInventory = InventoryComponent;
+
+	TSharedPtr<SOverlay> Overlay;
+	SAssignNew(Overlay, SOverlay)
+	+ SOverlay::Slot()
+	.HAlign(HAlign_Right)
+	.VAlign(VAlign_Bottom)
+	.Padding(FMargin(0.0f, 0.0f, 28.0f, 150.0f))
+	[
+		SNew(SBorder)
+		.Padding(FMargin(10.0f, 6.0f))
+		.BorderBackgroundColor(FLinearColor(0.22f, 0.035f, 0.02f, 0.92f))
+		.Visibility_Lambda([WeakInventory]()
+		{
+			const UWildBoundInventoryComponent* Inventory = WeakInventory.Get();
+			return Inventory && Inventory->IsOverEncumbered()
+				? EVisibility::HitTestInvisible
+				: EVisibility::Collapsed;
+		})
+		[
+			SNew(STextBlock)
+			.Text_Lambda([WeakInventory]()
+			{
+				const UWildBoundInventoryComponent* Inventory = WeakInventory.Get();
+				if (!Inventory)
+				{
+					return FText::GetEmpty();
+				}
+
+				return FText::FromString(FString::Printf(
+					TEXT("OVER ENCUMBERED   %.1f / %.1f kg"),
+					Inventory->GetTotalWeight(),
+					Inventory->MaxCarryWeight));
+			})
+			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+			.ColorAndOpacity(FLinearColor(1.0f, 0.72f, 0.62f, 1.0f))
+		]
+	];
+
+	EncumbranceViewportRoot = Overlay;
+	GEngine->GameViewport->AddViewportWidgetContent(EncumbranceViewportRoot.ToSharedRef(), 125);
+}
+
 void UWildBoundBackpackComponent::ToggleBackpack()
 {
 	EnsureBackpackWidget();
@@ -107,12 +167,20 @@ void UWildBoundBackpackComponent::ToggleBackpack()
 
 void UWildBoundBackpackComponent::RemoveBackpackWidget()
 {
-	if (BackpackViewportRoot.IsValid() && GEngine && GEngine->GameViewport)
+	if (GEngine && GEngine->GameViewport)
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(BackpackViewportRoot.ToSharedRef());
+		if (BackpackViewportRoot.IsValid())
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(BackpackViewportRoot.ToSharedRef());
+		}
+		if (EncumbranceViewportRoot.IsValid())
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(EncumbranceViewportRoot.ToSharedRef());
+		}
 	}
 
 	BackpackWidget.Reset();
 	BackpackViewportRoot.Reset();
+	EncumbranceViewportRoot.Reset();
 	bBackpackOpen = false;
 }
