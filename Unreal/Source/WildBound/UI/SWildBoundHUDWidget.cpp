@@ -1,5 +1,6 @@
 #include "SWildBoundHUDWidget.h"
 
+#include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
@@ -16,7 +17,7 @@ void SWildBoundHUDWidget::Construct(const FArguments& InArgs)
 	ChildSlot
 	[
 		SNew(SBox)
-		.WidthOverride(280.0f)
+		.WidthOverride(300.0f)
 		[
 			SNew(SBorder)
 			.Padding(FMargin(14.0f, 12.0f))
@@ -101,6 +102,29 @@ void SWildBoundHUDWidget::Construct(const FArguments& InArgs)
 						.FillColorAndOpacity(FLinearColor(0.22f, 0.68f, 0.30f, 1.0f))
 					]
 				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 10.0f, 0.0f, 7.0f)
+				[
+					SNew(SSeparator)
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 5.0f)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("SCAVENGED SUPPLIES")))
+					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+					.ColorAndOpacity(FLinearColor(0.72f, 0.75f, 0.68f, 1.0f))
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(STextBlock)
+					.Text(this, &SWildBoundHUDWidget::GetInventoryText)
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
+					.ColorAndOpacity(FLinearColor(0.88f, 0.90f, 0.84f, 1.0f))
+				]
 			]
 		]
 	];
@@ -153,4 +177,21 @@ FText SWildBoundHUDWidget::GetStaminaText() const
 {
 	const UWildBoundSurvivalComponent* C = SurvivalComponent.Get();
 	return FText::FromString(FString::Printf(TEXT("STAMINA  %d"), C ? FMath::RoundToInt(C->Stamina) : 0));
+}
+
+FText SWildBoundHUDWidget::GetInventoryText() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const AActor* Owner = Survival ? Survival->GetOwner() : nullptr;
+	const UWildBoundInventoryComponent* Inventory = Owner ? Owner->FindComponentByClass<UWildBoundInventoryComponent>() : nullptr;
+
+	const int32 Water = Inventory ? Inventory->GetItemCount(TEXT("Water")) : 0;
+	const int32 Food = Inventory ? Inventory->GetItemCount(TEXT("Food")) : 0;
+	const int32 Medical = Inventory ? Inventory->GetItemCount(TEXT("MedicalSupplies")) : 0;
+
+	return FText::FromString(FString::Printf(
+		TEXT("[1] WATER        x%d\n[2] FOOD         x%d\n[3] MED KIT      x%d"),
+		Water,
+		Food,
+		Medical));
 }
