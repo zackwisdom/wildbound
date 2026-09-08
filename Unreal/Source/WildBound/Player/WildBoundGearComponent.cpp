@@ -8,6 +8,7 @@ namespace
 {
 	const FName ReinforcedBackpackItemId(TEXT("ReinforcedBackpack"));
 	const FName FilterMaskItemId(TEXT("FilterMask"));
+	const FName UtilityBeltItemId(TEXT("UtilityBelt"));
 }
 
 UWildBoundGearComponent::UWildBoundGearComponent()
@@ -51,9 +52,16 @@ void UWildBoundGearComponent::RefreshComponentReferences()
 	if (!InventoryComponent.IsValid())
 	{
 		InventoryComponent = Owner->FindComponentByClass<UWildBoundInventoryComponent>();
-		if (InventoryComponent.IsValid() && BaseCarryWeight < 0.0f)
+		if (InventoryComponent.IsValid())
 		{
-			BaseCarryWeight = InventoryComponent->MaxCarryWeight;
+			if (BaseCarryWeight < 0.0f)
+			{
+				BaseCarryWeight = InventoryComponent->MaxCarryWeight;
+			}
+			if (BaseMaxSlots < 0)
+			{
+				BaseMaxSlots = InventoryComponent->MaxSlots;
+			}
 		}
 	}
 
@@ -79,6 +87,12 @@ bool UWildBoundGearComponent::HasFilterMask() const
 	return Inventory && Inventory->HasItem(FilterMaskItemId, 1);
 }
 
+bool UWildBoundGearComponent::HasUtilityBelt() const
+{
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	return Inventory && Inventory->HasItem(UtilityBeltItemId, 1);
+}
+
 void UWildBoundGearComponent::ApplyGearEffects()
 {
 	if (UWildBoundInventoryComponent* Inventory = InventoryComponent.Get())
@@ -87,10 +101,15 @@ void UWildBoundGearComponent::ApplyGearEffects()
 		{
 			BaseCarryWeight = Inventory->MaxCarryWeight;
 		}
+		if (BaseMaxSlots < 0)
+		{
+			BaseMaxSlots = Inventory->MaxSlots;
+		}
 
-		const float DesiredCarryWeight = BaseCarryWeight
+		Inventory->MaxCarryWeight = BaseCarryWeight
 			+ (HasReinforcedBackpack() ? ReinforcedBackpackCapacityBonus : 0.0f);
-		Inventory->MaxCarryWeight = DesiredCarryWeight;
+		Inventory->MaxSlots = BaseMaxSlots
+			+ (HasUtilityBelt() ? UtilityBeltSlotBonus : 0);
 	}
 
 	if (UWildBoundRadiationComponent* Radiation = RadiationComponent.Get())
@@ -112,6 +131,10 @@ void UWildBoundGearComponent::RestoreBaseValues()
 		if (BaseCarryWeight >= 0.0f)
 		{
 			Inventory->MaxCarryWeight = BaseCarryWeight;
+		}
+		if (BaseMaxSlots >= 0)
+		{
+			Inventory->MaxSlots = BaseMaxSlots;
 		}
 	}
 
