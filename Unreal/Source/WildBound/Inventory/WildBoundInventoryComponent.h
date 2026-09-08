@@ -35,6 +35,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Inventory", meta=(ClampMin="1"))
 	int32 DefaultMaxStackSize = 99;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Inventory|Weight", meta=(ClampMin="1.0"))
+	float MaxCarryWeight = 32.0f;
+
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="WildBound|Inventory")
 	TArray<FWildBoundInventoryStack> Stacks;
 
@@ -52,4 +55,19 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="WildBound|Inventory")
 	void ClearInventory();
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Weight")
+	float GetItemUnitWeight(FName ItemId) const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Weight")
+	float GetTotalWeight() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Weight")
+	float GetCarryWeightRatio() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory|Weight")
+	bool IsOverEncumbered() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
+	FString GetItemDisplayName(FName ItemId) const;
 };
