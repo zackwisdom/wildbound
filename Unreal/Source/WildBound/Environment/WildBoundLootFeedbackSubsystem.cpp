@@ -223,7 +223,13 @@ void UWildBoundLootFeedbackSubsystem::ProcessOpenedContainers()
 		return;
 	}
 
-	ProcessedContainers.Remove(nullptr);
+	for (auto It = ProcessedContainers.CreateIterator(); It; ++It)
+	{
+		if (!It->IsValid())
+		{
+			It.RemoveCurrent();
+		}
+	}
 
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
