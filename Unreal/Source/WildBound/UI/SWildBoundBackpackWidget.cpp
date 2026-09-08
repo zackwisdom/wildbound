@@ -130,7 +130,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(STextBlock)
 								.Text(this, &SWildBoundBackpackWidget::GetSuppliesText)
-								.Font(FCoreStyle::GetDefaultFontStyle("Mono", 10))
+								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
 								.ColorAndOpacity(FLinearColor(0.87f, 0.89f, 0.84f, 1.0f))
 							]
 						]
@@ -153,7 +153,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(STextBlock)
 								.Text(this, &SWildBoundBackpackWidget::GetMaterialsText)
-								.Font(FCoreStyle::GetDefaultFontStyle("Mono", 10))
+								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
 								.ColorAndOpacity(FLinearColor(0.87f, 0.89f, 0.84f, 1.0f))
 							]
 						]
