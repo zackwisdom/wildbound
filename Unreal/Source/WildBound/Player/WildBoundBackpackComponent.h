@@ -26,9 +26,11 @@ private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	TSharedPtr<SWildBoundBackpackWidget> BackpackWidget;
 	TSharedPtr<SWidget> BackpackViewportRoot;
+	TSharedPtr<SWidget> EncumbranceViewportRoot;
 	bool bBackpackOpen = false;
 
 	void EnsureBackpackWidget();
+	void EnsureEncumbranceWarning();
 	void ToggleBackpack();
 	void RemoveBackpackWidget();
 };
