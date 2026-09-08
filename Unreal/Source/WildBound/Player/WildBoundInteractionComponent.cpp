@@ -28,6 +28,7 @@ namespace
 	const FName WaterItemId(TEXT("Water"));
 	const FName FoodItemId(TEXT("Food"));
 	const FName MedicalItemId(TEXT("MedicalSupplies"));
+	constexpr int32 HotbarSlotCount = 3;
 }
 
 UWildBoundInteractionComponent::UWildBoundInteractionComponent()
@@ -51,7 +52,7 @@ void UWildBoundInteractionComponent::TickComponent(
 		return;
 	}
 
-	HandleQuickUse(*PlayerController);
+	HandleHotbarSelection(*PlayerController);
 
 	FVector ViewLocation;
 	FRotator ViewRotation;
@@ -63,39 +64,73 @@ void UWildBoundInteractionComponent::TickComponent(
 	FHitResult Hit;
 	const bool bHit = World->LineTraceSingleByChannel(Hit, ViewLocation, TraceEnd, ECC_Visibility, QueryParams);
 	AActor* TargetActor = bHit ? Hit.GetActor() : nullptr;
-	if (!TargetActor || !TargetActor->ActorHasTag(InteractableTag))
+	const bool bHasWorldInteraction = TargetActor && TargetActor->ActorHasTag(InteractableTag);
+
+	if (bHasWorldInteraction)
 	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91001,
+				0.08f,
+				FColor::White,
+				FString::Printf(TEXT("[E] %s"), *GetInteractionPrompt(TargetActor)));
+		}
+
+		if (PlayerController->WasInputKeyJustPressed(EKeys::E))
+		{
+			TryInteract(TargetActor);
+		}
 		return;
 	}
 
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			91001,
-			0.08f,
-			FColor::White,
-			FString::Printf(TEXT("[E] %s"), *GetInteractionPrompt(TargetActor)));
-	}
-
+	// E remains contextual: when there is no world object under the crosshair,
+	// it uses the currently selected survival hotbar item.
 	if (PlayerController->WasInputKeyJustPressed(EKeys::E))
 	{
-		TryInteract(TargetActor);
+		TryUseSelectedHotbarItem();
 	}
 }
 
-void UWildBoundInteractionComponent::HandleQuickUse(APlayerController& PlayerController)
+void UWildBoundInteractionComponent::HandleHotbarSelection(APlayerController& PlayerController)
 {
 	if (PlayerController.WasInputKeyJustPressed(EKeys::One))
 	{
-		TryUseInventoryItem(WaterItemId);
+		SelectedHotbarSlot = 0;
 	}
 	else if (PlayerController.WasInputKeyJustPressed(EKeys::Two))
 	{
-		TryUseInventoryItem(FoodItemId);
+		SelectedHotbarSlot = 1;
 	}
 	else if (PlayerController.WasInputKeyJustPressed(EKeys::Three))
 	{
+		SelectedHotbarSlot = 2;
+	}
+	else if (PlayerController.WasInputKeyJustPressed(EKeys::MouseScrollDown))
+	{
+		SelectedHotbarSlot = (SelectedHotbarSlot + 1) % HotbarSlotCount;
+	}
+	else if (PlayerController.WasInputKeyJustPressed(EKeys::MouseScrollUp))
+	{
+		SelectedHotbarSlot = (SelectedHotbarSlot + HotbarSlotCount - 1) % HotbarSlotCount;
+	}
+}
+
+void UWildBoundInteractionComponent::TryUseSelectedHotbarItem()
+{
+	switch (SelectedHotbarSlot)
+	{
+	case 0:
+		TryUseInventoryItem(WaterItemId);
+		break;
+	case 1:
+		TryUseInventoryItem(FoodItemId);
+		break;
+	case 2:
 		TryUseInventoryItem(MedicalItemId);
+		break;
+	default:
+		break;
 	}
 }
 
@@ -113,7 +148,7 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 	{
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(185, 185, 175), TEXT("You don't have any of that supply."));
+			GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(185, 185, 175), TEXT("That hotbar slot is empty."));
 		}
 		return;
 	}
