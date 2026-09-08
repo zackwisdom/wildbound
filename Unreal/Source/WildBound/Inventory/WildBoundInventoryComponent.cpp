@@ -1,5 +1,24 @@
 #include "WildBoundInventoryComponent.h"
 
+namespace
+{
+	const FName WaterItem(TEXT("Water"));
+	const FName FoodItem(TEXT("Food"));
+	const FName MedicalItem(TEXT("MedicalSupplies"));
+	const FName ScrapItem(TEXT("ScrapMetal"));
+	const FName ClothItem(TEXT("Cloth"));
+	const FName WoodItem(TEXT("Wood"));
+	const FName PlasticItem(TEXT("Plastic"));
+	const FName ElectronicsItem(TEXT("Electronics"));
+	const FName ChemicalsItem(TEXT("Chemicals"));
+	const FName AdhesiveItem(TEXT("Adhesive"));
+	const FName WireItem(TEXT("Wire"));
+	const FName BatteryItem(TEXT("Battery"));
+	const FName MechanicalPartsItem(TEXT("MechanicalParts"));
+	const FName FlashlightItem(TEXT("Flashlight"));
+	const FName CrowbarItem(TEXT("Crowbar"));
+}
+
 UWildBoundInventoryComponent::UWildBoundInventoryComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -115,21 +134,21 @@ void UWildBoundInventoryComponent::ClearInventory()
 
 float UWildBoundInventoryComponent::GetItemUnitWeight(FName ItemId) const
 {
-	if (ItemId == TEXT("Water")) return 0.75f;
-	if (ItemId == TEXT("Food")) return 0.45f;
-	if (ItemId == TEXT("MedicalSupplies")) return 1.20f;
-	if (ItemId == TEXT("ScrapMetal")) return 0.65f;
-	if (ItemId == TEXT("Cloth")) return 0.15f;
-	if (ItemId == TEXT("Wood")) return 0.80f;
-	if (ItemId == TEXT("Plastic")) return 0.25f;
-	if (ItemId == TEXT("Electronics")) return 0.55f;
-	if (ItemId == TEXT("Chemicals")) return 0.75f;
-	if (ItemId == TEXT("Adhesive")) return 0.35f;
-	if (ItemId == TEXT("Wire")) return 0.25f;
-	if (ItemId == TEXT("Battery")) return 0.45f;
-	if (ItemId == TEXT("MechanicalParts")) return 0.85f;
-	if (ItemId == TEXT("Flashlight")) return 0.70f;
-	if (ItemId == TEXT("Crowbar")) return 2.00f;
+	if (ItemId == WaterItem) return 0.75f;
+	if (ItemId == FoodItem) return 0.45f;
+	if (ItemId == MedicalItem) return 1.20f;
+	if (ItemId == ScrapItem) return 0.65f;
+	if (ItemId == ClothItem) return 0.15f;
+	if (ItemId == WoodItem) return 0.80f;
+	if (ItemId == PlasticItem) return 0.25f;
+	if (ItemId == ElectronicsItem) return 0.55f;
+	if (ItemId == ChemicalsItem) return 0.75f;
+	if (ItemId == AdhesiveItem) return 0.35f;
+	if (ItemId == WireItem) return 0.25f;
+	if (ItemId == BatteryItem) return 0.45f;
+	if (ItemId == MechanicalPartsItem) return 0.85f;
+	if (ItemId == FlashlightItem) return 0.70f;
+	if (ItemId == CrowbarItem) return 2.00f;
 
 	// Unknown future items still carry mass so newly-added loot never bypasses encumbrance.
 	return 0.50f;
@@ -160,20 +179,20 @@ bool UWildBoundInventoryComponent::IsOverEncumbered() const
 
 FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 {
-	if (ItemId == TEXT("Water")) return TEXT("Bottled Water");
-	if (ItemId == TEXT("Food")) return TEXT("Preserved Food");
-	if (ItemId == TEXT("MedicalSupplies")) return TEXT("Medical Supplies");
-	if (ItemId == TEXT("ScrapMetal")) return TEXT("Scrap Metal");
-	if (ItemId == TEXT("Cloth")) return TEXT("Cloth");
-	if (ItemId == TEXT("Wood")) return TEXT("Wood");
-	if (ItemId == TEXT("Plastic")) return TEXT("Plastic");
-	if (ItemId == TEXT("Electronics")) return TEXT("Electronics");
-	if (ItemId == TEXT("Chemicals")) return TEXT("Chemicals");
-	if (ItemId == TEXT("Adhesive")) return TEXT("Adhesive");
-	if (ItemId == TEXT("Wire")) return TEXT("Wire");
-	if (ItemId == TEXT("Battery")) return TEXT("Battery");
-	if (ItemId == TEXT("MechanicalParts")) return TEXT("Mechanical Parts");
-	if (ItemId == TEXT("Flashlight")) return TEXT("Flashlight");
-	if (ItemId == TEXT("Crowbar")) return TEXT("Crowbar");
+	if (ItemId == WaterItem) return TEXT("Bottled Water");
+	if (ItemId == FoodItem) return TEXT("Preserved Food");
+	if (ItemId == MedicalItem) return TEXT("Medical Supplies");
+	if (ItemId == ScrapItem) return TEXT("Scrap Metal");
+	if (ItemId == ClothItem) return TEXT("Cloth");
+	if (ItemId == WoodItem) return TEXT("Wood");
+	if (ItemId == PlasticItem) return TEXT("Plastic");
+	if (ItemId == ElectronicsItem) return TEXT("Electronics");
+	if (ItemId == ChemicalsItem) return TEXT("Chemicals");
+	if (ItemId == AdhesiveItem) return TEXT("Adhesive");
+	if (ItemId == WireItem) return TEXT("Wire");
+	if (ItemId == BatteryItem) return TEXT("Battery");
+	if (ItemId == MechanicalPartsItem) return TEXT("Mechanical Parts");
+	if (ItemId == FlashlightItem) return TEXT("Flashlight");
+	if (ItemId == CrowbarItem) return TEXT("Crowbar");
 	return ItemId.ToString();
 }
