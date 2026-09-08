@@ -142,7 +142,14 @@ namespace
 			Settings.bOverride_ColorGammaShadows = true;
 			Settings.ColorGammaShadows = FVector4(0.97f, 0.98f, 1.0f, 1.0f);
 
-			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: structural shadow depth applied."));
+			// Eighth mood pass: restrained bloom for harsh outdoor highlights and sun glare.
+			// Keep the threshold high so ordinary surfaces stay crisp and only strong highlights bloom.
+			Settings.bOverride_BloomIntensity = true;
+			Settings.BloomIntensity = 0.22f;
+			Settings.bOverride_BloomThreshold = true;
+			Settings.BloomThreshold = 1.35f;
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: restrained sunlight bloom applied."));
 		}
 	}
 }
