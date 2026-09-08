@@ -2,6 +2,7 @@
 
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Survival/WildBoundRadiationComponent.h"
+#include "GameFramework/Actor.h"
 
 namespace
 {
