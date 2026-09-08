@@ -135,7 +135,14 @@ namespace
 			Settings.bOverride_AmbientOcclusionPower = true;
 			Settings.AmbientOcclusionPower = 1.15f;
 
-			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle post-process and contact shadow grade applied."));
+			// Seventh mood pass: add a little more separation inside sheltered structural shadows.
+			// This keeps sunlit streets readable while giving walls, recesses, and debris clusters more shape.
+			Settings.bOverride_ColorContrastShadows = true;
+			Settings.ColorContrastShadows = FVector4(1.06f, 1.06f, 1.06f, 1.0f);
+			Settings.bOverride_ColorGammaShadows = true;
+			Settings.ColorGammaShadows = FVector4(0.97f, 0.98f, 1.0f, 1.0f);
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: structural shadow depth applied."));
 		}
 	}
 }
