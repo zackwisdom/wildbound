@@ -1,6 +1,7 @@
 #include "WildBoundInteractionComponent.h"
 
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "../Survival/WildBoundSurvivalComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -23,6 +24,10 @@ namespace
 	const FName WaterGroupTag(TEXT("WBGroupWater"));
 	const FName MedicalGroupTag(TEXT("WBGroupMedical"));
 	const FName FoodGroupTag(TEXT("WBGroupFood"));
+
+	const FName WaterItemId(TEXT("Water"));
+	const FName FoodItemId(TEXT("Food"));
+	const FName MedicalItemId(TEXT("MedicalSupplies"));
 }
 
 UWildBoundInteractionComponent::UWildBoundInteractionComponent()
@@ -45,6 +50,8 @@ void UWildBoundInteractionComponent::TickComponent(
 	{
 		return;
 	}
+
+	HandleQuickUse(*PlayerController);
 
 	FVector ViewLocation;
 	FRotator ViewRotation;
@@ -73,6 +80,115 @@ void UWildBoundInteractionComponent::TickComponent(
 	if (PlayerController->WasInputKeyJustPressed(EKeys::E))
 	{
 		TryInteract(TargetActor);
+	}
+}
+
+void UWildBoundInteractionComponent::HandleQuickUse(APlayerController& PlayerController)
+{
+	if (PlayerController.WasInputKeyJustPressed(EKeys::One))
+	{
+		TryUseInventoryItem(WaterItemId);
+	}
+	else if (PlayerController.WasInputKeyJustPressed(EKeys::Two))
+	{
+		TryUseInventoryItem(FoodItemId);
+	}
+	else if (PlayerController.WasInputKeyJustPressed(EKeys::Three))
+	{
+		TryUseInventoryItem(MedicalItemId);
+	}
+}
+
+void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
+{
+	AActor* Owner = GetOwner();
+	UWildBoundInventoryComponent* Inventory = Owner ? Owner->FindComponentByClass<UWildBoundInventoryComponent>() : nullptr;
+	UWildBoundSurvivalComponent* Survival = Owner ? Owner->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
+	if (!Inventory || !Survival)
+	{
+		return;
+	}
+
+	if (!Inventory->HasItem(ItemId, 1))
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(185, 185, 175), TEXT("You don't have any of that supply."));
+		}
+		return;
+	}
+
+	FString UseMessage;
+	FColor MessageColor(205, 220, 190);
+
+	if (ItemId == WaterItemId)
+	{
+		if (Survival->Thirst >= Survival->MaxThirst - KINDA_SMALL_NUMBER)
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(170, 200, 220), TEXT("Thirst is already full."));
+			}
+			return;
+		}
+
+		if (!Inventory->RemoveItem(ItemId, 1))
+		{
+			return;
+		}
+
+		Survival->AddThirst(35.0f);
+		UseMessage = TEXT("Drank bottled water  +35 THIRST");
+		MessageColor = FColor(145, 195, 225);
+	}
+	else if (ItemId == FoodItemId)
+	{
+		if (Survival->Hunger >= Survival->MaxHunger - KINDA_SMALL_NUMBER)
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(215, 185, 120), TEXT("Hunger is already full."));
+			}
+			return;
+		}
+
+		if (!Inventory->RemoveItem(ItemId, 1))
+		{
+			return;
+		}
+
+		Survival->AddHunger(30.0f);
+		UseMessage = TEXT("Ate preserved ration  +30 HUNGER");
+		MessageColor = FColor(215, 185, 120);
+	}
+	else if (ItemId == MedicalItemId)
+	{
+		if (Survival->Health >= Survival->MaxHealth - KINDA_SMALL_NUMBER)
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(220, 155, 145), TEXT("Health is already full."));
+			}
+			return;
+		}
+
+		if (!Inventory->RemoveItem(ItemId, 1))
+		{
+			return;
+		}
+
+		Survival->Heal(45.0f);
+		UseMessage = TEXT("Used first-aid kit  +45 HEALTH");
+		MessageColor = FColor(220, 155, 145);
+	}
+	else
+	{
+		return;
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(91003, 2.2f, MessageColor, UseMessage);
 	}
 }
 
@@ -129,21 +245,21 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 
 		if (TargetActor->ActorHasTag(WaterTag))
 		{
-			ItemId = TEXT("Water");
+			ItemId = WaterItemId;
 			GroupTag = WaterGroupTag;
 			Quantity = 4;
 			PickupMessage = TEXT("Collected 4 bottled waters");
 		}
 		else if (TargetActor->ActorHasTag(MedicalTag))
 		{
-			ItemId = TEXT("MedicalSupplies");
+			ItemId = MedicalItemId;
 			GroupTag = MedicalGroupTag;
 			Quantity = 1;
 			PickupMessage = TEXT("Collected first-aid kit");
 		}
 		else if (TargetActor->ActorHasTag(FoodTag))
 		{
-			ItemId = TEXT("Food");
+			ItemId = FoodItemId;
 			GroupTag = FoodGroupTag;
 			Quantity = 3;
 			PickupMessage = TEXT("Collected 3 preserved food rations");
