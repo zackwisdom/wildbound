@@ -4,6 +4,8 @@
 #include "Components/SkyAtmosphereComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "Engine/PostProcessVolume.h"
+#include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -60,6 +62,31 @@ namespace
 
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: muted post-disaster sky applied."));
 			break;
+		}
+
+		// Third mood pass: a restrained global grade. Keep it natural and readable,
+		// but remove some of the pristine template color and cool the deepest shadows.
+		APostProcessVolume* PostProcessVolume = World.SpawnActor<APostProcessVolume>();
+		if (PostProcessVolume)
+		{
+			PostProcessVolume->SetActorLabel(TEXT("WildBound_RuntimePostProcess"));
+			PostProcessVolume->bUnbound = true;
+			PostProcessVolume->bEnabled = true;
+			PostProcessVolume->Priority = 50.0f;
+			PostProcessVolume->BlendWeight = 1.0f;
+
+			FPostProcessSettings& Settings = PostProcessVolume->Settings;
+
+			Settings.bOverride_ColorSaturation = true;
+			Settings.ColorSaturation = FVector4(0.94f, 0.94f, 0.94f, 1.0f);
+
+			Settings.bOverride_ColorContrast = true;
+			Settings.ColorContrast = FVector4(1.04f, 1.04f, 1.04f, 1.0f);
+
+			Settings.bOverride_ColorGainShadows = true;
+			Settings.ColorGainShadows = FVector4(0.97f, 0.99f, 1.03f, 1.0f);
+
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle post-process grade applied."));
 		}
 	}
 }
