@@ -33,17 +33,20 @@ namespace
 			Fog->SetFogHeightFalloff(0.20f);
 			Fog->SetStartDistance(1000.0f);
 			Fog->SetFogMaxOpacity(0.45f);
+
+			// Fourth mood pass: a barely perceptible sickly cast in distant airborne dust only.
+			// The 1000 cm start distance keeps the player's immediate surroundings neutral.
 			Fog->SetFogInscatteringColor(
-				FLinearColor::FromSRGBColor(FColor(190, 184, 168)));
+				FLinearColor::FromSRGBColor(FColor(184, 188, 166)));
 
 			// Very light volumetric body so the warmer sun can catch suspended dust.
 			Fog->SetVolumetricFog(true);
 			Fog->SetVolumetricFogScatteringDistribution(0.20f);
 			Fog->SetVolumetricFogExtinctionScale(0.35f);
-			Fog->SetVolumetricFogAlbedo(FColor(205, 200, 185));
+			Fog->SetVolumetricFogAlbedo(FColor(198, 202, 184));
 			Fog->SetVolumetricFogDistance(9000.0f);
 
-			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle dust haze applied."));
+			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: subtle contaminated distance haze applied."));
 			break;
 		}
 
