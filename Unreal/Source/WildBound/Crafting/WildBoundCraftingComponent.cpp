@@ -35,11 +35,9 @@ UWildBoundCraftingComponent::UWildBoundCraftingComponent()
 void UWildBoundCraftingComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
 	InventoryComponent = GetOwner()
 		? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
 		: nullptr;
-
 	bWorkbenchMode = false;
 	BuildRecipesForCurrentMode();
 	EnsureCraftingWidget();
@@ -71,15 +69,6 @@ void UWildBoundCraftingComponent::TickComponent(
 	if (!PlayerController)
 	{
 		return;
-	}
-
-	if (!bCraftingOpen && IsNearWorkbench() && GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			91024,
-			0.08f,
-			FColor(205, 190, 135),
-			TEXT("[C] USE WORKBENCH"));
 	}
 
 	if (PlayerController->WasInputKeyJustPressed(EKeys::C))
@@ -135,7 +124,6 @@ bool UWildBoundCraftingComponent::IsNearWorkbench() const
 			return true;
 		}
 	}
-
 	return false;
 }
 
@@ -233,7 +221,6 @@ void UWildBoundCraftingComponent::ToggleCrafting()
 		SetCraftingOpen(false);
 		return;
 	}
-
 	OpenCrafting(IsNearWorkbench());
 }
 
@@ -321,7 +308,6 @@ bool UWildBoundCraftingComponent::CanCraftRecipe(int32 RecipeIndex) const
 			return false;
 		}
 	}
-
 	return true;
 }
 
