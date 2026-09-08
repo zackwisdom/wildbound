@@ -158,6 +158,25 @@ void UWildBoundInventoryComponent::ClearInventory()
 	OnInventoryChanged.Broadcast();
 }
 
+bool UWildBoundInventoryComponent::MoveStack(int32 SourceIndex, int32 TargetIndex)
+{
+	if (!Stacks.IsValidIndex(SourceIndex) || !Stacks.IsValidIndex(TargetIndex))
+	{
+		return false;
+	}
+
+	if (SourceIndex == TargetIndex)
+	{
+		return true;
+	}
+
+	const FWildBoundInventoryStack MovingStack = Stacks[SourceIndex];
+	Stacks.RemoveAt(SourceIndex);
+	Stacks.Insert(MovingStack, FMath::Clamp(TargetIndex, 0, Stacks.Num()));
+	OnInventoryChanged.Broadcast();
+	return true;
+}
+
 float UWildBoundInventoryComponent::GetItemUnitWeight(FName ItemId) const
 {
 	if (ItemId == WaterItem) return 0.75f;
@@ -236,7 +255,6 @@ FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 
 int32 UWildBoundInventoryComponent::GetItemRarityTier(FName ItemId) const
 {
-	// 0 Common, 1 Uncommon, 2 Rare, 3 Epic.
 	if (ItemId == ReinforcedBackpackItem
 		|| ItemId == FilterMaskItem
 		|| ItemId == TraumaKitItem
