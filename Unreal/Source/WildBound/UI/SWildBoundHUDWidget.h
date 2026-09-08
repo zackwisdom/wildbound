@@ -27,4 +27,5 @@ private:
 	FText GetHungerText() const;
 	FText GetThirstText() const;
 	FText GetStaminaText() const;
+	FText GetInventoryText() const;
 };
