@@ -284,9 +284,9 @@ void UWildBoundWorldSubsystem::EnsureHUD(UWildBoundSurvivalComponent* SurvivalCo
 	TSharedPtr<SOverlay> Overlay;
 	SAssignNew(Overlay, SOverlay)
 	+ SOverlay::Slot()
-	.HAlign(HAlign_Left)
-	.VAlign(VAlign_Bottom)
-	.Padding(FMargin(28.0f, 28.0f, 0.0f, 30.0f))
+	.HAlign(HAlign_Fill)
+	.VAlign(VAlign_Fill)
+	.Padding(FMargin(0.0f))
 	[
 		SAssignNew(HUDWidget, SWildBoundHUDWidget)
 		.SurvivalComponent(SurvivalComponent)
