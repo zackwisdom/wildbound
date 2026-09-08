@@ -112,6 +112,88 @@ int32 UWildBoundBackpackComponent::GetSelectedItemQuantity() const
 		: 0;
 }
 
+void UWildBoundBackpackComponent::SelectStackIndex(int32 StackIndex)
+{
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
+	{
+		return;
+	}
+	SelectedStackIndex = StackIndex;
+}
+
+bool UWildBoundBackpackComponent::ReorderStackFromMouse(int32 SourceIndex, int32 TargetIndex)
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || !Inventory->MoveStack(SourceIndex, TargetIndex))
+	{
+		return false;
+	}
+
+	SelectedStackIndex = FMath::Clamp(TargetIndex, 0, FMath::Max(Inventory->Stacks.Num() - 1, 0));
+	return true;
+}
+
+bool UWildBoundBackpackComponent::AssignItemToHotbarFromMouse(FName ItemId, int32 SlotIndex)
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || ItemId.IsNone())
+	{
+		return false;
+	}
+
+	return Inventory->AssignHotbarSlot(SlotIndex, ItemId);
+}
+
+void UWildBoundBackpackComponent::ClearHotbarSlotFromMouse(int32 SlotIndex)
+{
+	if (UWildBoundInventoryComponent* Inventory = InventoryComponent.Get())
+	{
+		Inventory->ClearHotbarSlot(SlotIndex);
+	}
+}
+
+bool UWildBoundBackpackComponent::DropStackFromMouse(int32 StackIndex, bool bDropWholeStack)
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
+	{
+		return false;
+	}
+
+	SelectedStackIndex = StackIndex;
+	const FName ItemId = GetSelectedItemId();
+	const int32 CurrentQuantity = GetSelectedItemQuantity();
+	if (ItemId.IsNone() || CurrentQuantity <= 0)
+	{
+		return false;
+	}
+
+	const int32 DropQuantity = bDropWholeStack ? CurrentQuantity : 1;
+	AActor* DroppedActor = SpawnDroppedItem(ItemId, DropQuantity);
+	if (!DroppedActor)
+	{
+		return false;
+	}
+
+	if (!Inventory->RemoveItem(ItemId, DropQuantity))
+	{
+		DroppedActor->Destroy();
+		return false;
+	}
+
+	ClampSelection();
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91031,
+			1.6f,
+			FColor(185, 185, 170),
+			FString::Printf(TEXT("Dropped %s x%d"), *Inventory->GetItemDisplayName(ItemId), DropQuantity));
+	}
+	return true;
+}
+
 void UWildBoundBackpackComponent::EnsureBackpackWidget()
 {
 	if (BackpackViewportRoot.IsValid())
@@ -131,9 +213,8 @@ void UWildBoundBackpackComponent::EnsureBackpackWidget()
 	TSharedPtr<SOverlay> Overlay;
 	SAssignNew(Overlay, SOverlay)
 	+ SOverlay::Slot()
-	.HAlign(HAlign_Center)
-	.VAlign(VAlign_Center)
-	.Padding(FMargin(24.0f))
+	.HAlign(HAlign_Fill)
+	.VAlign(VAlign_Fill)
 	[
 		SAssignNew(BackpackWidget, SWildBoundBackpackWidget)
 		.BackpackComponent(this)
@@ -212,7 +293,7 @@ void UWildBoundBackpackComponent::SetBackpackOpen(bool bOpen)
 	if (BackpackViewportRoot.IsValid())
 	{
 		BackpackViewportRoot->SetVisibility(
-			bBackpackOpen ? EVisibility::HitTestInvisible : EVisibility::Collapsed);
+			bBackpackOpen ? EVisibility::Visible : EVisibility::Collapsed);
 	}
 
 	APawn* Pawn = Cast<APawn>(GetOwner());
@@ -221,6 +302,20 @@ void UWildBoundBackpackComponent::SetBackpackOpen(bool bOpen)
 	{
 		PlayerController->SetIgnoreMoveInput(bBackpackOpen);
 		PlayerController->SetIgnoreLookInput(bBackpackOpen);
+		PlayerController->bShowMouseCursor = bBackpackOpen;
+
+		if (bBackpackOpen)
+		{
+			FInputModeGameAndUI InputMode;
+			InputMode.SetHideCursorDuringCapture(false);
+			InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+			PlayerController->SetInputMode(InputMode);
+		}
+		else
+		{
+			FInputModeGameOnly InputMode;
+			PlayerController->SetInputMode(InputMode);
+		}
 	}
 }
 
@@ -330,36 +425,7 @@ void UWildBoundBackpackComponent::RemoveSelectedFromHotbar()
 
 void UWildBoundBackpackComponent::DropSelectedItem(bool bDropWholeStack)
 {
-	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
-	const FName ItemId = GetSelectedItemId();
-	const int32 CurrentQuantity = GetSelectedItemQuantity();
-	if (!Inventory || ItemId.IsNone() || CurrentQuantity <= 0)
-	{
-		return;
-	}
-
-	const int32 DropQuantity = bDropWholeStack ? CurrentQuantity : 1;
-	AActor* DroppedActor = SpawnDroppedItem(ItemId, DropQuantity);
-	if (!DroppedActor)
-	{
-		return;
-	}
-
-	if (!Inventory->RemoveItem(ItemId, DropQuantity))
-	{
-		DroppedActor->Destroy();
-		return;
-	}
-
-	ClampSelection();
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			91031,
-			1.6f,
-			FColor(185, 185, 170),
-			FString::Printf(TEXT("Dropped %s x%d"), *Inventory->GetItemDisplayName(ItemId), DropQuantity));
-	}
+	DropStackFromMouse(SelectedStackIndex, bDropWholeStack);
 }
 
 AActor* UWildBoundBackpackComponent::SpawnDroppedItem(FName ItemId, int32 Quantity) const
