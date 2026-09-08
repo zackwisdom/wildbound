@@ -2,15 +2,39 @@
 
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../UI/SWildBoundBackpackWidget.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
 #include "Styling/CoreStyle.h"
+#include "UObject/UObjectGlobals.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
+
+namespace
+{
+	const FName InteractableTag(TEXT("WBInteractable"));
+	const FName DroppedItemTag(TEXT("WBTypeDroppedItem"));
+	const FName DroppedWorldTag(TEXT("WildBoundDroppedItem"));
+	const FString DroppedItemPrefix(TEXT("WBDropItem_"));
+	const FString DroppedQuantityPrefix(TEXT("WBDropQty_"));
+
+	UStaticMesh* GetDropMesh()
+	{
+		static TWeakObjectPtr<UStaticMesh> Mesh;
+		if (!Mesh.IsValid())
+		{
+			Mesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+		}
+		return Mesh.Get();
+	}
+}
 
 UWildBoundBackpackComponent::UWildBoundBackpackComponent()
 {
@@ -22,7 +46,6 @@ UWildBoundBackpackComponent::UWildBoundBackpackComponent()
 void UWildBoundBackpackComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
 	InventoryComponent = GetOwner()
 		? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
 		: nullptr;
@@ -32,6 +55,7 @@ void UWildBoundBackpackComponent::BeginPlay()
 
 void UWildBoundBackpackComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	SetBackpackOpen(false);
 	RemoveBackpackWidget();
 	Super::EndPlay(EndPlayReason);
 }
@@ -48,6 +72,7 @@ void UWildBoundBackpackComponent::TickComponent(
 		InventoryComponent = GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>();
 	}
 
+	ClampSelection();
 	EnsureBackpackWidget();
 	EnsureEncumbranceWarning();
 
@@ -62,7 +87,29 @@ void UWildBoundBackpackComponent::TickComponent(
 		|| PlayerController->WasInputKeyJustPressed(EKeys::Tab))
 	{
 		ToggleBackpack();
+		return;
 	}
+
+	if (bBackpackOpen)
+	{
+		HandleBackpackInput(*PlayerController);
+	}
+}
+
+FName UWildBoundBackpackComponent::GetSelectedItemId() const
+{
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	return Inventory && Inventory->Stacks.IsValidIndex(SelectedStackIndex)
+		? Inventory->Stacks[SelectedStackIndex].ItemId
+		: NAME_None;
+}
+
+int32 UWildBoundBackpackComponent::GetSelectedItemQuantity() const
+{
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	return Inventory && Inventory->Stacks.IsValidIndex(SelectedStackIndex)
+		? Inventory->Stacks[SelectedStackIndex].Quantity
+		: 0;
 }
 
 void UWildBoundBackpackComponent::EnsureBackpackWidget()
@@ -71,7 +118,7 @@ void UWildBoundBackpackComponent::EnsureBackpackWidget()
 	{
 		if (BackpackWidget.IsValid())
 		{
-			BackpackWidget->SetInventoryComponent(InventoryComponent.Get());
+			BackpackWidget->SetBackpackComponent(this);
 		}
 		return;
 	}
@@ -89,7 +136,7 @@ void UWildBoundBackpackComponent::EnsureBackpackWidget()
 	.Padding(FMargin(24.0f))
 	[
 		SAssignNew(BackpackWidget, SWildBoundBackpackWidget)
-		.InventoryComponent(InventoryComponent)
+		.BackpackComponent(this)
 	];
 
 	BackpackViewportRoot = Overlay;
@@ -137,7 +184,6 @@ void UWildBoundBackpackComponent::EnsureEncumbranceWarning()
 				{
 					return FText::GetEmpty();
 				}
-
 				return FText::FromString(FString::Printf(
 					TEXT("OVER ENCUMBERED   %.1f / %.1f kg"),
 					Inventory->GetTotalWeight(),
@@ -154,15 +200,206 @@ void UWildBoundBackpackComponent::EnsureEncumbranceWarning()
 
 void UWildBoundBackpackComponent::ToggleBackpack()
 {
+	SetBackpackOpen(!bBackpackOpen);
+}
+
+void UWildBoundBackpackComponent::SetBackpackOpen(bool bOpen)
+{
 	EnsureBackpackWidget();
-	if (!BackpackViewportRoot.IsValid())
+	bBackpackOpen = bOpen && BackpackViewportRoot.IsValid();
+	ClampSelection();
+
+	if (BackpackViewportRoot.IsValid())
+	{
+		BackpackViewportRoot->SetVisibility(
+			bBackpackOpen ? EVisibility::HitTestInvisible : EVisibility::Collapsed);
+	}
+
+	APawn* Pawn = Cast<APawn>(GetOwner());
+	APlayerController* PlayerController = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
+	if (PlayerController)
+	{
+		PlayerController->SetIgnoreMoveInput(bBackpackOpen);
+		PlayerController->SetIgnoreLookInput(bBackpackOpen);
+	}
+}
+
+void UWildBoundBackpackComponent::HandleBackpackInput(APlayerController& PlayerController)
+{
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Escape))
+	{
+		SetBackpackOpen(false);
+		return;
+	}
+
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Up))
+	{
+		MoveSelection(-1);
+		return;
+	}
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Down))
+	{
+		MoveSelection(1);
+		return;
+	}
+
+	if (PlayerController.WasInputKeyJustPressed(EKeys::One))
+	{
+		AssignSelectedToHotbar(0);
+		return;
+	}
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Two))
+	{
+		AssignSelectedToHotbar(1);
+		return;
+	}
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Three))
+	{
+		AssignSelectedToHotbar(2);
+		return;
+	}
+
+	if (PlayerController.WasInputKeyJustPressed(EKeys::R))
+	{
+		RemoveSelectedFromHotbar();
+		return;
+	}
+
+	if (PlayerController.WasInputKeyJustPressed(EKeys::D))
+	{
+		const bool bDropWholeStack = PlayerController.IsInputKeyDown(EKeys::LeftShift)
+			|| PlayerController.IsInputKeyDown(EKeys::RightShift);
+		DropSelectedItem(bDropWholeStack);
+	}
+}
+
+void UWildBoundBackpackComponent::MoveSelection(int32 Direction)
+{
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || Inventory->Stacks.IsEmpty() || Direction == 0)
+	{
+		SelectedStackIndex = 0;
+		return;
+	}
+
+	SelectedStackIndex = (SelectedStackIndex + Direction) % Inventory->Stacks.Num();
+	if (SelectedStackIndex < 0)
+	{
+		SelectedStackIndex += Inventory->Stacks.Num();
+	}
+}
+
+void UWildBoundBackpackComponent::ClampSelection()
+{
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || Inventory->Stacks.IsEmpty())
+	{
+		SelectedStackIndex = 0;
+		return;
+	}
+	SelectedStackIndex = FMath::Clamp(SelectedStackIndex, 0, Inventory->Stacks.Num() - 1);
+}
+
+void UWildBoundBackpackComponent::AssignSelectedToHotbar(int32 SlotIndex)
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	const FName ItemId = GetSelectedItemId();
+	if (!Inventory || ItemId.IsNone())
 	{
 		return;
 	}
 
-	bBackpackOpen = !bBackpackOpen;
-	BackpackViewportRoot->SetVisibility(
-		bBackpackOpen ? EVisibility::HitTestInvisible : EVisibility::Collapsed);
+	if (Inventory->GetHotbarItemId(SlotIndex) == ItemId)
+	{
+		Inventory->ClearHotbarSlot(SlotIndex);
+		return;
+	}
+
+	Inventory->AssignHotbarSlot(SlotIndex, ItemId);
+}
+
+void UWildBoundBackpackComponent::RemoveSelectedFromHotbar()
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	const FName ItemId = GetSelectedItemId();
+	if (Inventory && !ItemId.IsNone())
+	{
+		Inventory->ClearItemFromHotbar(ItemId);
+	}
+}
+
+void UWildBoundBackpackComponent::DropSelectedItem(bool bDropWholeStack)
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	const FName ItemId = GetSelectedItemId();
+	const int32 CurrentQuantity = GetSelectedItemQuantity();
+	if (!Inventory || ItemId.IsNone() || CurrentQuantity <= 0)
+	{
+		return;
+	}
+
+	const int32 DropQuantity = bDropWholeStack ? CurrentQuantity : 1;
+	AActor* DroppedActor = SpawnDroppedItem(ItemId, DropQuantity);
+	if (!DroppedActor)
+	{
+		return;
+	}
+
+	if (!Inventory->RemoveItem(ItemId, DropQuantity))
+	{
+		DroppedActor->Destroy();
+		return;
+	}
+
+	ClampSelection();
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91031,
+			1.6f,
+			FColor(185, 185, 170),
+			FString::Printf(TEXT("Dropped %s x%d"), *Inventory->GetItemDisplayName(ItemId), DropQuantity));
+	}
+}
+
+AActor* UWildBoundBackpackComponent::SpawnDroppedItem(FName ItemId, int32 Quantity) const
+{
+	UWorld* World = GetWorld();
+	AActor* Owner = GetOwner();
+	UStaticMesh* MeshAsset = GetDropMesh();
+	if (!World || !Owner || !MeshAsset || ItemId.IsNone() || Quantity <= 0)
+	{
+		return nullptr;
+	}
+
+	const FVector Location = Owner->GetActorLocation()
+		+ Owner->GetActorForwardVector() * 145.0f
+		+ FVector(0.0f, 0.0f, -68.0f);
+
+	AStaticMeshActor* Dropped = World->SpawnActor<AStaticMeshActor>(Location, FRotator::ZeroRotator);
+	if (!Dropped)
+	{
+		return nullptr;
+	}
+
+	Dropped->Tags.AddUnique(InteractableTag);
+	Dropped->Tags.AddUnique(DroppedItemTag);
+	Dropped->Tags.AddUnique(DroppedWorldTag);
+	Dropped->Tags.AddUnique(FName(*(DroppedItemPrefix + ItemId.ToString())));
+	Dropped->Tags.AddUnique(FName(*(DroppedQuantityPrefix + FString::FromInt(Quantity))));
+
+#if WITH_EDITOR
+	Dropped->SetActorLabel(FString::Printf(TEXT("WB_Dropped_%s_x%d"), *ItemId.ToString(), Quantity));
+#endif
+
+	UStaticMeshComponent* Mesh = Dropped->GetStaticMeshComponent();
+	Mesh->SetMobility(EComponentMobility::Movable);
+	Mesh->SetStaticMesh(MeshAsset);
+	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Mesh->SetCollisionResponseToAllChannels(ECR_Block);
+	Mesh->SetCastShadow(true);
+	Dropped->SetActorScale3D(FVector(0.34f, 0.34f, 0.24f));
+	return Dropped;
 }
 
 void UWildBoundBackpackComponent::RemoveBackpackWidget()
