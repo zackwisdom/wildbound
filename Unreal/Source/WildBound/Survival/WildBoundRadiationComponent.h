@@ -4,6 +4,9 @@
 #include "Components/ActorComponent.h"
 #include "WildBoundRadiationComponent.generated.h"
 
+class UAudioComponent;
+class USoundWaveProcedural;
+
 UCLASS(ClassGroup=(WildBound), meta=(BlueprintSpawnableComponent))
 class WILDBOUND_API UWildBoundRadiationComponent : public UActorComponent
 {
@@ -12,6 +15,8 @@ class WILDBOUND_API UWildBoundRadiationComponent : public UActorComponent
 public:
 	UWildBoundRadiationComponent();
 
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="WildBound|Radiation")
@@ -38,6 +43,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation", meta=(ClampMin="0.0"))
 	float HighDoseDamagePerSecond = 1.5f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Geiger", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float GeigerVolume = 0.72f;
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
 	float GetExposurePercent() const;
 
@@ -46,4 +54,18 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
 	bool IsExposed() const { return CurrentExposure > 1.0f; }
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> GeigerAudioComponent;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USoundWaveProcedural> GeigerSoundWave;
+
+	float SecondsUntilNextGeigerClick = 0.0f;
+
+	void InitializeGeigerAudio();
+	void UpdateGeigerAudio(float DeltaTime);
+	void QueueGeigerAudioFrame(bool bEmitClick, float ExposurePercent);
+	float GetGeigerClickInterval(float ExposurePercent) const;
 };
