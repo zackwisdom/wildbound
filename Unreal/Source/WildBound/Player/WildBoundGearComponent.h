@@ -25,11 +25,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Gear", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float FilterMaskDoseMultiplier = 0.55f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Gear", meta=(ClampMin="0"))
+	int32 UtilityBeltSlotBonus = 4;
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Gear")
 	bool HasReinforcedBackpack() const;
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Gear")
 	bool HasFilterMask() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Gear")
+	bool HasUtilityBelt() const;
 
 private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
@@ -37,6 +43,7 @@ private:
 
 	float BaseCarryWeight = -1.0f;
 	float BaseRadiationDosePerSecond = -1.0f;
+	int32 BaseMaxSlots = -1;
 
 	void RefreshComponentReferences();
 	void ApplyGearEffects();
