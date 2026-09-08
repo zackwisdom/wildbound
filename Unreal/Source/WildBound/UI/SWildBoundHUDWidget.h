@@ -31,5 +31,12 @@ private:
 	FText GetStaminaText() const;
 	FText GetRadiationText() const;
 	FSlateColor GetRadiationColor() const;
-	FText GetInventoryText() const;
+
+	int32 GetSelectedHotbarSlot() const;
+	FSlateColor GetHotbarSlotOneBackground() const;
+	FSlateColor GetHotbarSlotTwoBackground() const;
+	FSlateColor GetHotbarSlotThreeBackground() const;
+	FText GetWaterHotbarCount() const;
+	FText GetFoodHotbarCount() const;
+	FText GetMedicalHotbarCount() const;
 };
