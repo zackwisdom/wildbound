@@ -7,9 +7,10 @@
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSeparator.h"
-#include "Widgets/SBoxPanel.h"
 #include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -72,26 +73,81 @@ namespace
 
 			SBorder::Construct(
 				SBorder::FArguments()
-				.Padding(FMargin(8.0f, 6.0f))
-				.BorderBackgroundColor(FLinearColor(0.055f, 0.065f, 0.060f, 0.94f))
+				.Padding(FMargin(10.0f, 8.0f))
+				.BorderBackgroundColor(this, &SWildBoundInventoryRow::GetRowBackground)
+				.ToolTipText(this, &SWildBoundInventoryRow::GetTooltipText)
 				[
-					SNew(STextBlock)
-					.Text(this, &SWildBoundInventoryRow::GetRowText)
-					.ColorAndOpacity(this, &SWildBoundInventoryRow::GetRowColor)
-					.Font(FCoreStyle::GetDefaultFontStyle("Mono", 10))
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 10.0f, 0.0f)
+					[
+						SNew(SBox)
+						.WidthOverride(6.0f)
+						.HeightOverride(42.0f)
+						[
+							SNew(SBorder)
+							.Padding(0.0f)
+							.BorderBackgroundColor(this, &SWildBoundInventoryRow::GetRarityColor)
+						]
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot().AutoHeight()
+						[
+							SNew(STextBlock)
+							.Text(this, &SWildBoundInventoryRow::GetItemNameText)
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+							.ColorAndOpacity(this, &SWildBoundInventoryRow::GetRarityColor)
+						]
+						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f, 0.0f, 0.0f)
+						[
+							SNew(STextBlock)
+							.Text(this, &SWildBoundInventoryRow::GetMetadataText)
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+							.ColorAndOpacity(FLinearColor(0.61f, 0.66f, 0.61f, 1.0f))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).HAlign(HAlign_Right)
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)
+						[
+							SNew(STextBlock)
+							.Text(this, &SWildBoundInventoryRow::GetQuantityText)
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+						]
+						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f, 0.0f, 0.0f).HAlign(HAlign_Right)
+						[
+							SNew(STextBlock)
+							.Text(this, &SWildBoundInventoryRow::GetWeightText)
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+							.ColorAndOpacity(FLinearColor(0.70f, 0.71f, 0.67f, 1.0f))
+						]
+					]
 				]);
 		}
 
 		virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 		{
+			UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			if (!Backpack)
+			{
+				return SBorder::OnMouseButtonDown(MyGeometry, MouseEvent);
+			}
+
 			if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 			{
-				if (UWildBoundBackpackComponent* Backpack = BackpackComponent.Get())
-				{
-					Backpack->SelectStackIndex(StackIndex);
-				}
+				Backpack->SelectStackIndex(StackIndex);
 				return FReply::Handled().DetectDrag(SharedThis(this), EKeys::LeftMouseButton);
 			}
+
+			if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+			{
+				Backpack->SelectStackIndex(StackIndex);
+				Backpack->SplitStackFromMouse(StackIndex);
+				return FReply::Handled();
+			}
+
 			return SBorder::OnMouseButtonDown(MyGeometry, MouseEvent);
 		}
 
@@ -129,41 +185,100 @@ namespace
 		TWeakObjectPtr<UWildBoundBackpackComponent> BackpackComponent;
 		int32 StackIndex = INDEX_NONE;
 
-		FText GetRowText() const
+		const FWildBoundInventoryStack* GetStack() const
 		{
 			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
-			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
+			return Inventory && Inventory->Stacks.IsValidIndex(StackIndex)
+				? &Inventory->Stacks[StackIndex]
+				: nullptr;
+		}
+
+		FSlateColor GetRowBackground() const
+		{
+			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			return Backpack && Backpack->GetSelectedStackIndex() == StackIndex
+				? FSlateColor(FLinearColor(0.095f, 0.115f, 0.102f, 0.98f))
+				: FSlateColor(FLinearColor(0.045f, 0.054f, 0.050f, 0.96f));
+		}
+
+		FSlateColor GetRarityColor() const
+		{
+			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const FWildBoundInventoryStack* Stack = GetStack();
+			return Stack ? GetItemRaritySlateColor(Inventory, Stack->ItemId) : FSlateColor(FLinearColor::White);
+		}
+
+		FText GetItemNameText() const
+		{
+			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const FWildBoundInventoryStack* Stack = GetStack();
+			return Inventory && Stack
+				? FText::FromString(Inventory->GetItemDisplayName(Stack->ItemId))
+				: FText::GetEmpty();
+		}
+
+		FText GetMetadataText() const
+		{
+			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const FWildBoundInventoryStack* Stack = GetStack();
+			if (!Inventory || !Stack)
 			{
 				return FText::GetEmpty();
 			}
 
-			const FWildBoundInventoryStack& Stack = Inventory->Stacks[StackIndex];
 			int32 HotbarSlot = INDEX_NONE;
-			const bool bInHotbar = Inventory->IsItemInHotbar(Stack.ItemId, HotbarSlot);
-			const bool bSelected = Backpack->GetSelectedStackIndex() == StackIndex;
-			const FString HotbarText = bInHotbar ? FString::Printf(TEXT("H%d"), HotbarSlot + 1) : TEXT("--");
-			const float StackWeight = Inventory->GetItemUnitWeight(Stack.ItemId) * static_cast<float>(Stack.Quantity);
-
+			const bool bInHotbar = Inventory->IsItemInHotbar(Stack->ItemId, HotbarSlot);
 			return FText::FromString(FString::Printf(
-				TEXT("%s [%s] [%-8s] %-22s x%-3d %5.2f kg"),
-				bSelected ? TEXT(">") : TEXT(" "),
-				*HotbarText,
-				*Inventory->GetItemRarityName(Stack.ItemId),
-				*Inventory->GetItemDisplayName(Stack.ItemId),
-				Stack.Quantity,
-				StackWeight));
+				TEXT("%s  •  %s%s"),
+				*Inventory->GetItemRarityName(Stack->ItemId),
+				*Inventory->GetItemCategoryName(Stack->ItemId),
+				bInHotbar ? *FString::Printf(TEXT("  •  HOTBAR %d"), HotbarSlot + 1) : TEXT("")));
 		}
 
-		FSlateColor GetRowColor() const
+		FText GetQuantityText() const
+		{
+			const FWildBoundInventoryStack* Stack = GetStack();
+			return Stack ? FText::FromString(FString::Printf(TEXT("x%d"), Stack->Quantity)) : FText::GetEmpty();
+		}
+
+		FText GetWeightText() const
 		{
 			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
-			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
+			const FWildBoundInventoryStack* Stack = GetStack();
+			if (!Inventory || !Stack)
 			{
-				return FSlateColor(FLinearColor::White);
+				return FText::GetEmpty();
 			}
-			return GetItemRaritySlateColor(Inventory, Inventory->Stacks[StackIndex].ItemId);
+			return FText::FromString(FString::Printf(
+				TEXT("%.2f kg"),
+				Inventory->GetItemUnitWeight(Stack->ItemId) * static_cast<float>(Stack->Quantity)));
+		}
+
+		FText GetTooltipText() const
+		{
+			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const FWildBoundInventoryStack* Stack = GetStack();
+			if (!Inventory || !Stack)
+			{
+				return FText::GetEmpty();
+			}
+
+			const float UnitWeight = Inventory->GetItemUnitWeight(Stack->ItemId);
+			return FText::FromString(FString::Printf(
+				TEXT("[%s] %s\n%s\n\n%s\n\nStack: %d   Unit: %.2f kg   Total: %.2f kg\nLeft-drag: move / hotbar / drop   Right-click: split stack in half"),
+				*Inventory->GetItemRarityName(Stack->ItemId),
+				*Inventory->GetItemDisplayName(Stack->ItemId),
+				*Inventory->GetItemCategoryName(Stack->ItemId),
+				*Inventory->GetItemDescription(Stack->ItemId),
+				Stack->Quantity,
+				UnitWeight,
+				UnitWeight * static_cast<float>(Stack->Quantity)));
 		}
 	};
 
@@ -182,8 +297,9 @@ namespace
 
 			SBorder::Construct(
 				SBorder::FArguments()
-				.Padding(FMargin(10.0f, 8.0f))
+				.Padding(FMargin(12.0f, 10.0f))
 				.BorderBackgroundColor(FLinearColor(0.060f, 0.072f, 0.064f, 0.96f))
+				.ToolTipText(FText::FromString(TEXT("Drag an inventory item here to assign it. Right-click to clear this slot.")))
 				[
 					SNew(STextBlock)
 					.Text(this, &SWildBoundHotbarDropSlot::GetSlotText)
@@ -257,7 +373,7 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 		.VAlign(VAlign_Fill)
 		[
 			SNew(SBorder)
-			.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.32f))
+			.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.42f))
 		]
 		+ SOverlay::Slot()
 		.HAlign(HAlign_Center)
@@ -265,11 +381,11 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 		.Padding(FMargin(24.0f))
 		[
 			SAssignNew(InventoryPanel, SBox)
-			.WidthOverride(920.0f)
+			.WidthOverride(1020.0f)
 			[
 				SNew(SBorder)
-				.Padding(FMargin(22.0f, 18.0f))
-				.BorderBackgroundColor(FLinearColor(0.012f, 0.016f, 0.015f, 0.98f))
+				.Padding(FMargin(24.0f, 20.0f))
+				.BorderBackgroundColor(FLinearColor(0.012f, 0.016f, 0.015f, 0.985f))
 				[
 					SNew(SVerticalBox)
 					+ SVerticalBox::Slot().AutoHeight()
@@ -277,9 +393,20 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot().FillWidth(1.0f)
 						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("BACKPACK / LOADOUT")))
-							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 18))
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot().AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(FText::FromString(TEXT("BACKPACK")))
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 20))
+							]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 3.0f, 0.0f, 0.0f)
+							[
+								SNew(STextBlock)
+								.Text(FText::FromString(TEXT("LOADOUT / SCAVENGED SUPPLIES")))
+								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+								.ColorAndOpacity(FLinearColor(0.57f, 0.62f, 0.57f, 1.0f))
+							]
 						]
 						+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 						[
@@ -289,55 +416,78 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							.ColorAndOpacity(FLinearColor(0.58f, 0.61f, 0.57f, 1.0f))
 						]
 					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 6.0f, 0.0f, 0.0f)
-					[
-						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("MOUSE: DRAG TO REORDER  •  DRAG TO HOTBAR  •  DRAG OUTSIDE PANEL TO DROP STACK")))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FLinearColor(0.72f, 0.76f, 0.69f, 1.0f))
-					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 8.0f, 0.0f, 10.0f)
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 10.0f, 0.0f, 10.0f)
 					[
 						SNew(SSeparator)
 					]
 					+ SVerticalBox::Slot().AutoHeight()
 					[
-						SNew(STextBlock)
-						.Text(this, &SWildBoundBackpackWidget::GetWeightText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot().FillWidth(1.0f)
+						[
+							SNew(STextBlock)
+							.Text(this, &SWildBoundBackpackWidget::GetWeightText)
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+						]
+						+ SHorizontalBox::Slot().AutoWidth()
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(TEXT("LEFT-DRAG MOVE   •   RIGHT-CLICK SPLIT   •   DRAG OUT TO DROP")))
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+							.ColorAndOpacity(FLinearColor(0.63f, 0.67f, 0.61f, 1.0f))
+						]
 					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 4.0f)
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 5.0f, 0.0f, 3.0f)
 					[
 						SNew(SProgressBar)
 						.Percent(this, &SWildBoundBackpackWidget::GetWeightPercent)
 						.FillColorAndOpacity(FLinearColor(0.70f, 0.55f, 0.18f, 1.0f))
 					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 12.0f)
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 14.0f)
 					[
 						SNew(STextBlock)
 						.Text(this, &SWildBoundBackpackWidget::GetStatusText)
 						.ColorAndOpacity(this, &SWildBoundBackpackWidget::GetStatusColor)
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
 					]
 					+ SVerticalBox::Slot().AutoHeight()
 					[
 						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot().FillWidth(0.68f).Padding(0.0f, 0.0f, 14.0f, 0.0f)
+						+ SHorizontalBox::Slot().FillWidth(0.68f).Padding(0.0f, 0.0f, 16.0f, 0.0f)
 						[
 							SNew(SBorder)
 							.Padding(FMargin(12.0f, 10.0f))
-							.BorderBackgroundColor(FLinearColor(0.035f, 0.045f, 0.041f, 0.92f))
+							.BorderBackgroundColor(FLinearColor(0.028f, 0.037f, 0.033f, 0.96f))
 							[
 								SNew(SVerticalBox)
 								+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 8.0f)
 								[
-									SNew(STextBlock)
-									.Text(FText::FromString(TEXT("INVENTORY — CLICK / DRAG ITEMS")))
-									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot().FillWidth(1.0f)
+									[
+										SNew(STextBlock)
+										.Text(FText::FromString(TEXT("INVENTORY")))
+										.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+									]
+									+ SHorizontalBox::Slot().AutoWidth()
+									[
+										SNew(STextBlock)
+										.Text(FText::FromString(TEXT("HOVER FOR DETAILS")))
+										.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+										.ColorAndOpacity(FLinearColor(0.55f, 0.59f, 0.55f, 1.0f))
+									]
 								]
 								+ SVerticalBox::Slot().AutoHeight()
 								[
-									SAssignNew(InventoryRowsBox, SVerticalBox)
+									SNew(SBox)
+									.HeightOverride(460.0f)
+									[
+										SNew(SScrollBox)
+										+ SScrollBox::Slot()
+										[
+											SAssignNew(InventoryRowsBox, SVerticalBox)
+										]
+									]
 								]
 							]
 						]
@@ -348,13 +498,13 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(SBorder)
 								.Padding(FMargin(12.0f, 10.0f))
-								.BorderBackgroundColor(FLinearColor(0.045f, 0.055f, 0.050f, 0.96f))
+								.BorderBackgroundColor(FLinearColor(0.040f, 0.050f, 0.045f, 0.97f))
 								[
 									SNew(SVerticalBox)
 									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 7.0f)
 									[
 										SNew(STextBlock)
-										.Text(FText::FromString(TEXT("HOTBAR — DROP ITEMS")))
+										.Text(FText::FromString(TEXT("QUICK ACCESS")))
 										.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
 									]
 									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
@@ -369,40 +519,19 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 									[
 										SNew(SWildBoundHotbarDropSlot).BackpackComponent(BackpackComponent).SlotIndex(2)
 									]
-									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 6.0f, 0.0f, 0.0f)
-									[
-										SNew(STextBlock)
-										.Text(FText::FromString(TEXT("Right-click a hotbar slot to clear it.")))
-										.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-										.ColorAndOpacity(FLinearColor(0.60f, 0.63f, 0.58f, 1.0f))
-									]
 								]
 							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 12.0f, 0.0f, 0.0f)
+							+ SVerticalBox::Slot().FillHeight(1.0f).Padding(0.0f, 12.0f, 0.0f, 0.0f)
 							[
 								SNew(SBorder)
-								.Padding(FMargin(12.0f, 10.0f))
-								.BorderBackgroundColor(FLinearColor(0.028f, 0.035f, 0.032f, 0.96f))
+								.Padding(FMargin(14.0f, 12.0f))
+								.BorderBackgroundColor(FLinearColor(0.025f, 0.032f, 0.029f, 0.97f))
 								[
-									SNew(SVerticalBox)
-									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 7.0f)
-									[
-										SNew(STextBlock)
-										.Text(this, &SWildBoundBackpackWidget::GetSelectedItemText)
-										.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
-									]
-									+ SVerticalBox::Slot().AutoHeight()
-									[
-										SNew(STextBlock)
-										.Text(FText::FromString(TEXT(
-											"KEYBOARD\n"
-											"UP / DOWN   SELECT\n"
-											"1 / 2 / 3   HOTBAR\n"
-											"D           DROP ONE\n"
-											"SHIFT + D   DROP STACK")))
-										.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-										.ColorAndOpacity(FLinearColor(0.62f, 0.65f, 0.60f, 1.0f))
-									]
+									SNew(STextBlock)
+									.Text(this, &SWildBoundBackpackWidget::GetSelectedItemText)
+									.AutoWrapText(true)
+									.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+									.ColorAndOpacity(FLinearColor(0.83f, 0.85f, 0.80f, 1.0f))
 								]
 							]
 						]
@@ -475,10 +604,15 @@ void SWildBoundBackpackWidget::RebuildInventoryRows()
 	{
 		InventoryRowsBox->AddSlot().AutoHeight()
 		[
-			SNew(STextBlock)
-			.Text(FText::FromString(TEXT("— backpack empty —")))
-			.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
-			.ColorAndOpacity(FLinearColor(0.60f, 0.63f, 0.59f, 1.0f))
+			SNew(SBorder)
+			.Padding(FMargin(16.0f, 20.0f))
+			.BorderBackgroundColor(FLinearColor(0.035f, 0.042f, 0.039f, 0.90f))
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(TEXT("Backpack empty. Search the town for supplies.")))
+				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
+				.ColorAndOpacity(FLinearColor(0.60f, 0.63f, 0.59f, 1.0f))
+			]
 		];
 		return;
 	}
@@ -533,7 +667,7 @@ FText SWildBoundBackpackWidget::GetWeightText() const
 	const int32 SlotsUsed = Inventory ? Inventory->Stacks.Num() : 0;
 	const int32 SlotsMax = Inventory ? Inventory->MaxSlots : 0;
 	return FText::FromString(FString::Printf(
-		TEXT("CARRY WEIGHT   %.2f / %.2f kg      SLOTS   %d / %d"),
+		TEXT("CARRY   %.2f / %.2f kg      INVENTORY SLOTS   %d / %d"),
 		Current,
 		Max,
 		SlotsUsed,
@@ -571,20 +705,28 @@ FText SWildBoundBackpackWidget::GetSelectedItemText() const
 	const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
 	if (!Inventory || !Backpack)
 	{
-		return FText::FromString(TEXT("SELECTED  —"));
+		return FText::FromString(TEXT("ITEM DETAILS\n—"));
 	}
 
 	const FName ItemId = Backpack->GetSelectedItemId();
 	const int32 Quantity = Backpack->GetSelectedItemQuantity();
 	if (ItemId.IsNone() || Quantity <= 0)
 	{
-		return FText::FromString(TEXT("SELECTED  —"));
+		return FText::FromString(TEXT("ITEM DETAILS\nSelect an item to inspect it."));
 	}
 
+	int32 HotbarSlot = INDEX_NONE;
+	const bool bInHotbar = Inventory->IsItemInHotbar(ItemId, HotbarSlot);
+	const float UnitWeight = Inventory->GetItemUnitWeight(ItemId);
+
 	return FText::FromString(FString::Printf(
-		TEXT("SELECTED\n[%s] %s x%d\n%.2f kg each"),
+		TEXT("ITEM DETAILS\n\n[%s]  %s\n%s\n\n%s\n\nSTACK   x%d\nUNIT WEIGHT   %.2f kg\nSTACK WEIGHT   %.2f kg%s\n\nMOUSE\nLeft-drag: reorder / hotbar / world drop\nRight-click: split stack in half"),
 		*Inventory->GetItemRarityName(ItemId),
 		*Inventory->GetItemDisplayName(ItemId),
+		*Inventory->GetItemCategoryName(ItemId),
+		*Inventory->GetItemDescription(ItemId),
 		Quantity,
-		Inventory->GetItemUnitWeight(ItemId)));
+		UnitWeight,
+		UnitWeight * static_cast<float>(Quantity),
+		bInHotbar ? *FString::Printf(TEXT("\nHOTBAR   %d"), HotbarSlot + 1) : TEXT("")));
 }
