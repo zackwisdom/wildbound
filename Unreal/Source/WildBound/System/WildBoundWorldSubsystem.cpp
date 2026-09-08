@@ -162,11 +162,9 @@ namespace
 			Settings.AutoExposureSpeedDown = 1.0f;
 
 			// Tenth mood pass: extremely light grain to break up the pristine digital image.
-			// It should be felt more than noticed, with finer grain and no heavy retro-film look.
+			// UE 5.8 exposes grain intensity here, but not the older texel-size override.
 			Settings.bOverride_FilmGrainIntensity = true;
 			Settings.FilmGrainIntensity = 0.08f;
-			Settings.bOverride_FilmGrainTexelSize = true;
-			Settings.FilmGrainTexelSize = 0.65f;
 
 			UE_LOG(LogTemp, Log, TEXT("WildBound atmosphere: restrained film grain applied."));
 		}
