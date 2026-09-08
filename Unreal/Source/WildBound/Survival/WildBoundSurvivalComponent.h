@@ -57,6 +57,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Rates", meta=(ClampMin="0.0"))
 	float StaminaRegenPerSecond = 14.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Rates", meta=(ClampMin="1.0"))
+	float StationaryStaminaRegenMultiplier = 2.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Rates", meta=(ClampMin="0.0"))
+	float StationaryVelocityThreshold = 5.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Rates", meta=(ClampMin="0.0"))
 	float StarvationDamagePerSecond = 2.0f;
 
