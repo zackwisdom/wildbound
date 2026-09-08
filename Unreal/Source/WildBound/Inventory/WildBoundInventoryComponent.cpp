@@ -112,3 +112,68 @@ void UWildBoundInventoryComponent::ClearInventory()
 	Stacks.Reset();
 	OnInventoryChanged.Broadcast();
 }
+
+float UWildBoundInventoryComponent::GetItemUnitWeight(FName ItemId) const
+{
+	if (ItemId == TEXT("Water")) return 0.75f;
+	if (ItemId == TEXT("Food")) return 0.45f;
+	if (ItemId == TEXT("MedicalSupplies")) return 1.20f;
+	if (ItemId == TEXT("ScrapMetal")) return 0.65f;
+	if (ItemId == TEXT("Cloth")) return 0.15f;
+	if (ItemId == TEXT("Wood")) return 0.80f;
+	if (ItemId == TEXT("Plastic")) return 0.25f;
+	if (ItemId == TEXT("Electronics")) return 0.55f;
+	if (ItemId == TEXT("Chemicals")) return 0.75f;
+	if (ItemId == TEXT("Adhesive")) return 0.35f;
+	if (ItemId == TEXT("Wire")) return 0.25f;
+	if (ItemId == TEXT("Battery")) return 0.45f;
+	if (ItemId == TEXT("MechanicalParts")) return 0.85f;
+	if (ItemId == TEXT("Flashlight")) return 0.70f;
+	if (ItemId == TEXT("Crowbar")) return 2.00f;
+
+	// Unknown future items still carry mass so newly-added loot never bypasses encumbrance.
+	return 0.50f;
+}
+
+float UWildBoundInventoryComponent::GetTotalWeight() const
+{
+	float TotalWeight = 0.0f;
+	for (const FWildBoundInventoryStack& Stack : Stacks)
+	{
+		if (!Stack.ItemId.IsNone() && Stack.Quantity > 0)
+		{
+			TotalWeight += GetItemUnitWeight(Stack.ItemId) * static_cast<float>(Stack.Quantity);
+		}
+	}
+	return TotalWeight;
+}
+
+float UWildBoundInventoryComponent::GetCarryWeightRatio() const
+{
+	return MaxCarryWeight > 0.0f ? GetTotalWeight() / MaxCarryWeight : 0.0f;
+}
+
+bool UWildBoundInventoryComponent::IsOverEncumbered() const
+{
+	return GetTotalWeight() > MaxCarryWeight + KINDA_SMALL_NUMBER;
+}
+
+FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
+{
+	if (ItemId == TEXT("Water")) return TEXT("Bottled Water");
+	if (ItemId == TEXT("Food")) return TEXT("Preserved Food");
+	if (ItemId == TEXT("MedicalSupplies")) return TEXT("Medical Supplies");
+	if (ItemId == TEXT("ScrapMetal")) return TEXT("Scrap Metal");
+	if (ItemId == TEXT("Cloth")) return TEXT("Cloth");
+	if (ItemId == TEXT("Wood")) return TEXT("Wood");
+	if (ItemId == TEXT("Plastic")) return TEXT("Plastic");
+	if (ItemId == TEXT("Electronics")) return TEXT("Electronics");
+	if (ItemId == TEXT("Chemicals")) return TEXT("Chemicals");
+	if (ItemId == TEXT("Adhesive")) return TEXT("Adhesive");
+	if (ItemId == TEXT("Wire")) return TEXT("Wire");
+	if (ItemId == TEXT("Battery")) return TEXT("Battery");
+	if (ItemId == TEXT("MechanicalParts")) return TEXT("Mechanical Parts");
+	if (ItemId == TEXT("Flashlight")) return TEXT("Flashlight");
+	if (ItemId == TEXT("Crowbar")) return TEXT("Crowbar");
+	return ItemId.ToString();
+}
