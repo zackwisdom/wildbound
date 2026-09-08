@@ -125,6 +125,41 @@ bool UWildBoundInventoryComponent::RemoveItem(FName ItemId, int32 Quantity)
 	return true;
 }
 
+bool UWildBoundInventoryComponent::RemoveFromStack(int32 StackIndex, int32 Quantity)
+{
+	if (!Stacks.IsValidIndex(StackIndex) || Quantity <= 0)
+	{
+		return false;
+	}
+
+	FWildBoundInventoryStack& Stack = Stacks[StackIndex];
+	if (Stack.ItemId.IsNone() || Quantity > Stack.Quantity)
+	{
+		return false;
+	}
+
+	const FName ItemId = Stack.ItemId;
+	Stack.Quantity -= Quantity;
+	if (Stack.Quantity <= 0)
+	{
+		Stacks.RemoveAt(StackIndex);
+	}
+
+	if (!HasItem(ItemId, 1))
+	{
+		for (FName& HotbarItem : HotbarSlots)
+		{
+			if (HotbarItem == ItemId)
+			{
+				HotbarItem = NAME_None;
+			}
+		}
+	}
+
+	OnInventoryChanged.Broadcast();
+	return true;
+}
+
 int32 UWildBoundInventoryComponent::GetItemCount(FName ItemId) const
 {
 	int32 Total = 0;
@@ -173,6 +208,32 @@ bool UWildBoundInventoryComponent::MoveStack(int32 SourceIndex, int32 TargetInde
 	const FWildBoundInventoryStack MovingStack = Stacks[SourceIndex];
 	Stacks.RemoveAt(SourceIndex);
 	Stacks.Insert(MovingStack, FMath::Clamp(TargetIndex, 0, Stacks.Num()));
+	OnInventoryChanged.Broadcast();
+	return true;
+}
+
+bool UWildBoundInventoryComponent::SplitStack(int32 StackIndex, int32 SplitQuantity)
+{
+	if (!Stacks.IsValidIndex(StackIndex)
+		|| Stacks.Num() >= MaxSlots
+		|| SplitQuantity <= 0)
+	{
+		return false;
+	}
+
+	FWildBoundInventoryStack& Source = Stacks[StackIndex];
+	if (Source.ItemId.IsNone() || SplitQuantity >= Source.Quantity)
+	{
+		return false;
+	}
+
+	const FName ItemId = Source.ItemId;
+	Source.Quantity -= SplitQuantity;
+
+	FWildBoundInventoryStack NewStack;
+	NewStack.ItemId = ItemId;
+	NewStack.Quantity = SplitQuantity;
+	Stacks.Insert(NewStack, StackIndex + 1);
 	OnInventoryChanged.Broadcast();
 	return true;
 }
@@ -251,6 +312,49 @@ FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 	if (ItemId == RadTreatmentItem) return TEXT("Radiation Treatment");
 	if (ItemId == UtilityBeltItem) return TEXT("Utility Belt");
 	return ItemId.ToString();
+}
+
+FString UWildBoundInventoryComponent::GetItemCategoryName(FName ItemId) const
+{
+	if (ItemId == WaterItem || ItemId == FoodItem || ItemId == MedicalItem || ItemId == TraumaKitItem || ItemId == RadTreatmentItem)
+	{
+		return TEXT("CONSUMABLE");
+	}
+	if (ItemId == FlashlightItem || ItemId == CrowbarItem)
+	{
+		return TEXT("TOOL");
+	}
+	if (ItemId == ReinforcedBackpackItem || ItemId == FilterMaskItem || ItemId == CanteenItem || ItemId == UtilityBeltItem)
+	{
+		return TEXT("PASSIVE GEAR");
+	}
+	return TEXT("CRAFTING MATERIAL");
+}
+
+FString UWildBoundInventoryComponent::GetItemDescription(FName ItemId) const
+{
+	if (ItemId == WaterItem) return TEXT("Clean bottled water. Restores 35 thirst, or 45 while carrying a sealed canteen.");
+	if (ItemId == FoodItem) return TEXT("Shelf-stable food salvaged from the evacuation zone. Restores 30 hunger.");
+	if (ItemId == MedicalItem) return TEXT("Basic first-aid supplies. Restores 45 health when used from the hotbar.");
+	if (ItemId == TraumaKitItem) return TEXT("High-grade emergency medical kit. Restores 80 health.");
+	if (ItemId == RadTreatmentItem) return TEXT("Anti-radiation treatment. Removes 30 accumulated radiation dose.");
+	if (ItemId == FlashlightItem) return TEXT("Working handheld flashlight. Carry it and press F to toggle the beam.");
+	if (ItemId == CrowbarItem) return TEXT("Heavy pry tool used to force sealed caches and blocked maintenance access.");
+	if (ItemId == ReinforcedBackpackItem) return TEXT("Reinforced frame and straps increase maximum carry weight by 12 kg while carried.");
+	if (ItemId == FilterMaskItem) return TEXT("Sealed filter mask reduces radiation dose accumulation by 45% while carried.");
+	if (ItemId == CanteenItem) return TEXT("Sealed canteen improves bottled-water recovery from 35 to 45 thirst while carried.");
+	if (ItemId == UtilityBeltItem) return TEXT("Expanded utility storage increases backpack capacity by 4 inventory slots while carried.");
+	if (ItemId == ScrapItem) return TEXT("Salvaged metal stock used for tools, reinforcement, and workbench recipes.");
+	if (ItemId == ClothItem) return TEXT("Cleanable fabric used for medical, filtration, straps, and improvised gear.");
+	if (ItemId == WoodItem) return TEXT("Reusable timber and boards for structural or survival crafting.");
+	if (ItemId == PlasticItem) return TEXT("Recovered plastic housings and panels used in lightweight crafted equipment.");
+	if (ItemId == ElectronicsItem) return TEXT("Reusable electronic components for powered tools and advanced utility gear.");
+	if (ItemId == ChemicalsItem) return TEXT("Industrial and medical chemicals used in treatment, filtration, and disinfectant recipes.");
+	if (ItemId == AdhesiveItem) return TEXT("Strong scavenged adhesive used to bind and seal improvised equipment.");
+	if (ItemId == WireItem) return TEXT("Electrical wire useful for powered devices and workbench assembly.");
+	if (ItemId == BatteryItem) return TEXT("Portable power cell used by flashlights and other electrical equipment.");
+	if (ItemId == MechanicalPartsItem) return TEXT("Gears, fasteners, springs, and hardware used in durable workbench crafting.");
+	return TEXT("Scavenged item recovered from the exclusion zone.");
 }
 
 int32 UWildBoundInventoryComponent::GetItemRarityTier(FName ItemId) const
