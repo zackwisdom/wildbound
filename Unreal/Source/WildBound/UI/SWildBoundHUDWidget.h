@@ -36,7 +36,6 @@ private:
 	FSlateColor GetHotbarSlotOneBackground() const;
 	FSlateColor GetHotbarSlotTwoBackground() const;
 	FSlateColor GetHotbarSlotThreeBackground() const;
-	FText GetWaterHotbarCount() const;
-	FText GetFoodHotbarCount() const;
-	FText GetMedicalHotbarCount() const;
+	FText GetHotbarSlotName(int32 SlotIndex) const;
+	FText GetHotbarSlotCount(int32 SlotIndex) const;
 };
