@@ -1,5 +1,6 @@
 #include "WildBoundSurvivalComponent.h"
 
+#include "../Inventory/WildBoundInventoryComponent.h"
 #include "GameFramework/Actor.h"
 
 UWildBoundSurvivalComponent::UWildBoundSurvivalComponent()
@@ -39,7 +40,17 @@ void UWildBoundSurvivalComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	const AActor* Owner = GetOwner();
 	const float Speed2D = Owner ? Owner->GetVelocity().Size2D() : StationaryVelocityThreshold + 1.0f;
 	const bool bCompletelyStill = Speed2D <= StationaryVelocityThreshold;
-	const float RegenMultiplier = bCompletelyStill ? StationaryStaminaRegenMultiplier : 1.0f;
+
+	float RegenMultiplier = bCompletelyStill ? StationaryStaminaRegenMultiplier : 1.0f;
+	if (!bCompletelyStill && Owner)
+	{
+		const UWildBoundInventoryComponent* Inventory = Owner->FindComponentByClass<UWildBoundInventoryComponent>();
+		if (Inventory && Inventory->IsOverEncumbered())
+		{
+			RegenMultiplier *= EncumberedMovingStaminaRegenMultiplier;
+		}
+	}
+
 	Stamina = FMath::Clamp(
 		Stamina + (StaminaRegenPerSecond * RegenMultiplier * DeltaTime),
 		0.0f,
