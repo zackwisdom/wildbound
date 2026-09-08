@@ -4,6 +4,8 @@
 #include "Components/ActorComponent.h"
 #include "WildBoundBackpackComponent.generated.h"
 
+class AActor;
+class APlayerController;
 class SWidget;
 class SWildBoundBackpackWidget;
 class UWildBoundInventoryComponent;
@@ -23,15 +25,35 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Backpack")
 	bool IsBackpackOpen() const { return bBackpackOpen; }
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Backpack")
+	int32 GetSelectedStackIndex() const { return SelectedStackIndex; }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Backpack")
+	FName GetSelectedItemId() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Backpack")
+	int32 GetSelectedItemQuantity() const;
+
+	UWildBoundInventoryComponent* GetInventoryComponent() const { return InventoryComponent.Get(); }
+
 private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	TSharedPtr<SWildBoundBackpackWidget> BackpackWidget;
 	TSharedPtr<SWidget> BackpackViewportRoot;
 	TSharedPtr<SWidget> EncumbranceViewportRoot;
 	bool bBackpackOpen = false;
+	int32 SelectedStackIndex = 0;
 
 	void EnsureBackpackWidget();
 	void EnsureEncumbranceWarning();
 	void ToggleBackpack();
+	void SetBackpackOpen(bool bOpen);
+	void HandleBackpackInput(APlayerController& PlayerController);
+	void MoveSelection(int32 Direction);
+	void ClampSelection();
+	void AssignSelectedToHotbar(int32 SlotIndex);
+	void RemoveSelectedFromHotbar();
+	void DropSelectedItem(bool bDropWholeStack);
+	AActor* SpawnDroppedItem(FName ItemId, int32 Quantity) const;
 	void RemoveBackpackWidget();
 };
