@@ -5,6 +5,7 @@
 #include "WildBoundSprintComponent.generated.h"
 
 class ACharacter;
+class UWildBoundInventoryComponent;
 class UWildBoundSurvivalComponent;
 
 UCLASS(ClassGroup=(WildBound), meta=(BlueprintSpawnableComponent))
@@ -28,14 +29,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement", meta=(ClampMin="0.0"))
 	float MinimumStaminaToStartSprint = 10.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement|Encumbrance", meta=(ClampMin="0.1", ClampMax="1.0"))
+	float MinimumEncumberedSpeedMultiplier = 0.55f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement|Encumbrance", meta=(ClampMin="1.0"))
+	float MaximumEncumberedSprintDrainMultiplier = 2.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement|Encumbrance", meta=(ClampMin="0.0"))
+	float EncumberedWalkingStaminaDrainPerSecond = 8.0f;
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Movement")
 	bool IsSprinting() const { return bIsSprinting; }
 
 private:
 	TWeakObjectPtr<ACharacter> CharacterOwner;
 	TWeakObjectPtr<UWildBoundSurvivalComponent> SurvivalComponent;
+	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	float BaseWalkSpeed = 600.0f;
 	bool bIsSprinting = false;
 
+	float GetEncumbranceSeverity() const;
+	float GetCurrentSpeedMultiplier() const;
+	void ApplyMovementSpeed();
 	void SetSprinting(bool bNewSprinting);
 };
