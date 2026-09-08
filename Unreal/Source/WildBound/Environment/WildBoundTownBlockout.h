@@ -6,5 +6,5 @@ class UWorld;
 
 namespace WildBoundTownBlockout
 {
-	void Spawn(UWorld& World);
+	bool Spawn(UWorld& World, const FVector& Origin);
 }
