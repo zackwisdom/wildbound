@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Widgets/Layout/SBorder.h"
 #include "Widgets/SCompoundWidget.h"
 
 class SVerticalBox;
