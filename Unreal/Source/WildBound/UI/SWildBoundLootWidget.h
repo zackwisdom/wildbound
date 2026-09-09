@@ -21,10 +21,13 @@ public:
 private:
 	TWeakObjectPtr<UWildBoundInteractionComponent> InteractionComponent;
 	TSharedPtr<SVerticalBox> LootRowsBox;
-	uint32 CachedLootSignature = 0;
+	TSharedPtr<SVerticalBox> BackpackRowsBox;
+	uint32 CachedStateSignature = 0;
 
+	void RebuildRows();
 	void RebuildLootRows();
-	uint32 CalculateLootSignature() const;
+	void RebuildBackpackRows();
+	uint32 CalculateStateSignature() const;
 	FText GetHeaderText() const;
 	FText GetCarryText() const;
 	FReply HandleTakeAll();
