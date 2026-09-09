@@ -40,6 +40,7 @@ public:
 	int32 GetOpenContainerQualityTier() const;
 	bool TakeLootEntry(int32 EntryIndex, bool bTakeWholeStack = true);
 	void TakeAllContainerLoot();
+	bool StoreInventoryStackInOpenContainer(int32 StackIndex, bool bStoreWholeStack = true);
 	void CloseLootWindow();
 
 private:
