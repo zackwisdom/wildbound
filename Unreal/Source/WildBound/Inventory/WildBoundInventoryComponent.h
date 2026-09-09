@@ -86,6 +86,10 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
 	FString GetItemCategoryName(FName ItemId) const;
 
+	// Compatibility accessor used by UI code. Keep the canonical Blueprint-facing
+	// function above while allowing concise C++ callers to use GetItemCategory().
+	FString GetItemCategory(FName ItemId) const { return GetItemCategoryName(ItemId); }
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Inventory")
 	FString GetItemDescription(FName ItemId) const;
 
