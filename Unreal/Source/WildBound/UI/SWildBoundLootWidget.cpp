@@ -133,6 +133,19 @@ namespace
 			return SBorder::OnMouseButtonDown(MyGeometry, MouseEvent);
 		}
 
+		virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+		{
+			if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+			{
+				if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
+				{
+					Interaction->TakeLootEntry(EntryIndex, true);
+					return FReply::Handled();
+				}
+			}
+			return SBorder::OnMouseButtonDoubleClick(MyGeometry, MouseEvent);
+		}
+
 		virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 		{
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
@@ -149,8 +162,7 @@ namespace
 				*Inventory->GetItemDisplayName(Entry->ItemId),
 				Entry->Quantity);
 
-			return FReply::Handled().BeginDragDrop(
-				FWildBoundLootDragDropOp::New(EntryIndex, Label));
+			return FReply::Handled().BeginDragDrop(FWildBoundLootDragDropOp::New(EntryIndex, Label));
 		}
 
 	private:
@@ -166,19 +178,13 @@ namespace
 
 		FReply HandleTakeOne()
 		{
-			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
-			{
-				Interaction->TakeLootEntry(EntryIndex, false);
-			}
+			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get()) Interaction->TakeLootEntry(EntryIndex, false);
 			return FReply::Handled();
 		}
 
 		FReply HandleTakeStack()
 		{
-			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
-			{
-				Interaction->TakeLootEntry(EntryIndex, true);
-			}
+			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get()) Interaction->TakeLootEntry(EntryIndex, true);
 			return FReply::Handled();
 		}
 
@@ -187,10 +193,7 @@ namespace
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 			const FWildBoundContainerLootEntry* Entry = GetEntry();
-			if (!Inventory || !Entry)
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Entry) return FText::GetEmpty();
 
 			const float Weight = Inventory->GetItemUnitWeight(Entry->ItemId) * static_cast<float>(Entry->Quantity);
 			return FText::FromString(FString::Printf(
@@ -207,18 +210,15 @@ namespace
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 			const FWildBoundContainerLootEntry* Entry = GetEntry();
-			if (!Inventory || !Entry)
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Entry) return FText::GetEmpty();
 
 			const float StackWeight = Inventory->GetItemUnitWeight(Entry->ItemId) * static_cast<float>(Entry->Quantity);
 			const float Projected = Inventory->GetTotalWeight() + StackWeight;
 			const bool bWouldOverEncumber = Projected > Inventory->MaxCarryWeight + KINDA_SMALL_NUMBER;
 			return FText::FromString(FString::Printf(
 				bWouldOverEncumber
-					? TEXT("TAKE STACK -> %.2f / %.2f kg   OVER ENCUMBERED")
-					: TEXT("TAKE STACK -> %.2f / %.2f kg"),
+					? TEXT("DOUBLE-CLICK / TAKE STACK -> %.2f / %.2f kg   OVER ENCUMBERED")
+					: TEXT("DOUBLE-CLICK / TAKE STACK -> %.2f / %.2f kg"),
 				Projected,
 				Inventory->MaxCarryWeight));
 		}
@@ -228,10 +228,7 @@ namespace
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 			const FWildBoundContainerLootEntry* Entry = GetEntry();
-			if (!Inventory || !Entry)
-			{
-				return FSlateColor(FLinearColor(0.62f, 0.65f, 0.60f, 1.0f));
-			}
+			if (!Inventory || !Entry) return FSlateColor(FLinearColor(0.62f, 0.65f, 0.60f, 1.0f));
 
 			const float Projected = Inventory->GetTotalWeight()
 				+ Inventory->GetItemUnitWeight(Entry->ItemId) * static_cast<float>(Entry->Quantity);
@@ -245,13 +242,10 @@ namespace
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 			const FWildBoundContainerLootEntry* Entry = GetEntry();
-			if (!Inventory || !Entry)
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Entry) return FText::GetEmpty();
 
 			return FText::FromString(FString::Printf(
-				TEXT("%s\n%s  •  %s\n%s\n\nStack: %d\nUnit weight: %.2f kg\nStack weight: %.2f kg\n\nDrag to BACKPACK to take the full stack.\nRight-click takes one."),
+				TEXT("%s\n%s  •  %s\n%s\n\nStack: %d\nUnit weight: %.2f kg\nStack weight: %.2f kg\n\nDouble-click = take full stack.\nRight-click = take one.\nDrag to BACKPACK = take full stack."),
 				*Inventory->GetItemDisplayName(Entry->ItemId),
 				*Inventory->GetItemRarityName(Entry->ItemId),
 				*Inventory->GetItemCategoryName(Entry->ItemId),
@@ -266,9 +260,7 @@ namespace
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 			const FWildBoundContainerLootEntry* Entry = GetEntry();
-			return Inventory && Entry
-				? GetLootRaritySlateColor(Inventory, Entry->ItemId)
-				: FSlateColor(FLinearColor::White);
+			return Inventory && Entry ? GetLootRaritySlateColor(Inventory, Entry->ItemId) : FSlateColor(FLinearColor::White);
 		}
 	};
 
@@ -333,14 +325,24 @@ namespace
 			return SBorder::OnMouseButtonDown(MyGeometry, MouseEvent);
 		}
 
+		virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+		{
+			if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+			{
+				if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
+				{
+					Interaction->StoreInventoryStackInOpenContainer(StackIndex, true);
+					return FReply::Handled();
+				}
+			}
+			return SBorder::OnMouseButtonDoubleClick(MyGeometry, MouseEvent);
+		}
+
 		virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 		{
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
-			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
-			{
-				return FReply::Unhandled();
-			}
+			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex)) return FReply::Unhandled();
 
 			const FWildBoundInventoryStack& Stack = Inventory->Stacks[StackIndex];
 			const FString Label = FString::Printf(
@@ -349,8 +351,7 @@ namespace
 				*Inventory->GetItemDisplayName(Stack.ItemId),
 				Stack.Quantity);
 
-			return FReply::Handled().BeginDragDrop(
-				FWildBoundBackpackStashDragDropOp::New(StackIndex, Label));
+			return FReply::Handled().BeginDragDrop(FWildBoundBackpackStashDragDropOp::New(StackIndex, Label));
 		}
 
 	private:
@@ -359,19 +360,13 @@ namespace
 
 		FReply HandleStoreOne()
 		{
-			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
-			{
-				Interaction->StoreInventoryStackInOpenContainer(StackIndex, false);
-			}
+			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get()) Interaction->StoreInventoryStackInOpenContainer(StackIndex, false);
 			return FReply::Handled();
 		}
 
 		FReply HandleStoreStack()
 		{
-			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
-			{
-				Interaction->StoreInventoryStackInOpenContainer(StackIndex, true);
-			}
+			if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get()) Interaction->StoreInventoryStackInOpenContainer(StackIndex, true);
 			return FReply::Handled();
 		}
 
@@ -379,17 +374,12 @@ namespace
 		{
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
-			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex)) return FText::GetEmpty();
 
 			const FWildBoundInventoryStack& Stack = Inventory->Stacks[StackIndex];
 			int32 HotbarSlot = INDEX_NONE;
 			const bool bInHotbar = Inventory->IsItemInHotbar(Stack.ItemId, HotbarSlot);
-			const FString HotbarText = bInHotbar
-				? FString::Printf(TEXT("  •  HOTBAR %d"), HotbarSlot + 1)
-				: FString();
+			const FString HotbarText = bInHotbar ? FString::Printf(TEXT("  •  HOTBAR %d"), HotbarSlot + 1) : FString();
 			const float StackWeight = Inventory->GetItemUnitWeight(Stack.ItemId) * static_cast<float>(Stack.Quantity);
 
 			return FText::FromString(FString::Printf(
@@ -406,14 +396,11 @@ namespace
 		{
 			const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
-			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex)) return FText::GetEmpty();
 
 			const FWildBoundInventoryStack& Stack = Inventory->Stacks[StackIndex];
 			return FText::FromString(FString::Printf(
-				TEXT("%s\n%s  •  %s\n%s\n\nStack: %d\nUnit weight: %.2f kg\nStack weight: %.2f kg\n\nDrag to CONTAINER to store the full stack.\nRight-click stores one.\nPassive gear bonuses stop while that gear is stored."),
+				TEXT("%s\n%s  •  %s\n%s\n\nStack: %d\nUnit weight: %.2f kg\nStack weight: %.2f kg\n\nDouble-click = store full stack.\nRight-click = store one.\nDrag to CONTAINER = store full stack.\nPassive gear bonuses stop while stored."),
 				*Inventory->GetItemDisplayName(Stack.ItemId),
 				*Inventory->GetItemRarityName(Stack.ItemId),
 				*Inventory->GetItemCategoryName(Stack.ItemId),
@@ -459,10 +446,7 @@ namespace
 		{
 			const TSharedPtr<FWildBoundLootDragDropOp> Operation = DragDropEvent.GetOperationAs<FWildBoundLootDragDropOp>();
 			UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
-			if (Operation.IsValid() && Interaction && Interaction->TakeLootEntry(Operation->EntryIndex, true))
-			{
-				return FReply::Handled();
-			}
+			if (Operation.IsValid() && Interaction && Interaction->TakeLootEntry(Operation->EntryIndex, true)) return FReply::Handled();
 			return FReply::Unhandled();
 		}
 
@@ -496,11 +480,7 @@ namespace
 		{
 			const TSharedPtr<FWildBoundBackpackStashDragDropOp> Operation = DragDropEvent.GetOperationAs<FWildBoundBackpackStashDragDropOp>();
 			UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
-			if (Operation.IsValid() && Interaction
-				&& Interaction->StoreInventoryStackInOpenContainer(Operation->StackIndex, true))
-			{
-				return FReply::Handled();
-			}
+			if (Operation.IsValid() && Interaction && Interaction->StoreInventoryStackInOpenContainer(Operation->StackIndex, true)) return FReply::Handled();
 			return FReply::Unhandled();
 		}
 
@@ -544,6 +524,29 @@ void SWildBoundLootWidget::Construct(const FArguments& InArgs)
 				.ColorAndOpacity(FLinearColor(0.64f, 0.68f, 0.62f, 1.0f))
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 8.0f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 6.0f, 0.0f)
+				[
+					SNew(SButton)
+					.Text(this, &SWildBoundLootWidget::GetSortButtonText)
+					.OnClicked(this, &SWildBoundLootWidget::HandleCycleSort)
+				]
+				+ SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SButton)
+					.Text(this, &SWildBoundLootWidget::GetFilterButtonText)
+					.OnClicked(this, &SWildBoundLootWidget::HandleCycleFilter)
+				]
+				+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center).Padding(12.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("Double-click = quick transfer full stack")))
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+					.ColorAndOpacity(FLinearColor(0.60f, 0.67f, 0.59f, 1.0f))
+				]
+			]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 8.0f)
 			[
 				SNew(SSeparator)
 			]
@@ -621,7 +624,7 @@ void SWildBoundLootWidget::Construct(const FArguments& InArgs)
 				+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("Right-click = move 1. Drag = move full stack. Stored items remain in this exact container. Passive gear bonuses stop while stored.")))
+					.Text(FText::FromString(TEXT("Double-click = full stack. Right-click = 1 item. Drag = full stack. Sort/filter applies to both sides.")))
 					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
 					.ColorAndOpacity(FLinearColor(0.58f, 0.61f, 0.57f, 1.0f))
 					.AutoWrapText(true)
@@ -645,10 +648,7 @@ void SWildBoundLootWidget::SetInteractionComponent(UWildBoundInteractionComponen
 	InteractionComponent = InInteractionComponent;
 }
 
-void SWildBoundLootWidget::Tick(
-	const FGeometry& AllottedGeometry,
-	const double InCurrentTime,
-	const float InDeltaTime)
+void SWildBoundLootWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
@@ -666,17 +666,34 @@ void SWildBoundLootWidget::RebuildRows()
 	RebuildBackpackRows();
 }
 
+bool SWildBoundLootWidget::PassesFilter(FName ItemId) const
+{
+	if (FilterMode == 0) return true;
+
+	const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
+	const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
+	if (!Inventory) return true;
+
+	const FString Category = Inventory->GetItemCategoryName(ItemId);
+	switch (FilterMode)
+	{
+	case 1: return Category == TEXT("CONSUMABLE");
+	case 2: return Category == TEXT("TOOL");
+	case 3: return Category == TEXT("PASSIVE GEAR");
+	case 4: return Category == TEXT("CRAFTING MATERIAL");
+	default: return true;
+	}
+}
+
 void SWildBoundLootWidget::RebuildLootRows()
 {
-	if (!LootRowsBox.IsValid())
-	{
-		return;
-	}
+	if (!LootRowsBox.IsValid()) return;
 
 	LootRowsBox->ClearChildren();
 	const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
+	const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 	const TArray<FWildBoundContainerLootEntry>* Loot = Interaction ? Interaction->GetOpenContainerLoot() : nullptr;
-	if (!Loot || Loot->IsEmpty())
+	if (!Inventory || !Loot || Loot->IsEmpty())
 	{
 		LootRowsBox->AddSlot().AutoHeight().Padding(0.0f, 4.0f)
 		[
@@ -688,7 +705,47 @@ void SWildBoundLootWidget::RebuildLootRows()
 		return;
 	}
 
+	TArray<int32> VisibleIndices;
 	for (int32 Index = 0; Index < Loot->Num(); ++Index)
+	{
+		if (PassesFilter((*Loot)[Index].ItemId)) VisibleIndices.Add(Index);
+	}
+
+	VisibleIndices.Sort([this, Inventory, Loot](int32 A, int32 B)
+	{
+		const FWildBoundContainerLootEntry& Left = (*Loot)[A];
+		const FWildBoundContainerLootEntry& Right = (*Loot)[B];
+		if (SortMode == 1)
+		{
+			return Inventory->GetItemDisplayName(Left.ItemId) < Inventory->GetItemDisplayName(Right.ItemId);
+		}
+		if (SortMode == 2)
+		{
+			const float LeftWeight = Inventory->GetItemUnitWeight(Left.ItemId) * static_cast<float>(Left.Quantity);
+			const float RightWeight = Inventory->GetItemUnitWeight(Right.ItemId) * static_cast<float>(Right.Quantity);
+			if (!FMath::IsNearlyEqual(LeftWeight, RightWeight)) return LeftWeight > RightWeight;
+			return Inventory->GetItemDisplayName(Left.ItemId) < Inventory->GetItemDisplayName(Right.ItemId);
+		}
+
+		const int32 LeftRarity = Inventory->GetItemRarityTier(Left.ItemId);
+		const int32 RightRarity = Inventory->GetItemRarityTier(Right.ItemId);
+		if (LeftRarity != RightRarity) return LeftRarity > RightRarity;
+		return Inventory->GetItemDisplayName(Left.ItemId) < Inventory->GetItemDisplayName(Right.ItemId);
+	});
+
+	if (VisibleIndices.IsEmpty())
+	{
+		LootRowsBox->AddSlot().AutoHeight().Padding(0.0f, 4.0f)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TEXT("— NO CONTAINER ITEMS MATCH FILTER —")))
+			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+			.ColorAndOpacity(FLinearColor(0.54f, 0.56f, 0.52f, 1.0f))
+		];
+		return;
+	}
+
+	for (int32 Index : VisibleIndices)
 	{
 		LootRowsBox->AddSlot().AutoHeight().Padding(0.0f, 3.0f)
 		[
@@ -701,10 +758,7 @@ void SWildBoundLootWidget::RebuildLootRows()
 
 void SWildBoundLootWidget::RebuildBackpackRows()
 {
-	if (!BackpackRowsBox.IsValid())
-	{
-		return;
-	}
+	if (!BackpackRowsBox.IsValid()) return;
 
 	BackpackRowsBox->ClearChildren();
 	const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
@@ -721,7 +775,47 @@ void SWildBoundLootWidget::RebuildBackpackRows()
 		return;
 	}
 
+	TArray<int32> VisibleIndices;
 	for (int32 Index = 0; Index < Inventory->Stacks.Num(); ++Index)
+	{
+		if (PassesFilter(Inventory->Stacks[Index].ItemId)) VisibleIndices.Add(Index);
+	}
+
+	VisibleIndices.Sort([this, Inventory](int32 A, int32 B)
+	{
+		const FWildBoundInventoryStack& Left = Inventory->Stacks[A];
+		const FWildBoundInventoryStack& Right = Inventory->Stacks[B];
+		if (SortMode == 1)
+		{
+			return Inventory->GetItemDisplayName(Left.ItemId) < Inventory->GetItemDisplayName(Right.ItemId);
+		}
+		if (SortMode == 2)
+		{
+			const float LeftWeight = Inventory->GetItemUnitWeight(Left.ItemId) * static_cast<float>(Left.Quantity);
+			const float RightWeight = Inventory->GetItemUnitWeight(Right.ItemId) * static_cast<float>(Right.Quantity);
+			if (!FMath::IsNearlyEqual(LeftWeight, RightWeight)) return LeftWeight > RightWeight;
+			return Inventory->GetItemDisplayName(Left.ItemId) < Inventory->GetItemDisplayName(Right.ItemId);
+		}
+
+		const int32 LeftRarity = Inventory->GetItemRarityTier(Left.ItemId);
+		const int32 RightRarity = Inventory->GetItemRarityTier(Right.ItemId);
+		if (LeftRarity != RightRarity) return LeftRarity > RightRarity;
+		return Inventory->GetItemDisplayName(Left.ItemId) < Inventory->GetItemDisplayName(Right.ItemId);
+	});
+
+	if (VisibleIndices.IsEmpty())
+	{
+		BackpackRowsBox->AddSlot().AutoHeight().Padding(0.0f, 4.0f)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TEXT("— NO BACKPACK ITEMS MATCH FILTER —")))
+			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+			.ColorAndOpacity(FLinearColor(0.54f, 0.56f, 0.52f, 1.0f))
+		];
+		return;
+	}
+
+	for (int32 Index : VisibleIndices)
 	{
 		BackpackRowsBox->AddSlot().AutoHeight().Padding(0.0f, 3.0f)
 		[
@@ -738,7 +832,7 @@ uint32 SWildBoundLootWidget::CalculateStateSignature() const
 	const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 	const TArray<FWildBoundContainerLootEntry>* Loot = Interaction ? Interaction->GetOpenContainerLoot() : nullptr;
 
-	uint32 Signature = 0;
+	uint32 Signature = HashCombine(GetTypeHash(SortMode), GetTypeHash(FilterMode));
 	if (Loot)
 	{
 		Signature = HashCombine(Signature, GetTypeHash(Loot->Num()));
@@ -757,10 +851,7 @@ uint32 SWildBoundLootWidget::CalculateStateSignature() const
 			Signature = HashCombine(Signature, GetTypeHash(Stack.ItemId));
 			Signature = HashCombine(Signature, GetTypeHash(Stack.Quantity));
 		}
-		for (const FName& HotbarItem : Inventory->HotbarSlots)
-		{
-			Signature = HashCombine(Signature, GetTypeHash(HotbarItem));
-		}
+		for (const FName& HotbarItem : Inventory->HotbarSlots) Signature = HashCombine(Signature, GetTypeHash(HotbarItem));
 		Signature = HashCombine(Signature, GetTypeHash(Inventory->MaxSlots));
 		Signature = HashCombine(Signature, GetTypeHash(Inventory->MaxCarryWeight));
 	}
@@ -771,10 +862,7 @@ FText SWildBoundLootWidget::GetHeaderText() const
 {
 	const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 	return Interaction
-		? FText::FromString(FString::Printf(
-			TEXT("[%s] %s  —  STORAGE"),
-			*Interaction->GetOpenContainerQualityName(),
-			*Interaction->GetOpenContainerName()))
+		? FText::FromString(FString::Printf(TEXT("[%s] %s  —  STORAGE"), *Interaction->GetOpenContainerQualityName(), *Interaction->GetOpenContainerName()))
 		: FText::FromString(TEXT("CONTAINER STORAGE"));
 }
 
@@ -783,10 +871,7 @@ FText SWildBoundLootWidget::GetCarryText() const
 	const UWildBoundInteractionComponent* Interaction = InteractionComponent.Get();
 	const UWildBoundInventoryComponent* Inventory = Interaction ? Interaction->GetInventoryComponent() : nullptr;
 	const TArray<FWildBoundContainerLootEntry>* Loot = Interaction ? Interaction->GetOpenContainerLoot() : nullptr;
-	if (!Inventory)
-	{
-		return FText::GetEmpty();
-	}
+	if (!Inventory) return FText::GetEmpty();
 
 	float ContainerWeight = 0.0f;
 	if (Loot)
@@ -813,20 +898,52 @@ FText SWildBoundLootWidget::GetCarryText() const
 		ProjectedAllWeight));
 }
 
+FText SWildBoundLootWidget::GetSortButtonText() const
+{
+	switch (SortMode)
+	{
+	case 1: return FText::FromString(TEXT("SORT: NAME"));
+	case 2: return FText::FromString(TEXT("SORT: WEIGHT"));
+	default: return FText::FromString(TEXT("SORT: RARITY"));
+	}
+}
+
+FText SWildBoundLootWidget::GetFilterButtonText() const
+{
+	switch (FilterMode)
+	{
+	case 1: return FText::FromString(TEXT("FILTER: CONSUMABLE"));
+	case 2: return FText::FromString(TEXT("FILTER: TOOL"));
+	case 3: return FText::FromString(TEXT("FILTER: PASSIVE GEAR"));
+	case 4: return FText::FromString(TEXT("FILTER: CRAFTING MATERIAL"));
+	default: return FText::FromString(TEXT("FILTER: ALL"));
+	}
+}
+
+FReply SWildBoundLootWidget::HandleCycleSort()
+{
+	SortMode = (SortMode + 1) % 3;
+	CachedStateSignature = CalculateStateSignature();
+	RebuildRows();
+	return FReply::Handled();
+}
+
+FReply SWildBoundLootWidget::HandleCycleFilter()
+{
+	FilterMode = (FilterMode + 1) % 5;
+	CachedStateSignature = CalculateStateSignature();
+	RebuildRows();
+	return FReply::Handled();
+}
+
 FReply SWildBoundLootWidget::HandleTakeAll()
 {
-	if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
-	{
-		Interaction->TakeAllContainerLoot();
-	}
+	if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get()) Interaction->TakeAllContainerLoot();
 	return FReply::Handled();
 }
 
 FReply SWildBoundLootWidget::HandleClose()
 {
-	if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get())
-	{
-		Interaction->CloseLootWindow();
-	}
+	if (UWildBoundInteractionComponent* Interaction = InteractionComponent.Get()) Interaction->CloseLootWindow();
 	return FReply::Handled();
 }
