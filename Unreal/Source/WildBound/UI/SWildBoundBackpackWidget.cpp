@@ -16,16 +16,62 @@
 
 namespace
 {
-	FSlateColor GetItemRaritySlateColor(const UWildBoundInventoryComponent* Inventory, FName ItemId)
+	FLinearColor GetItemRarityColorLinear(const UWildBoundInventoryComponent* Inventory, FName ItemId)
 	{
 		const int32 Tier = Inventory ? Inventory->GetItemRarityTier(ItemId) : 0;
 		switch (Tier)
 		{
-		case 3: return FSlateColor(FLinearColor(0.83f, 0.50f, 0.95f, 1.0f));
-		case 2: return FSlateColor(FLinearColor(0.45f, 0.68f, 0.94f, 1.0f));
-		case 1: return FSlateColor(FLinearColor(0.52f, 0.80f, 0.54f, 1.0f));
-		default: return FSlateColor(FLinearColor(0.84f, 0.86f, 0.81f, 1.0f));
+		case 3: return FLinearColor(0.84f, 0.48f, 0.96f, 1.0f);
+		case 2: return FLinearColor(0.38f, 0.67f, 0.96f, 1.0f);
+		case 1: return FLinearColor(0.46f, 0.82f, 0.50f, 1.0f);
+		default: return FLinearColor(0.78f, 0.81f, 0.76f, 1.0f);
 		}
+	}
+
+	FSlateColor GetItemRaritySlateColor(const UWildBoundInventoryComponent* Inventory, FName ItemId)
+	{
+		return FSlateColor(GetItemRarityColorLinear(Inventory, ItemId));
+	}
+
+	FLinearColor GetItemRarityBackground(const UWildBoundInventoryComponent* Inventory, FName ItemId)
+	{
+		const int32 Tier = Inventory ? Inventory->GetItemRarityTier(ItemId) : 0;
+		switch (Tier)
+		{
+		case 3: return FLinearColor(0.18f, 0.075f, 0.23f, 0.98f);
+		case 2: return FLinearColor(0.055f, 0.105f, 0.19f, 0.98f);
+		case 1: return FLinearColor(0.055f, 0.145f, 0.070f, 0.98f);
+		default: return FLinearColor(0.085f, 0.095f, 0.090f, 0.98f);
+		}
+	}
+
+	FString GetItemIconCode(FName ItemId, const UWildBoundInventoryComponent* Inventory)
+	{
+		const FString Id = ItemId.ToString();
+		if (Id == TEXT("Water")) return TEXT("H2O");
+		if (Id == TEXT("Food")) return TEXT("FOOD");
+		if (Id == TEXT("MedicalSupplies")) return TEXT("+");
+		if (Id == TEXT("ScrapMetal")) return TEXT("FE");
+		if (Id == TEXT("Cloth")) return TEXT("CL");
+		if (Id == TEXT("Wood")) return TEXT("WD");
+		if (Id == TEXT("Plastic")) return TEXT("PL");
+		if (Id == TEXT("Electronics")) return TEXT("PCB");
+		if (Id == TEXT("Chemicals")) return TEXT("CHEM");
+		if (Id == TEXT("Adhesive")) return TEXT("ADH");
+		if (Id == TEXT("Wire")) return TEXT("WIRE");
+		if (Id == TEXT("Battery")) return TEXT("BAT");
+		if (Id == TEXT("MechanicalParts")) return TEXT("MEC");
+		if (Id == TEXT("Flashlight")) return TEXT("LUX");
+		if (Id == TEXT("Crowbar")) return TEXT("PRY");
+		if (Id == TEXT("ReinforcedBackpack")) return TEXT("PACK");
+		if (Id == TEXT("FilterMask")) return TEXT("MASK");
+		if (Id == TEXT("Canteen")) return TEXT("CAN");
+		if (Id == TEXT("TraumaKit")) return TEXT("AID");
+		if (Id == TEXT("RadTreatment")) return TEXT("RAD");
+		if (Id == TEXT("UtilityBelt")) return TEXT("BELT");
+
+		const FString Category = Inventory ? Inventory->GetItemCategoryName(ItemId) : FString();
+		return Category.IsEmpty() ? TEXT("ITEM") : Category.Left(4);
 	}
 
 	class FWildBoundInventoryDragDropOp : public FDecoratedDragDropOp
@@ -73,20 +119,32 @@ namespace
 
 			SBorder::Construct(
 				SBorder::FArguments()
-				.Padding(FMargin(10.0f, 8.0f))
+				.Padding(FMargin(8.0f, 7.0f))
 				.BorderBackgroundColor(this, &SWildBoundInventoryRow::GetRowBackground)
 				.ToolTipText(this, &SWildBoundInventoryRow::GetTooltipText)
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 10.0f, 0.0f)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 10.0f, 0.0f)
 					[
 						SNew(SBox)
-						.WidthOverride(6.0f)
-						.HeightOverride(42.0f)
+						.WidthOverride(52.0f)
+						.HeightOverride(52.0f)
 						[
 							SNew(SBorder)
-							.Padding(0.0f)
+							.Padding(FMargin(3.0f))
 							.BorderBackgroundColor(this, &SWildBoundInventoryRow::GetRarityColor)
+							[
+								SNew(SBorder)
+								.Padding(FMargin(4.0f))
+								.BorderBackgroundColor(this, &SWildBoundInventoryRow::GetIconBackground)
+								[
+									SNew(STextBlock)
+									.Text(this, &SWildBoundInventoryRow::GetIconText)
+									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+									.ColorAndOpacity(this, &SWildBoundInventoryRow::GetRarityColor)
+									.Justification(ETextJustify::Center)
+								]
+							]
 						]
 					]
 					+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
@@ -94,34 +152,51 @@ namespace
 						SNew(SVerticalBox)
 						+ SVerticalBox::Slot().AutoHeight()
 						[
-							SNew(STextBlock)
-							.Text(this, &SWildBoundInventoryRow::GetItemNameText)
-							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
-							.ColorAndOpacity(this, &SWildBoundInventoryRow::GetRarityColor)
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(this, &SWildBoundInventoryRow::GetItemNameText)
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+								.ColorAndOpacity(FLinearColor(0.92f, 0.94f, 0.90f, 1.0f))
+							]
+							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(7.0f, 0.0f, 0.0f, 0.0f)
+							[
+								SNew(SBorder)
+								.Padding(FMargin(6.0f, 2.0f))
+								.BorderBackgroundColor(this, &SWildBoundInventoryRow::GetIconBackground)
+								[
+									SNew(STextBlock)
+									.Text(this, &SWildBoundInventoryRow::GetRarityText)
+									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 7))
+									.ColorAndOpacity(this, &SWildBoundInventoryRow::GetRarityColor)
+								]
+							]
 						]
-						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f, 0.0f, 0.0f)
+						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 3.0f, 0.0f, 0.0f)
 						[
 							SNew(STextBlock)
 							.Text(this, &SWildBoundInventoryRow::GetMetadataText)
 							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-							.ColorAndOpacity(FLinearColor(0.61f, 0.66f, 0.61f, 1.0f))
+							.ColorAndOpacity(FLinearColor(0.59f, 0.65f, 0.60f, 1.0f))
 						]
 					]
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).HAlign(HAlign_Right)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).HAlign(HAlign_Right).Padding(10.0f, 0.0f, 0.0f, 0.0f)
 					[
 						SNew(SVerticalBox)
 						+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)
 						[
 							SNew(STextBlock)
 							.Text(this, &SWildBoundInventoryRow::GetQuantityText)
-							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 12))
+							.ColorAndOpacity(FLinearColor(0.93f, 0.89f, 0.74f, 1.0f))
 						]
-						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f, 0.0f, 0.0f).HAlign(HAlign_Right)
+						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 3.0f, 0.0f, 0.0f).HAlign(HAlign_Right)
 						[
 							SNew(STextBlock)
 							.Text(this, &SWildBoundInventoryRow::GetWeightText)
 							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-							.ColorAndOpacity(FLinearColor(0.70f, 0.71f, 0.67f, 1.0f))
+							.ColorAndOpacity(FLinearColor(0.67f, 0.70f, 0.65f, 1.0f))
 						]
 					]
 				]);
@@ -130,10 +205,7 @@ namespace
 		virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 		{
 			UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			if (!Backpack)
-			{
-				return SBorder::OnMouseButtonDown(MyGeometry, MouseEvent);
-			}
+			if (!Backpack) return SBorder::OnMouseButtonDown(MyGeometry, MouseEvent);
 
 			if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 			{
@@ -155,10 +227,7 @@ namespace
 		{
 			UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
 			UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
-			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex))
-			{
-				return FReply::Unhandled();
-			}
+			if (!Inventory || !Inventory->Stacks.IsValidIndex(StackIndex)) return FReply::Unhandled();
 
 			const FWildBoundInventoryStack& Stack = Inventory->Stacks[StackIndex];
 			return FReply::Handled().BeginDragDrop(FWildBoundInventoryDragDropOp::New(
@@ -189,54 +258,70 @@ namespace
 		{
 			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
 			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
-			return Inventory && Inventory->Stacks.IsValidIndex(StackIndex)
-				? &Inventory->Stacks[StackIndex]
-				: nullptr;
+			return Inventory && Inventory->Stacks.IsValidIndex(StackIndex) ? &Inventory->Stacks[StackIndex] : nullptr;
+		}
+
+		const UWildBoundInventoryComponent* GetInventoryComponent() const
+		{
+			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
+			return Backpack ? Backpack->GetInventoryComponent() : nullptr;
 		}
 
 		FSlateColor GetRowBackground() const
 		{
 			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
 			return Backpack && Backpack->GetSelectedStackIndex() == StackIndex
-				? FSlateColor(FLinearColor(0.095f, 0.115f, 0.102f, 0.98f))
-				: FSlateColor(FLinearColor(0.045f, 0.054f, 0.050f, 0.96f));
+				? FSlateColor(FLinearColor(0.090f, 0.115f, 0.100f, 0.995f))
+				: FSlateColor(FLinearColor(0.035f, 0.043f, 0.039f, 0.97f));
 		}
 
 		FSlateColor GetRarityColor() const
 		{
-			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 			const FWildBoundInventoryStack* Stack = GetStack();
 			return Stack ? GetItemRaritySlateColor(Inventory, Stack->ItemId) : FSlateColor(FLinearColor::White);
 		}
 
+		FSlateColor GetIconBackground() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+			const FWildBoundInventoryStack* Stack = GetStack();
+			return FSlateColor(Stack ? GetItemRarityBackground(Inventory, Stack->ItemId) : FLinearColor(0.08f,0.08f,0.08f,1.0f));
+		}
+
+		FText GetIconText() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+			const FWildBoundInventoryStack* Stack = GetStack();
+			return Stack ? FText::FromString(GetItemIconCode(Stack->ItemId, Inventory)) : FText::GetEmpty();
+		}
+
 		FText GetItemNameText() const
 		{
-			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 			const FWildBoundInventoryStack* Stack = GetStack();
-			return Inventory && Stack
-				? FText::FromString(Inventory->GetItemDisplayName(Stack->ItemId))
-				: FText::GetEmpty();
+			return Inventory && Stack ? FText::FromString(Inventory->GetItemDisplayName(Stack->ItemId)) : FText::GetEmpty();
+		}
+
+		FText GetRarityText() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+			const FWildBoundInventoryStack* Stack = GetStack();
+			return Inventory && Stack ? FText::FromString(Inventory->GetItemRarityName(Stack->ItemId)) : FText::GetEmpty();
 		}
 
 		FText GetMetadataText() const
 		{
-			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 			const FWildBoundInventoryStack* Stack = GetStack();
-			if (!Inventory || !Stack)
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Stack) return FText::GetEmpty();
 
 			int32 HotbarSlot = INDEX_NONE;
 			const bool bInHotbar = Inventory->IsItemInHotbar(Stack->ItemId, HotbarSlot);
 			return FText::FromString(FString::Printf(
-				TEXT("%s  •  %s%s"),
-				*Inventory->GetItemRarityName(Stack->ItemId),
+				TEXT("%s%s"),
 				*Inventory->GetItemCategoryName(Stack->ItemId),
-				bInHotbar ? *FString::Printf(TEXT("  •  HOTBAR %d"), HotbarSlot + 1) : TEXT("")));
+				bInHotbar ? *FString::Printf(TEXT("   |   HOTBAR %d"), HotbarSlot + 1) : TEXT("")));
 		}
 
 		FText GetQuantityText() const
@@ -247,13 +332,9 @@ namespace
 
 		FText GetWeightText() const
 		{
-			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 			const FWildBoundInventoryStack* Stack = GetStack();
-			if (!Inventory || !Stack)
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Stack) return FText::GetEmpty();
 			return FText::FromString(FString::Printf(
 				TEXT("%.2f kg"),
 				Inventory->GetItemUnitWeight(Stack->ItemId) * static_cast<float>(Stack->Quantity)));
@@ -261,13 +342,9 @@ namespace
 
 		FText GetTooltipText() const
 		{
-			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
+			const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 			const FWildBoundInventoryStack* Stack = GetStack();
-			if (!Inventory || !Stack)
-			{
-				return FText::GetEmpty();
-			}
+			if (!Inventory || !Stack) return FText::GetEmpty();
 
 			const float UnitWeight = Inventory->GetItemUnitWeight(Stack->ItemId);
 			return FText::FromString(FString::Printf(
@@ -297,14 +374,39 @@ namespace
 
 			SBorder::Construct(
 				SBorder::FArguments()
-				.Padding(FMargin(12.0f, 10.0f))
-				.BorderBackgroundColor(FLinearColor(0.060f, 0.072f, 0.064f, 0.96f))
+				.Padding(FMargin(10.0f, 8.0f))
+				.BorderBackgroundColor(this, &SWildBoundHotbarDropSlot::GetBackgroundColor)
 				.ToolTipText(FText::FromString(TEXT("Drag an inventory item here to assign it. Right-click to clear this slot.")))
 				[
-					SNew(STextBlock)
-					.Text(this, &SWildBoundHotbarDropSlot::GetSlotText)
-					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-					.ColorAndOpacity(FLinearColor(0.92f, 0.85f, 0.64f, 1.0f))
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f,0.0f,8.0f,0.0f)
+					[
+						SNew(SBox).WidthOverride(34.0f).HeightOverride(34.0f)
+						[
+							SNew(SBorder)
+							.Padding(FMargin(2.0f))
+							.BorderBackgroundColor(this, &SWildBoundHotbarDropSlot::GetRarityColor)
+							[
+								SNew(SBorder)
+								.Padding(FMargin(3.0f))
+								.BorderBackgroundColor(this, &SWildBoundHotbarDropSlot::GetIconBackground)
+								[
+									SNew(STextBlock)
+									.Text(this, &SWildBoundHotbarDropSlot::GetIconText)
+									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
+									.ColorAndOpacity(this, &SWildBoundHotbarDropSlot::GetRarityColor)
+									.Justification(ETextJustify::Center)
+								]
+							]
+						]
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(this, &SWildBoundHotbarDropSlot::GetSlotText)
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+						.ColorAndOpacity(FLinearColor(0.91f, 0.86f, 0.69f, 1.0f))
+					]
 				]);
 		}
 
@@ -336,23 +438,59 @@ namespace
 		TWeakObjectPtr<UWildBoundBackpackComponent> BackpackComponent;
 		int32 SlotIndex = 0;
 
-		FText GetSlotText() const
+		const UWildBoundInventoryComponent* GetInventory() const
 		{
 			const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-			const UWildBoundInventoryComponent* Inventory = Backpack ? Backpack->GetInventoryComponent() : nullptr;
-			if (!Inventory)
-			{
-				return FText::FromString(FString::Printf(TEXT("%d   — EMPTY —"), SlotIndex + 1));
-			}
+			return Backpack ? Backpack->GetInventoryComponent() : nullptr;
+		}
 
-			const FName ItemId = Inventory->GetHotbarItemId(SlotIndex);
+		FName GetItemId() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventory();
+			return Inventory ? Inventory->GetHotbarItemId(SlotIndex) : NAME_None;
+		}
+
+		FSlateColor GetBackgroundColor() const
+		{
+			return FSlateColor(GetItemId().IsNone()
+				? FLinearColor(0.038f,0.047f,0.042f,0.98f)
+				: FLinearColor(0.060f,0.072f,0.063f,0.99f));
+		}
+
+		FSlateColor GetRarityColor() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventory();
+			const FName ItemId = GetItemId();
+			return ItemId.IsNone() ? FSlateColor(FLinearColor(0.30f,0.33f,0.30f,1.0f)) : GetItemRaritySlateColor(Inventory, ItemId);
+		}
+
+		FSlateColor GetIconBackground() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventory();
+			const FName ItemId = GetItemId();
+			return FSlateColor(ItemId.IsNone() ? FLinearColor(0.045f,0.050f,0.047f,1.0f) : GetItemRarityBackground(Inventory, ItemId));
+		}
+
+		FText GetIconText() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventory();
+			const FName ItemId = GetItemId();
+			return ItemId.IsNone() ? FText::FromString(TEXT("--")) : FText::FromString(GetItemIconCode(ItemId, Inventory));
+		}
+
+		FText GetSlotText() const
+		{
+			const UWildBoundInventoryComponent* Inventory = GetInventory();
+			if (!Inventory) return FText::FromString(FString::Printf(TEXT("SLOT %d   EMPTY"), SlotIndex + 1));
+
+			const FName ItemId = GetItemId();
 			if (ItemId.IsNone())
 			{
-				return FText::FromString(FString::Printf(TEXT("%d   — EMPTY —\nDROP ITEM HERE"), SlotIndex + 1));
+				return FText::FromString(FString::Printf(TEXT("SLOT %d   EMPTY\nDROP ITEM HERE"), SlotIndex + 1));
 			}
 
 			return FText::FromString(FString::Printf(
-				TEXT("%d   [%s]\n%s  x%d"),
+				TEXT("SLOT %d   %s\n%s   x%d"),
 				SlotIndex + 1,
 				*Inventory->GetItemRarityName(ItemId),
 				*Inventory->GetItemDisplayName(ItemId),
@@ -368,24 +506,18 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 	ChildSlot
 	[
 		SNew(SOverlay)
-		+ SOverlay::Slot()
-		.HAlign(HAlign_Fill)
-		.VAlign(VAlign_Fill)
+		+ SOverlay::Slot().HAlign(HAlign_Fill).VAlign(VAlign_Fill)
 		[
-			SNew(SBorder)
-			.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.42f))
+			SNew(SBorder).BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.48f))
 		]
-		+ SOverlay::Slot()
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-		.Padding(FMargin(24.0f))
+		+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center).Padding(FMargin(24.0f))
 		[
 			SAssignNew(InventoryPanel, SBox)
-			.WidthOverride(1020.0f)
+			.WidthOverride(1060.0f)
 			[
 				SNew(SBorder)
 				.Padding(FMargin(24.0f, 20.0f))
-				.BorderBackgroundColor(FLinearColor(0.012f, 0.016f, 0.015f, 0.985f))
+				.BorderBackgroundColor(FLinearColor(0.010f, 0.014f, 0.013f, 0.992f))
 				[
 					SNew(SVerticalBox)
 					+ SVerticalBox::Slot().AutoHeight()
@@ -398,25 +530,31 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(STextBlock)
 								.Text(FText::FromString(TEXT("BACKPACK")))
-								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 20))
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 21))
+								.ColorAndOpacity(FLinearColor(0.94f,0.95f,0.91f,1.0f))
 							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 3.0f, 0.0f, 0.0f)
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 4.0f, 0.0f, 0.0f)
 							[
 								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("LOADOUT / SCAVENGED SUPPLIES")))
-								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-								.ColorAndOpacity(FLinearColor(0.57f, 0.62f, 0.57f, 1.0f))
+								.Text(FText::FromString(TEXT("SURVIVAL LOADOUT  /  SCAVENGED SUPPLIES")))
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
+								.ColorAndOpacity(FLinearColor(0.50f, 0.61f, 0.52f, 1.0f))
 							]
 						]
 						+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("TAB / I / ESC   CLOSE")))
-							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-							.ColorAndOpacity(FLinearColor(0.58f, 0.61f, 0.57f, 1.0f))
+							SNew(SBorder)
+							.Padding(FMargin(9.0f,5.0f))
+							.BorderBackgroundColor(FLinearColor(0.040f,0.049f,0.044f,0.95f))
+							[
+								SNew(STextBlock)
+								.Text(FText::FromString(TEXT("TAB / I / ESC   CLOSE")))
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
+								.ColorAndOpacity(FLinearColor(0.66f, 0.70f, 0.65f, 1.0f))
+							]
 						]
 					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 10.0f, 0.0f, 10.0f)
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 10.0f)
 					[
 						SNew(SSeparator)
 					]
@@ -428,20 +566,21 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							SNew(STextBlock)
 							.Text(this, &SWildBoundBackpackWidget::GetWeightText)
 							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+							.ColorAndOpacity(FLinearColor(0.84f,0.86f,0.80f,1.0f))
 						]
 						+ SHorizontalBox::Slot().AutoWidth()
 						[
 							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("LEFT-DRAG MOVE   •   RIGHT-CLICK SPLIT   •   DRAG OUT TO DROP")))
+							.Text(FText::FromString(TEXT("DRAG MOVE   |   RIGHT-CLICK SPLIT   |   DRAG OUT DROP")))
 							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-							.ColorAndOpacity(FLinearColor(0.63f, 0.67f, 0.61f, 1.0f))
+							.ColorAndOpacity(FLinearColor(0.57f, 0.62f, 0.57f, 1.0f))
 						]
 					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 5.0f, 0.0f, 3.0f)
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 6.0f, 0.0f, 3.0f)
 					[
 						SNew(SProgressBar)
 						.Percent(this, &SWildBoundBackpackWidget::GetWeightPercent)
-						.FillColorAndOpacity(FLinearColor(0.70f, 0.55f, 0.18f, 1.0f))
+						.FillColorAndOpacity(FLinearColor(0.72f, 0.56f, 0.20f, 1.0f))
 					]
 					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 14.0f)
 					[
@@ -457,10 +596,10 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 						[
 							SNew(SBorder)
 							.Padding(FMargin(12.0f, 10.0f))
-							.BorderBackgroundColor(FLinearColor(0.028f, 0.037f, 0.033f, 0.96f))
+							.BorderBackgroundColor(FLinearColor(0.024f, 0.032f, 0.029f, 0.98f))
 							[
 								SNew(SVerticalBox)
-								+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 8.0f)
+								+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,0.0f,0.0f,8.0f)
 								[
 									SNew(SHorizontalBox)
 									+ SHorizontalBox::Slot().FillWidth(1.0f)
@@ -468,19 +607,19 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 										SNew(STextBlock)
 										.Text(FText::FromString(TEXT("INVENTORY")))
 										.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+										.ColorAndOpacity(FLinearColor(0.88f,0.91f,0.86f,1.0f))
 									]
 									+ SHorizontalBox::Slot().AutoWidth()
 									[
 										SNew(STextBlock)
-										.Text(FText::FromString(TEXT("HOVER FOR DETAILS")))
-										.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-										.ColorAndOpacity(FLinearColor(0.55f, 0.59f, 0.55f, 1.0f))
+										.Text(FText::FromString(TEXT("ICON  |  ITEM  |  RARITY  |  STACK")))
+										.Font(FCoreStyle::GetDefaultFontStyle("Regular", 7))
+										.ColorAndOpacity(FLinearColor(0.45f,0.50f,0.46f,1.0f))
 									]
 								]
 								+ SVerticalBox::Slot().AutoHeight()
 								[
-									SNew(SBox)
-									.HeightOverride(460.0f)
+									SNew(SBox).HeightOverride(470.0f)
 									[
 										SNew(SScrollBox)
 										+ SScrollBox::Slot()
@@ -498,24 +637,25 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(SBorder)
 								.Padding(FMargin(12.0f, 10.0f))
-								.BorderBackgroundColor(FLinearColor(0.040f, 0.050f, 0.045f, 0.97f))
+								.BorderBackgroundColor(FLinearColor(0.035f, 0.047f, 0.041f, 0.98f))
 								[
 									SNew(SVerticalBox)
-									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 7.0f)
+									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,0.0f,0.0f,7.0f)
 									[
 										SNew(STextBlock)
 										.Text(FText::FromString(TEXT("QUICK ACCESS")))
 										.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+										.ColorAndOpacity(FLinearColor(0.87f,0.83f,0.67f,1.0f))
 									]
-									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
+									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,2.0f)
 									[
 										SNew(SWildBoundHotbarDropSlot).BackpackComponent(BackpackComponent).SlotIndex(0)
 									]
-									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
+									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,2.0f)
 									[
 										SNew(SWildBoundHotbarDropSlot).BackpackComponent(BackpackComponent).SlotIndex(1)
 									]
-									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
+									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,2.0f)
 									[
 										SNew(SWildBoundHotbarDropSlot).BackpackComponent(BackpackComponent).SlotIndex(2)
 									]
@@ -525,13 +665,13 @@ void SWildBoundBackpackWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(SBorder)
 								.Padding(FMargin(14.0f, 12.0f))
-								.BorderBackgroundColor(FLinearColor(0.025f, 0.032f, 0.029f, 0.97f))
+								.BorderBackgroundColor(FLinearColor(0.021f, 0.028f, 0.025f, 0.985f))
 								[
 									SNew(STextBlock)
 									.Text(this, &SWildBoundBackpackWidget::GetSelectedItemText)
 									.AutoWrapText(true)
 									.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-									.ColorAndOpacity(FLinearColor(0.83f, 0.85f, 0.80f, 1.0f))
+									.ColorAndOpacity(FLinearColor(0.84f, 0.87f, 0.82f, 1.0f))
 								]
 							]
 						]
@@ -556,7 +696,6 @@ void SWildBoundBackpackWidget::Tick(
 	const float InDeltaTime)
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	const uint32 NewSignature = CalculateInventorySignature();
 	if (NewSignature != CachedInventorySignature)
 	{
@@ -569,10 +708,7 @@ FReply SWildBoundBackpackWidget::OnDrop(const FGeometry& MyGeometry, const FDrag
 {
 	const TSharedPtr<FWildBoundInventoryDragDropOp> Operation = DragDropEvent.GetOperationAs<FWildBoundInventoryDragDropOp>();
 	UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-	if (!Operation.IsValid() || !Backpack)
-	{
-		return FReply::Unhandled();
-	}
+	if (!Operation.IsValid() || !Backpack) return FReply::Unhandled();
 
 	if (InventoryPanel.IsValid()
 		&& InventoryPanel->GetCachedGeometry().IsUnderLocation(DragDropEvent.GetScreenSpacePosition()))
@@ -593,10 +729,7 @@ const UWildBoundInventoryComponent* SWildBoundBackpackWidget::GetInventory() con
 
 void SWildBoundBackpackWidget::RebuildInventoryRows()
 {
-	if (!InventoryRowsBox.IsValid())
-	{
-		return;
-	}
+	if (!InventoryRowsBox.IsValid()) return;
 
 	InventoryRowsBox->ClearChildren();
 	const UWildBoundInventoryComponent* Inventory = GetInventory();
@@ -606,12 +739,12 @@ void SWildBoundBackpackWidget::RebuildInventoryRows()
 		[
 			SNew(SBorder)
 			.Padding(FMargin(16.0f, 20.0f))
-			.BorderBackgroundColor(FLinearColor(0.035f, 0.042f, 0.039f, 0.90f))
+			.BorderBackgroundColor(FLinearColor(0.030f, 0.038f, 0.034f, 0.94f))
 			[
 				SNew(STextBlock)
-				.Text(FText::FromString(TEXT("Backpack empty. Search the town for supplies.")))
-				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
-				.ColorAndOpacity(FLinearColor(0.60f, 0.63f, 0.59f, 1.0f))
+				.Text(FText::FromString(TEXT("BACKPACK EMPTY\nSearch the town for supplies.")))
+				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+				.ColorAndOpacity(FLinearColor(0.54f, 0.59f, 0.55f, 1.0f))
 			]
 		];
 		return;
@@ -631,10 +764,7 @@ void SWildBoundBackpackWidget::RebuildInventoryRows()
 uint32 SWildBoundBackpackWidget::CalculateInventorySignature() const
 {
 	const UWildBoundInventoryComponent* Inventory = GetInventory();
-	if (!Inventory)
-	{
-		return 0;
-	}
+	if (!Inventory) return 0;
 
 	uint32 Signature = GetTypeHash(Inventory->Stacks.Num());
 	for (const FWildBoundInventoryStack& Stack : Inventory->Stacks)
@@ -652,10 +782,7 @@ uint32 SWildBoundBackpackWidget::CalculateInventorySignature() const
 TOptional<float> SWildBoundBackpackWidget::GetWeightPercent() const
 {
 	const UWildBoundInventoryComponent* Inventory = GetInventory();
-	if (!Inventory || Inventory->MaxCarryWeight <= 0.0f)
-	{
-		return TOptional<float>(0.0f);
-	}
+	if (!Inventory || Inventory->MaxCarryWeight <= 0.0f) return TOptional<float>(0.0f);
 	return TOptional<float>(FMath::Clamp(Inventory->GetTotalWeight() / Inventory->MaxCarryWeight, 0.0f, 1.0f));
 }
 
@@ -667,7 +794,7 @@ FText SWildBoundBackpackWidget::GetWeightText() const
 	const int32 SlotsUsed = Inventory ? Inventory->Stacks.Num() : 0;
 	const int32 SlotsMax = Inventory ? Inventory->MaxSlots : 0;
 	return FText::FromString(FString::Printf(
-		TEXT("CARRY   %.2f / %.2f kg      INVENTORY SLOTS   %d / %d"),
+		TEXT("CARRY   %.2f / %.2f kg      SLOTS   %d / %d"),
 		Current,
 		Max,
 		SlotsUsed,
@@ -677,15 +804,12 @@ FText SWildBoundBackpackWidget::GetWeightText() const
 FText SWildBoundBackpackWidget::GetStatusText() const
 {
 	const UWildBoundInventoryComponent* Inventory = GetInventory();
-	if (!Inventory)
-	{
-		return FText::FromString(TEXT("LOAD STATUS UNAVAILABLE"));
-	}
+	if (!Inventory) return FText::FromString(TEXT("LOAD STATUS UNAVAILABLE"));
 	if (Inventory->IsOverEncumbered())
 	{
 		const int32 OverPercent = FMath::RoundToInt(FMath::Max(0.0f, Inventory->GetCarryWeightRatio() - 1.0f) * 100.0f);
 		return FText::FromString(FString::Printf(
-			TEXT("OVER ENCUMBERED  +%d%% — MOVEMENT SLOWED / STAMINA COST INCREASED"),
+			TEXT("OVER ENCUMBERED  +%d%%   |   MOVEMENT SLOWED   |   STAMINA COST INCREASED"),
 			OverPercent));
 	}
 	return FText::FromString(TEXT("LOAD STATUS NORMAL"));
@@ -703,30 +827,30 @@ FText SWildBoundBackpackWidget::GetSelectedItemText() const
 {
 	const UWildBoundInventoryComponent* Inventory = GetInventory();
 	const UWildBoundBackpackComponent* Backpack = BackpackComponent.Get();
-	if (!Inventory || !Backpack)
-	{
-		return FText::FromString(TEXT("ITEM DETAILS\n—"));
-	}
+	if (!Inventory || !Backpack) return FText::FromString(TEXT("ITEM DETAILS\n--"));
 
 	const FName ItemId = Backpack->GetSelectedItemId();
 	const int32 Quantity = Backpack->GetSelectedItemQuantity();
 	if (ItemId.IsNone() || Quantity <= 0)
 	{
-		return FText::FromString(TEXT("ITEM DETAILS\nSelect an item to inspect it."));
+		return FText::FromString(TEXT("ITEM DETAILS\n\nSelect an item to inspect it."));
 	}
 
 	int32 HotbarSlot = INDEX_NONE;
 	const bool bInHotbar = Inventory->IsItemInHotbar(ItemId, HotbarSlot);
 	const float UnitWeight = Inventory->GetItemUnitWeight(ItemId);
+	const FString IconCode = GetItemIconCode(ItemId, Inventory);
 
 	return FText::FromString(FString::Printf(
-		TEXT("ITEM DETAILS\n\n[%s]  %s\n%s\n\n%s\n\nSTACK   x%d\nUNIT WEIGHT   %.2f kg\nSTACK WEIGHT   %.2f kg%s\n\nMOUSE\nLeft-drag: reorder / hotbar / world drop\nRight-click: split stack in half"),
+		TEXT("ITEM DETAILS\n\n[%s]   %s\n[%s]  %s\n%s\n\n%s\n\nSTACK   x%d\nUNIT WEIGHT   %.2f kg\nSTACK WEIGHT   %.2f kg%s\n\nMOUSE\nLeft-drag   reorder / hotbar / world drop\nRight-click   split stack in half"),
+		*IconCode,
 		*Inventory->GetItemRarityName(ItemId),
-		*Inventory->GetItemDisplayName(ItemId),
 		*Inventory->GetItemCategoryName(ItemId),
+		*Inventory->GetItemDisplayName(ItemId),
+		*FString::Printf(TEXT("RARITY: %s"), *Inventory->GetItemRarityName(ItemId)),
 		*Inventory->GetItemDescription(ItemId),
 		Quantity,
 		UnitWeight,
 		UnitWeight * static_cast<float>(Quantity),
-		bInHotbar ? *FString::Printf(TEXT("\nHOTBAR   %d"), HotbarSlot + 1) : TEXT("")));
+		bInHotbar ? *FString::Printf(TEXT("\nHOTBAR   SLOT %d"), HotbarSlot + 1) : TEXT("")));
 }
