@@ -23,13 +23,20 @@ private:
 	TSharedPtr<SVerticalBox> LootRowsBox;
 	TSharedPtr<SVerticalBox> BackpackRowsBox;
 	uint32 CachedStateSignature = 0;
+	int32 SortMode = 0;
+	int32 FilterMode = 0;
 
 	void RebuildRows();
 	void RebuildLootRows();
 	void RebuildBackpackRows();
 	uint32 CalculateStateSignature() const;
+	bool PassesFilter(FName ItemId) const;
 	FText GetHeaderText() const;
 	FText GetCarryText() const;
+	FText GetSortButtonText() const;
+	FText GetFilterButtonText() const;
+	FReply HandleCycleSort();
+	FReply HandleCycleFilter();
 	FReply HandleTakeAll();
 	FReply HandleClose();
 };
