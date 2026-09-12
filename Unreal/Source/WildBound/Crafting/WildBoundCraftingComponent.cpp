@@ -367,7 +367,7 @@ void UWildBoundCraftingComponent::SetCraftingOpen(bool bOpen)
 	if (CraftingViewportRoot.IsValid())
 	{
 		CraftingViewportRoot->SetVisibility(
-			bCraftingOpen ? EVisibility::HitTestInvisible : EVisibility::Collapsed);
+			bCraftingOpen ? EVisibility::Visible : EVisibility::Collapsed);
 	}
 
 	APawn* Pawn = Cast<APawn>(GetOwner());
@@ -376,6 +376,20 @@ void UWildBoundCraftingComponent::SetCraftingOpen(bool bOpen)
 	{
 		PlayerController->SetIgnoreMoveInput(bCraftingOpen);
 		PlayerController->SetIgnoreLookInput(bCraftingOpen);
+		PlayerController->bShowMouseCursor = bCraftingOpen;
+
+		if (bCraftingOpen)
+		{
+			FInputModeGameAndUI InputMode;
+			InputMode.SetHideCursorDuringCapture(false);
+			InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+			PlayerController->SetInputMode(InputMode);
+		}
+		else
+		{
+			FInputModeGameOnly InputMode;
+			PlayerController->SetInputMode(InputMode);
+		}
 	}
 }
 
@@ -391,6 +405,19 @@ void UWildBoundCraftingComponent::MoveSelection(int32 Direction)
 	{
 		SelectedRecipeIndex += Recipes.Num();
 	}
+}
+
+void UWildBoundCraftingComponent::SelectRecipeFromMouse(int32 RecipeIndex)
+{
+	if (Recipes.IsValidIndex(RecipeIndex))
+	{
+		SelectedRecipeIndex = RecipeIndex;
+	}
+}
+
+void UWildBoundCraftingComponent::CraftSelectedRecipeFromMouse()
+{
+	CraftSelectedRecipe();
 }
 
 bool UWildBoundCraftingComponent::CanCraftRecipe(int32 RecipeIndex) const
