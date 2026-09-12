@@ -1008,16 +1008,32 @@ FText SWildBoundLootWidget::GetCarryText() const
 	const float CurrentWeight = Inventory->GetTotalWeight();
 	const float ProjectedAllWeight = CurrentWeight + ContainerWeight;
 	const bool bOver = ProjectedAllWeight > Inventory->MaxCarryWeight + KINDA_SMALL_NUMBER;
-	return FText::FromString(FString::Printf(
-		bOver
-			? TEXT("BACKPACK %.2f / %.2f kg   |   SLOTS %d / %d   |   CONTAINER %.2f kg   |   TAKE ALL %.2f kg  [OVER ENCUMBERED]")
-			: TEXT("BACKPACK %.2f / %.2f kg   |   SLOTS %d / %d   |   CONTAINER %.2f kg   |   TAKE ALL %.2f kg"),
-		CurrentWeight,
-		Inventory->MaxCarryWeight,
-		Inventory->Stacks.Num(),
-		Inventory->MaxSlots,
-		ContainerWeight,
-		ProjectedAllWeight));
+
+	FString CarrySummary;
+	if (bOver)
+	{
+		CarrySummary = FString::Printf(
+			TEXT("BACKPACK %.2f / %.2f kg   |   SLOTS %d / %d   |   CONTAINER %.2f kg   |   TAKE ALL %.2f kg  [OVER ENCUMBERED]"),
+			CurrentWeight,
+			Inventory->MaxCarryWeight,
+			Inventory->Stacks.Num(),
+			Inventory->MaxSlots,
+			ContainerWeight,
+			ProjectedAllWeight);
+	}
+	else
+	{
+		CarrySummary = FString::Printf(
+			TEXT("BACKPACK %.2f / %.2f kg   |   SLOTS %d / %d   |   CONTAINER %.2f kg   |   TAKE ALL %.2f kg"),
+			CurrentWeight,
+			Inventory->MaxCarryWeight,
+			Inventory->Stacks.Num(),
+			Inventory->MaxSlots,
+			ContainerWeight,
+			ProjectedAllWeight);
+	}
+
+	return FText::FromString(CarrySummary);
 }
 
 FText SWildBoundLootWidget::GetSortButtonText() const
