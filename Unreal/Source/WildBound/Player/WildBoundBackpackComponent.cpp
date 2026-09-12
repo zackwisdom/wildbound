@@ -2,6 +2,7 @@
 
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../UI/SWildBoundBackpackWidget.h"
+#include "WildBoundInteractionComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -83,9 +84,29 @@ void UWildBoundBackpackComponent::TickComponent(
 		return;
 	}
 
-	if (PlayerController->WasInputKeyJustPressed(EKeys::I)
-		|| PlayerController->WasInputKeyJustPressed(EKeys::Tab))
+	UWildBoundInteractionComponent* Interaction = GetOwner()
+		? GetOwner()->FindComponentByClass<UWildBoundInteractionComponent>()
+		: nullptr;
+
+	if (PlayerController->WasInputKeyJustPressed(EKeys::Tab))
 	{
+		if (Interaction && Interaction->IsLootWindowOpen())
+		{
+			Interaction->CloseLootWindow();
+			return;
+		}
+
+		ToggleBackpack();
+		return;
+	}
+
+	if (PlayerController->WasInputKeyJustPressed(EKeys::I))
+	{
+		if (Interaction && Interaction->IsLootWindowOpen())
+		{
+			return;
+		}
+
 		ToggleBackpack();
 		return;
 	}
