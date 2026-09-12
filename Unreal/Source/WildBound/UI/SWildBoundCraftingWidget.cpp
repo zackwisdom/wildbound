@@ -3,6 +3,7 @@
 #include "../Crafting/WildBoundCraftingComponent.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "Styling/CoreStyle.h"
+#include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SSeparator.h"
@@ -114,6 +115,38 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 {
 	CraftingComponent = InArgs._CraftingComponent;
 
+	auto MakeRecipeButton = [this](int32 RecipeIndex) -> TSharedRef<SWidget>
+	{
+		return SNew(SButton)
+			.Visibility_Lambda([this, RecipeIndex]()
+			{
+				const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+				return Crafting && Crafting->GetRecipes().IsValidIndex(RecipeIndex)
+					? EVisibility::Visible
+					: EVisibility::Collapsed;
+			})
+			.ContentPadding(FMargin(0.0f))
+			.OnClicked_Lambda([this, RecipeIndex]()
+			{
+				if (UWildBoundCraftingComponent* Crafting = CraftingComponent.Get())
+				{
+					Crafting->SelectRecipeFromMouse(RecipeIndex);
+				}
+				return FReply::Handled();
+			})
+			[
+				SNew(SBorder)
+				.Padding(FMargin(9.0f, 7.0f))
+				.BorderBackgroundColor_Lambda([this, RecipeIndex]() { return GetRecipeBackground(RecipeIndex); })
+				[
+					SNew(STextBlock)
+					.Text_Lambda([this, RecipeIndex]() { return GetRecipeTitle(RecipeIndex); })
+					.ColorAndOpacity_Lambda([this, RecipeIndex]() { return GetRecipeTextColor(RecipeIndex); })
+					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+				]
+			];
+	};
+
 	ChildSlot
 	[
 		SNew(SBox)
@@ -181,7 +214,7 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 						+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 3.0f, 0.0f, 0.0f).HAlign(HAlign_Right)
 						[
 							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("C / ESC  CLOSE")))
+							.Text(FText::FromString(TEXT("CLICK RECIPE  /  C OR ESC CLOSE")))
 							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
 							.ColorAndOpacity(FLinearColor(0.53f, 0.56f, 0.52f, 1.0f))
 						]
@@ -213,75 +246,19 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 								+ SHorizontalBox::Slot().AutoWidth()
 								[
 									SNew(STextBlock)
-									.Text(FText::FromString(TEXT("UP / DOWN  SELECT")))
+									.Text(FText::FromString(TEXT("CLICK TO SELECT")))
 									.Font(FCoreStyle::GetDefaultFontStyle("Regular", 7))
 									.ColorAndOpacity(FLinearColor(0.50f, 0.54f, 0.50f, 1.0f))
 								]
 							]
-
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
-							[
-								SNew(SBorder)
-								.Visibility_Lambda([this]() { const UWildBoundCraftingComponent* C = CraftingComponent.Get(); return C && C->GetRecipes().IsValidIndex(0) ? EVisibility::Visible : EVisibility::Collapsed; })
-								.Padding(FMargin(9.0f, 7.0f))
-								.BorderBackgroundColor_Lambda([this]() { return GetRecipeBackground(0); })
-								[
-									SNew(STextBlock).Text_Lambda([this]() { return GetRecipeTitle(0); }).ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(0); }).Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-								]
-							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
-							[
-								SNew(SBorder)
-								.Visibility_Lambda([this]() { const UWildBoundCraftingComponent* C = CraftingComponent.Get(); return C && C->GetRecipes().IsValidIndex(1) ? EVisibility::Visible : EVisibility::Collapsed; })
-								.Padding(FMargin(9.0f, 7.0f))
-								.BorderBackgroundColor_Lambda([this]() { return GetRecipeBackground(1); })
-								[
-									SNew(STextBlock).Text_Lambda([this]() { return GetRecipeTitle(1); }).ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(1); }).Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-								]
-							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
-							[
-								SNew(SBorder)
-								.Visibility_Lambda([this]() { const UWildBoundCraftingComponent* C = CraftingComponent.Get(); return C && C->GetRecipes().IsValidIndex(2) ? EVisibility::Visible : EVisibility::Collapsed; })
-								.Padding(FMargin(9.0f, 7.0f))
-								.BorderBackgroundColor_Lambda([this]() { return GetRecipeBackground(2); })
-								[
-									SNew(STextBlock).Text_Lambda([this]() { return GetRecipeTitle(2); }).ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(2); }).Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-								]
-							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
-							[
-								SNew(SBorder)
-								.Visibility_Lambda([this]() { const UWildBoundCraftingComponent* C = CraftingComponent.Get(); return C && C->GetRecipes().IsValidIndex(3) ? EVisibility::Visible : EVisibility::Collapsed; })
-								.Padding(FMargin(9.0f, 7.0f))
-								.BorderBackgroundColor_Lambda([this]() { return GetRecipeBackground(3); })
-								[
-									SNew(STextBlock).Text_Lambda([this]() { return GetRecipeTitle(3); }).ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(3); }).Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-								]
-							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
-							[
-								SNew(SBorder)
-								.Visibility_Lambda([this]() { const UWildBoundCraftingComponent* C = CraftingComponent.Get(); return C && C->GetRecipes().IsValidIndex(4) ? EVisibility::Visible : EVisibility::Collapsed; })
-								.Padding(FMargin(9.0f, 7.0f))
-								.BorderBackgroundColor_Lambda([this]() { return GetRecipeBackground(4); })
-								[
-									SNew(STextBlock).Text_Lambda([this]() { return GetRecipeTitle(4); }).ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(4); }).Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-								]
-							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)
-							[
-								SNew(SBorder)
-								.Visibility_Lambda([this]() { const UWildBoundCraftingComponent* C = CraftingComponent.Get(); return C && C->GetRecipes().IsValidIndex(5) ? EVisibility::Visible : EVisibility::Collapsed; })
-								.Padding(FMargin(9.0f, 7.0f))
-								.BorderBackgroundColor_Lambda([this]() { return GetRecipeBackground(5); })
-								[
-									SNew(STextBlock).Text_Lambda([this]() { return GetRecipeTitle(5); }).ColorAndOpacity_Lambda([this]() { return GetRecipeTextColor(5); }).Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-								]
-							]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(0)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(1)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(2)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(3)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(4)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(5)]
 						]
 					]
-
 					+ SHorizontalBox::Slot().FillWidth(0.55f)
 					[
 						SNew(SBorder)
@@ -304,7 +281,6 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
 								.ColorAndOpacity(FLinearColor(0.69f, 0.73f, 0.68f, 1.0f))
 							]
-
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 1.0f, 0.0f, 10.0f)
 							[
 								SNew(SBorder)
@@ -314,7 +290,7 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 									const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 									const FWildBoundCraftingRecipe* Recipe = GetSelectedRecipe(Crafting);
 									const UWildBoundInventoryComponent* Inventory = Crafting ? Crafting->GetInventoryComponent() : nullptr;
-									return Recipe ? FSlateColor(GetRarityBackground(Inventory, Recipe->OutputItemId)) : FSlateColor(FLinearColor(0.05f,0.06f,0.055f,1.0f));
+									return Recipe ? FSlateColor(GetRarityBackground(Inventory, Recipe->OutputItemId)) : FSlateColor(FLinearColor(0.05f, 0.06f, 0.055f, 1.0f));
 								})
 								[
 									SNew(STextBlock)
@@ -329,7 +305,6 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 									})
 								]
 							]
-
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 1.0f, 0.0f, 8.0f)
 							[
 								SNew(SSeparator)
@@ -360,16 +335,40 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 								.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
 								.ColorAndOpacity(FLinearColor(0.60f, 0.64f, 0.59f, 1.0f))
 							]
-							+ SVerticalBox::Slot().AutoHeight()
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 8.0f)
 							[
 								SNew(SBorder)
-								.Padding(FMargin(12.0f, 10.0f))
+								.Padding(FMargin(12.0f, 9.0f))
 								.BorderBackgroundColor(FLinearColor(0.018f, 0.025f, 0.021f, 0.99f))
 								[
 									SNew(STextBlock)
 									.Text(this, &SWildBoundCraftingWidget::GetCraftStatusText)
 									.ColorAndOpacity(this, &SWildBoundCraftingWidget::GetCraftStatusColor)
 									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+									.Justification(ETextJustify::Center)
+								]
+							]
+							+ SVerticalBox::Slot().AutoHeight()
+							[
+								SNew(SButton)
+								.IsEnabled_Lambda([this]()
+								{
+									const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+									return Crafting && Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex());
+								})
+								.ContentPadding(FMargin(14.0f, 10.0f))
+								.OnClicked_Lambda([this]()
+								{
+									if (UWildBoundCraftingComponent* Crafting = CraftingComponent.Get())
+									{
+										Crafting->CraftSelectedRecipeFromMouse();
+									}
+									return FReply::Handled();
+								})
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString(TEXT("CRAFT ITEM")))
+									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
 									.Justification(ETextJustify::Center)
 								]
 							]
@@ -569,8 +568,8 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 	if (Crafting->CanCraftRecipe(Index))
 	{
 		return FText::FromString(Crafting->IsWorkbenchMode()
-			? TEXT("ENTER   CRAFT ITEM   |   WORKBENCH READY")
-			: TEXT("ENTER   CRAFT ITEM   |   FIELD ASSEMBLY READY"));
+			? TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER")
+			: TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER"));
 	}
 
 	return FText::FromString(TEXT("MISSING MATERIALS   |   SCAVENGE REQUIRED"));
