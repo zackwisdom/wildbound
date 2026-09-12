@@ -77,6 +77,10 @@ public:
 	const TArray<FWildBoundCraftingRecipe>& GetRecipes() const { return Recipes; }
 	UWildBoundInventoryComponent* GetInventoryComponent() const { return InventoryComponent.Get(); }
 
+	// Mouse/UI entry points. Keyboard controls continue to use the same underlying paths.
+	void SelectRecipeFromMouse(int32 RecipeIndex);
+	void CraftSelectedRecipeFromMouse();
+
 private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	TArray<FWildBoundCraftingRecipe> Recipes;
