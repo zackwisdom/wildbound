@@ -29,6 +29,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement", meta=(ClampMin="0.0"))
 	float MinimumStaminaToStartSprint = 10.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement|Feedback", meta=(ClampMin="0.35", ClampMax="1.0"))
+	float MinimumFatiguedAccelerationMultiplier = 0.72f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Movement|Encumbrance", meta=(ClampMin="0.1", ClampMax="1.0"))
 	float MinimumEncumberedSpeedMultiplier = 0.55f;
 
@@ -46,10 +49,12 @@ private:
 	TWeakObjectPtr<UWildBoundSurvivalComponent> SurvivalComponent;
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	float BaseWalkSpeed = 600.0f;
+	float BaseMaxAcceleration = 2048.0f;
 	bool bIsSprinting = false;
 
 	float GetEncumbranceSeverity() const;
 	float GetCurrentSpeedMultiplier() const;
+	float GetFatigueAccelerationMultiplier() const;
 	void ApplyMovementSpeed();
 	void SetSprinting(bool bNewSprinting);
 };
