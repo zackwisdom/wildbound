@@ -113,6 +113,24 @@ void SWildBoundHUDWidget::Construct(const FArguments& InArgs)
 		]
 
 		+ SOverlay::Slot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Bottom)
+		.Padding(FMargin(0.0f, 0.0f, 0.0f, 142.0f))
+		[
+			SNew(SBorder)
+			.Visibility(this, &SWildBoundHUDWidget::GetSurvivalWarningVisibility)
+			.Padding(FMargin(16.0f, 9.0f))
+			.BorderBackgroundColor(this, &SWildBoundHUDWidget::GetSurvivalWarningBackground)
+			[
+				SNew(STextBlock)
+				.Text(this, &SWildBoundHUDWidget::GetSurvivalWarningText)
+				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+				.ColorAndOpacity(this, &SWildBoundHUDWidget::GetSurvivalWarningColor)
+				.Justification(ETextJustify::Center)
+			]
+		]
+
+		+ SOverlay::Slot()
 		.HAlign(HAlign_Right)
 		.VAlign(VAlign_Bottom)
 		.Padding(FMargin(0.0f, 0.0f, 28.0f, 30.0f))
@@ -302,6 +320,102 @@ FSlateColor SWildBoundHUDWidget::GetRadiationColor() const
 	if (Exposure >= 40.0f) return FSlateColor(FLinearColor(0.95f, 0.48f, 0.08f, 1.0f));
 	if (Exposure >= 10.0f) return FSlateColor(FLinearColor(0.82f, 0.69f, 0.22f, 1.0f));
 	return FSlateColor(FLinearColor(0.55f, 0.58f, 0.54f, 1.0f));
+}
+
+EVisibility SWildBoundHUDWidget::GetSurvivalWarningVisibility() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	return Survival && Survival->IsNutritionLow() ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+}
+
+FText SWildBoundHUDWidget::GetSurvivalWarningText() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	if (!Survival)
+	{
+		return FText::GetEmpty();
+	}
+
+	const float Hunger = Survival->GetHungerPercent();
+	const float Thirst = Survival->GetThirstPercent();
+	const bool bHungerCritical = Hunger <= Survival->CriticalNutritionThreshold;
+	const bool bThirstCritical = Thirst <= Survival->CriticalNutritionThreshold;
+	const bool bHungerDamaging = Hunger <= Survival->HealthDamageThreshold;
+	const bool bThirstDamaging = Thirst <= Survival->HealthDamageThreshold;
+
+	if (bHungerDamaging && bThirstDamaging)
+	{
+		return FText::FromString(TEXT("STARVING + SEVERELY DEHYDRATED   |   HEALTH FAILING"));
+	}
+	if (bThirstDamaging)
+	{
+		return FText::FromString(TEXT("SEVERE DEHYDRATION   |   HEALTH FAILING"));
+	}
+	if (bHungerDamaging)
+	{
+		return FText::FromString(TEXT("STARVING   |   HEALTH FAILING"));
+	}
+	if (bHungerCritical && bThirstCritical)
+	{
+		return FText::FromString(TEXT("CRITICAL HUNGER + THIRST   |   MOVEMENT / STAMINA COMPROMISED"));
+	}
+	if (bThirstCritical)
+	{
+		return FText::FromString(TEXT("CRITICALLY THIRSTY   |   STAMINA DRAIN INCREASED"));
+	}
+	if (bHungerCritical)
+	{
+		return FText::FromString(TEXT("CRITICALLY HUNGRY   |   STAMINA RECOVERY REDUCED"));
+	}
+	if (Hunger <= Survival->LowNutritionThreshold && Thirst <= Survival->LowNutritionThreshold)
+	{
+		return FText::FromString(TEXT("HUNGRY + THIRSTY   |   PERFORMANCE DECLINING"));
+	}
+	if (Thirst <= Survival->LowNutritionThreshold)
+	{
+		return FText::FromString(TEXT("THIRSTY   |   STAMINA RECOVERY SLOWING"));
+	}
+	return FText::FromString(TEXT("HUNGRY   |   STAMINA RECOVERY SLOWING"));
+}
+
+FSlateColor SWildBoundHUDWidget::GetSurvivalWarningColor() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	if (!Survival)
+	{
+		return FSlateColor(FLinearColor::White);
+	}
+
+	const float LowestVital = FMath::Min(Survival->GetHungerPercent(), Survival->GetThirstPercent());
+	if (LowestVital <= Survival->HealthDamageThreshold)
+	{
+		return FSlateColor(FLinearColor(1.0f, 0.55f, 0.48f, 1.0f));
+	}
+	if (LowestVital <= Survival->CriticalNutritionThreshold)
+	{
+		return FSlateColor(FLinearColor(1.0f, 0.72f, 0.34f, 1.0f));
+	}
+	return FSlateColor(FLinearColor(0.95f, 0.82f, 0.45f, 1.0f));
+}
+
+FSlateColor SWildBoundHUDWidget::GetSurvivalWarningBackground() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	if (!Survival)
+	{
+		return FSlateColor(FLinearColor(0.05f, 0.05f, 0.04f, 0.90f));
+	}
+
+	const float LowestVital = FMath::Min(Survival->GetHungerPercent(), Survival->GetThirstPercent());
+	if (LowestVital <= Survival->HealthDamageThreshold)
+	{
+		return FSlateColor(FLinearColor(0.28f, 0.035f, 0.025f, 0.94f));
+	}
+	if (LowestVital <= Survival->CriticalNutritionThreshold)
+	{
+		return FSlateColor(FLinearColor(0.23f, 0.10f, 0.025f, 0.93f));
+	}
+	return FSlateColor(FLinearColor(0.16f, 0.12f, 0.025f, 0.91f));
 }
 
 int32 SWildBoundHUDWidget::GetSelectedHotbarSlot() const
