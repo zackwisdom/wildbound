@@ -72,11 +72,16 @@ void UWildBoundSprintComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 	if (bWantsSprint)
 	{
-		const float DrainMultiplier = FMath::Lerp(
+		const float EncumbranceDrainMultiplier = FMath::Lerp(
 			1.0f,
 			MaximumEncumberedSprintDrainMultiplier,
 			EncumbranceSeverity);
-		const float DrainAmount = SprintStaminaDrainPerSecond * DrainMultiplier * DeltaTime;
+		const float NutritionDrainMultiplier = Survival->GetNutritionSprintDrainMultiplier();
+		const float DrainAmount = SprintStaminaDrainPerSecond
+			* EncumbranceDrainMultiplier
+			* NutritionDrainMultiplier
+			* DeltaTime;
+
 		if (Survival->ConsumeStamina(DrainAmount))
 		{
 			SetSprinting(true);
@@ -103,7 +108,13 @@ float UWildBoundSprintComponent::GetEncumbranceSeverity() const
 
 float UWildBoundSprintComponent::GetCurrentSpeedMultiplier() const
 {
-	return FMath::Lerp(1.0f, MinimumEncumberedSpeedMultiplier, GetEncumbranceSeverity());
+	const float EncumbranceMultiplier = FMath::Lerp(
+		1.0f,
+		MinimumEncumberedSpeedMultiplier,
+		GetEncumbranceSeverity());
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const float NutritionMultiplier = Survival ? Survival->GetNutritionMoveSpeedMultiplier() : 1.0f;
+	return EncumbranceMultiplier * NutritionMultiplier;
 }
 
 void UWildBoundSprintComponent::ApplyMovementSpeed()
