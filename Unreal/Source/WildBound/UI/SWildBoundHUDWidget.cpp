@@ -4,6 +4,7 @@
 #include "../Player/WildBoundInteractionComponent.h"
 #include "../Survival/WildBoundRadiationComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
+#include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
@@ -21,6 +22,16 @@ void SWildBoundHUDWidget::Construct(const FArguments& InArgs)
 	ChildSlot
 	[
 		SNew(SOverlay)
+
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Fill)
+		[
+			SNew(SBorder)
+			.Visibility(this, &SWildBoundHUDWidget::GetPhysicalFeedbackVisibility)
+			.Padding(0.0f)
+			.BorderBackgroundColor(this, &SWildBoundHUDWidget::GetPhysicalFeedbackTint)
+		]
 
 		+ SOverlay::Slot()
 		.HAlign(HAlign_Left)
@@ -320,6 +331,57 @@ FSlateColor SWildBoundHUDWidget::GetRadiationColor() const
 	if (Exposure >= 40.0f) return FSlateColor(FLinearColor(0.95f, 0.48f, 0.08f, 1.0f));
 	if (Exposure >= 10.0f) return FSlateColor(FLinearColor(0.82f, 0.69f, 0.22f, 1.0f));
 	return FSlateColor(FLinearColor(0.55f, 0.58f, 0.54f, 1.0f));
+}
+
+float SWildBoundHUDWidget::GetPhysicalFeedbackSeverity() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	if (!Survival || !Survival->IsAlive())
+	{
+		return 0.0f;
+	}
+
+	constexpr float StaminaThreshold = 0.35f;
+	constexpr float HealthThreshold = 0.35f;
+	const float StaminaSeverity = FMath::Clamp(
+		(StaminaThreshold - Survival->GetStaminaPercent()) / StaminaThreshold,
+		0.0f,
+		1.0f);
+	const float HealthSeverity = FMath::Clamp(
+		(HealthThreshold - Survival->GetHealthPercent()) / HealthThreshold,
+		0.0f,
+		1.0f);
+	const float LowestNutrition = FMath::Min(Survival->GetHungerPercent(), Survival->GetThirstPercent());
+	const float NutritionThreshold = FMath::Max(Survival->LowNutritionThreshold, KINDA_SMALL_NUMBER);
+	const float NutritionSeverity = FMath::Clamp(
+		(NutritionThreshold - LowestNutrition) / NutritionThreshold,
+		0.0f,
+		1.0f);
+
+	return FMath::Clamp(FMath::Max3(
+		HealthSeverity,
+		StaminaSeverity * 0.78f,
+		NutritionSeverity * 0.84f), 0.0f, 1.0f);
+}
+
+EVisibility SWildBoundHUDWidget::GetPhysicalFeedbackVisibility() const
+{
+	return GetPhysicalFeedbackSeverity() >= 0.08f
+		? EVisibility::HitTestInvisible
+		: EVisibility::Collapsed;
+}
+
+FSlateColor SWildBoundHUDWidget::GetPhysicalFeedbackTint() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const AActor* Owner = Survival ? Survival->GetOwner() : nullptr;
+	const UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+	const float Severity = GetPhysicalFeedbackSeverity();
+	const float TimeSeconds = World ? World->GetTimeSeconds() : 0.0f;
+	const float PulseRate = 2.0f + (Severity * 3.4f);
+	const float Pulse = 0.68f + 0.32f * (0.5f + 0.5f * FMath::Sin(TimeSeconds * PulseRate));
+	const float Alpha = FMath::Clamp(0.085f * Severity * Pulse, 0.0f, 0.085f);
+	return FSlateColor(FLinearColor(0.30f, 0.045f, 0.018f, Alpha));
 }
 
 EVisibility SWildBoundHUDWidget::GetSurvivalWarningVisibility() const
