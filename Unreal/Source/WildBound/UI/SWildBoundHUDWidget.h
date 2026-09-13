@@ -32,6 +32,10 @@ private:
 	FText GetRadiationText() const;
 	FSlateColor GetRadiationColor() const;
 
+	float GetPhysicalFeedbackSeverity() const;
+	EVisibility GetPhysicalFeedbackVisibility() const;
+	FSlateColor GetPhysicalFeedbackTint() const;
+
 	EVisibility GetSurvivalWarningVisibility() const;
 	FText GetSurvivalWarningText() const;
 	FSlateColor GetSurvivalWarningColor() const;
