@@ -10,6 +10,8 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundWaveProcedural.h"
 #include "Widgets/SOverlay.h"
 
 namespace
@@ -19,6 +21,9 @@ namespace
 	const FName FilterMaskItemId(TEXT("FilterMask"));
 	const FName CanteenItemId(TEXT("Canteen"));
 	const FName UtilityBeltItemId(TEXT("UtilityBelt"));
+
+	constexpr int32 CraftSampleRate = 22050;
+	constexpr float CraftSoundDuration = 0.24f;
 
 	FWildBoundCraftingIngredient Ingredient(const TCHAR* ItemId, int32 Quantity)
 	{
@@ -34,6 +39,62 @@ namespace
 			|| ItemId == FilterMaskItemId
 			|| ItemId == CanteenItemId
 			|| ItemId == UtilityBeltItemId;
+	}
+
+	USoundWaveProcedural* BuildCraftCompletionWave(UObject* Outer, int32 RarityTier, bool bWorkbench)
+	{
+		USoundWaveProcedural* Wave = NewObject<USoundWaveProcedural>(Outer);
+		if (!Wave)
+		{
+			return nullptr;
+		}
+
+		Wave->NumChannels = 1;
+		Wave->SetSampleRate(CraftSampleRate);
+		Wave->Duration = CraftSoundDuration;
+		Wave->bLooping = false;
+		Wave->SoundGroup = SOUNDGROUP_Default;
+
+		const int32 Tier = FMath::Clamp(RarityTier, 0, 3);
+		const int32 SampleCount = FMath::RoundToInt(CraftSampleRate * CraftSoundDuration);
+		TArray<int16> Samples;
+		Samples.SetNumZeroed(SampleCount);
+
+		const float BaseFrequency = bWorkbench
+			? (420.0f + static_cast<float>(Tier) * 72.0f)
+			: (560.0f + static_cast<float>(Tier) * 88.0f);
+		const float AccentFrequency = BaseFrequency * 1.48f;
+		const float HighFrequency = BaseFrequency * 2.05f;
+		const float Gain = 0.36f + static_cast<float>(Tier) * 0.055f;
+
+		for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
+		{
+			const float TimeSeconds = static_cast<float>(SampleIndex) / static_cast<float>(CraftSampleRate);
+			const float NormalizedTime = TimeSeconds / CraftSoundDuration;
+			const float Envelope = FMath::Pow(FMath::Clamp(1.0f - NormalizedTime, 0.0f, 1.0f), 1.8f);
+			const float ToneA = FMath::Sin(2.0f * PI * BaseFrequency * TimeSeconds);
+			const float ToneB = FMath::Sin(2.0f * PI * AccentFrequency * TimeSeconds);
+			const float ToneC = FMath::Sin(2.0f * PI * HighFrequency * TimeSeconds);
+			const float ClickEnvelope = FMath::Clamp(1.0f - NormalizedTime * 8.0f, 0.0f, 1.0f);
+			const float Click = FMath::Sin(2.0f * PI * 1450.0f * TimeSeconds) * ClickEnvelope;
+
+			float Signal = ToneA * 0.50f + ToneB * 0.24f + ToneC * 0.10f + Click * 0.18f;
+			if (Tier >= 2 && NormalizedTime > 0.34f && NormalizedTime < 0.68f)
+			{
+				Signal += FMath::Sin(2.0f * PI * AccentFrequency * 1.42f * TimeSeconds) * 0.13f;
+			}
+
+			const int32 PCM = FMath::Clamp(
+				FMath::RoundToInt(Signal * Envelope * Gain * 32767.0f),
+				-32768,
+				32767);
+			Samples[SampleIndex] = static_cast<int16>(PCM);
+		}
+
+		Wave->QueueAudio(
+			reinterpret_cast<const uint8*>(Samples.GetData()),
+			Samples.Num() * sizeof(int16));
+		return Wave;
 	}
 }
 
@@ -75,6 +136,15 @@ void UWildBoundCraftingComponent::TickComponent(
 	}
 
 	EnsureCraftingWidget();
+
+	if (bCraftInProgress)
+	{
+		CraftElapsedSeconds += FMath::Max(0.0f, DeltaTime);
+		if (CraftElapsedSeconds >= ActiveCraftDurationSeconds)
+		{
+			CompletePendingCraft();
+		}
+	}
 
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	APlayerController* PlayerController = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
@@ -340,6 +410,9 @@ void UWildBoundCraftingComponent::OpenCrafting(bool bUseWorkbench)
 
 	bWorkbenchMode = bUseWorkbench;
 	BuildRecipesForCurrentMode();
+	CancelPendingCraft();
+	LastCraftSuccessWorldTime = -1000.0f;
+	LastCraftedDisplayName.Reset();
 	SetCraftingOpen(true);
 
 	if (bCraftingOpen && GEngine)
@@ -362,6 +435,10 @@ void UWildBoundCraftingComponent::SetCraftingOpen(bool bOpen)
 	}
 
 	EnsureCraftingWidget();
+	if (!bOpen)
+	{
+		CancelPendingCraft();
+	}
 	bCraftingOpen = bOpen && CraftingViewportRoot.IsValid();
 
 	if (CraftingViewportRoot.IsValid())
@@ -395,7 +472,7 @@ void UWildBoundCraftingComponent::SetCraftingOpen(bool bOpen)
 
 void UWildBoundCraftingComponent::MoveSelection(int32 Direction)
 {
-	if (Recipes.IsEmpty() || Direction == 0)
+	if (bCraftInProgress || Recipes.IsEmpty() || Direction == 0)
 	{
 		return;
 	}
@@ -409,7 +486,7 @@ void UWildBoundCraftingComponent::MoveSelection(int32 Direction)
 
 void UWildBoundCraftingComponent::SelectRecipeFromMouse(int32 RecipeIndex)
 {
-	if (Recipes.IsValidIndex(RecipeIndex))
+	if (!bCraftInProgress && Recipes.IsValidIndex(RecipeIndex))
 	{
 		SelectedRecipeIndex = RecipeIndex;
 	}
@@ -444,8 +521,38 @@ bool UWildBoundCraftingComponent::CanCraftRecipe(int32 RecipeIndex) const
 	return true;
 }
 
+float UWildBoundCraftingComponent::GetCraftProgress() const
+{
+	if (bCraftInProgress && ActiveCraftDurationSeconds > KINDA_SMALL_NUMBER)
+	{
+		return FMath::Clamp(CraftElapsedSeconds / ActiveCraftDurationSeconds, 0.0f, 1.0f);
+	}
+	return GetCraftSuccessFlashAlpha() > 0.0f ? 1.0f : 0.0f;
+}
+
+float UWildBoundCraftingComponent::GetCraftSuccessFlashAlpha() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.0f;
+	}
+
+	const float Age = World->GetTimeSeconds() - LastCraftSuccessWorldTime;
+	if (Age < 0.0f || Age > 0.70f)
+	{
+		return 0.0f;
+	}
+	return FMath::Clamp(1.0f - Age / 0.70f, 0.0f, 1.0f);
+}
+
 void UWildBoundCraftingComponent::CraftSelectedRecipe()
 {
+	if (bCraftInProgress)
+	{
+		return;
+	}
+
 	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
 	if (!Inventory || !Recipes.IsValidIndex(SelectedRecipeIndex))
 	{
@@ -471,21 +578,57 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 		return;
 	}
 
+	PendingRecipeIndex = SelectedRecipeIndex;
+	CraftElapsedSeconds = 0.0f;
+	ActiveCraftDurationSeconds = bWorkbenchMode ? 1.15f : 0.82f;
+	bCraftInProgress = true;
+	LastCraftSuccessWorldTime = -1000.0f;
+}
+
+void UWildBoundCraftingComponent::CompletePendingCraft()
+{
+	UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Inventory || !Recipes.IsValidIndex(PendingRecipeIndex))
+	{
+		CancelPendingCraft();
+		return;
+	}
+
+	const int32 RecipeIndex = PendingRecipeIndex;
+	const FWildBoundCraftingRecipe& Recipe = Recipes[RecipeIndex];
+	if (!CanCraftRecipe(RecipeIndex))
+	{
+		CancelPendingCraft();
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(91021, 1.8f, FColor(220, 145, 110), TEXT("Craft interrupted — materials changed."));
+		}
+		return;
+	}
+
+	TArray<FWildBoundCraftingIngredient> RemovedIngredients;
 	for (const FWildBoundCraftingIngredient& Requirement : Recipe.Ingredients)
 	{
 		if (!Inventory->RemoveItem(Requirement.ItemId, Requirement.Quantity))
 		{
+			for (const FWildBoundCraftingIngredient& Removed : RemovedIngredients)
+			{
+				Inventory->AddItem(Removed.ItemId, Removed.Quantity);
+			}
+			CancelPendingCraft();
 			return;
 		}
+		RemovedIngredients.Add(Requirement);
 	}
 
 	if (!Inventory->AddItem(Recipe.OutputItemId, Recipe.OutputQuantity))
 	{
-		for (const FWildBoundCraftingIngredient& Requirement : Recipe.Ingredients)
+		for (const FWildBoundCraftingIngredient& Removed : RemovedIngredients)
 		{
-			Inventory->AddItem(Requirement.ItemId, Requirement.Quantity);
+			Inventory->AddItem(Removed.ItemId, Removed.Quantity);
 		}
 
+		CancelPendingCraft();
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(91021, 2.0f, FColor(220, 145, 110), TEXT("Not enough inventory space for crafted item."));
@@ -493,23 +636,75 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 		return;
 	}
 
+	LastCraftedDisplayName = Recipe.DisplayName;
+	LastCraftedDisplayName.RemoveFromStart(TEXT("HAND: "));
+	LastCraftedDisplayName.RemoveFromStart(TEXT("BENCH: "));
+	if (const UWorld* World = GetWorld())
+	{
+		LastCraftSuccessWorldTime = World->GetTimeSeconds();
+	}
+
+	const int32 RarityTier = Inventory->GetItemRarityTier(Recipe.OutputItemId);
+	bCraftInProgress = false;
+	PendingRecipeIndex = INDEX_NONE;
+	CraftElapsedSeconds = 0.0f;
+	ActiveCraftDurationSeconds = 0.0f;
+	PlayCraftCompletionSound(RarityTier);
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(
 			91021,
-			2.2f,
+			2.0f,
 			FColor(170, 215, 155),
-			FString::Printf(TEXT("Crafted: %s x%d"), *Recipe.DisplayName, Recipe.OutputQuantity));
+			FString::Printf(TEXT("Crafted: %s x%d"), *LastCraftedDisplayName, Recipe.OutputQuantity));
 	}
+}
+
+void UWildBoundCraftingComponent::CancelPendingCraft()
+{
+	bCraftInProgress = false;
+	PendingRecipeIndex = INDEX_NONE;
+	CraftElapsedSeconds = 0.0f;
+	ActiveCraftDurationSeconds = 0.0f;
+}
+
+void UWildBoundCraftingComponent::PlayCraftCompletionSound(int32 RarityTier) const
+{
+	UWorld* World = GetWorld();
+	AActor* Owner = GetOwner();
+	if (!World || !Owner)
+	{
+		return;
+	}
+
+	USoundWaveProcedural* Wave = BuildCraftCompletionWave(World, RarityTier, bWorkbenchMode);
+	if (!Wave)
+	{
+		return;
+	}
+
+	UGameplayStatics::SpawnSoundAtLocation(
+		World,
+		Wave,
+		Owner->GetActorLocation(),
+		FRotator::ZeroRotator,
+		0.72f,
+		1.0f,
+		0.0f,
+		nullptr,
+		nullptr,
+		true);
 }
 
 void UWildBoundCraftingComponent::RemoveCraftingWidget()
 {
-	if (CraftingViewportRoot.IsValid() && GEngine && GEngine->GameViewport)
+	if (GEngine && GEngine->GameViewport && CraftingViewportRoot.IsValid())
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(CraftingViewportRoot.ToSharedRef());
 	}
 
+	CancelPendingCraft();
 	CraftingWidget.Reset();
 	CraftingViewportRoot.Reset();
 	bCraftingOpen = false;
