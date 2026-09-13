@@ -313,7 +313,11 @@ void UWildBoundScavengeFeedbackSubsystem::RestoreContainerOpenPose(AActor& Conta
 	}
 
 	Container.AddActorWorldOffset(-AppliedOpenOffset, false);
-	Container.AddActorLocalRotation(-AppliedOpenRotation);
+	const FRotator ReverseRotation(
+		-AppliedOpenRotation.Pitch,
+		-AppliedOpenRotation.Yaw,
+		-AppliedOpenRotation.Roll);
+	Container.AddActorLocalRotation(ReverseRotation);
 	AppliedOpenRotation = FRotator::ZeroRotator;
 	AppliedOpenOffset = FVector::ZeroVector;
 	bOpenPoseApplied = false;
