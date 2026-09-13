@@ -72,6 +72,24 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Rates", meta=(ClampMin="0.0"))
 	float DehydrationDamagePerSecond = 4.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Nutrition", meta=(ClampMin="0.05", ClampMax="0.75"))
+	float LowNutritionThreshold = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Nutrition", meta=(ClampMin="0.01", ClampMax="0.35"))
+	float CriticalNutritionThreshold = 0.15f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Nutrition", meta=(ClampMin="0.01", ClampMax="0.25"))
+	float HealthDamageThreshold = 0.10f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Nutrition", meta=(ClampMin="0.05", ClampMax="1.0"))
+	float MinimumNutritionStaminaRegenMultiplier = 0.22f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Nutrition", meta=(ClampMin="0.25", ClampMax="1.0"))
+	float MinimumNutritionMoveSpeedMultiplier = 0.70f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Survival|Nutrition", meta=(ClampMin="1.0"))
+	float MaximumNutritionSprintDrainMultiplier = 1.85f;
+
 	UFUNCTION(BlueprintCallable, Category="WildBound|Survival")
 	bool ConsumeStamina(float Amount);
 
@@ -105,8 +123,25 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Survival")
 	float GetStaminaPercent() const;
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
+	float GetNutritionStaminaRegenMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
+	float GetNutritionMoveSpeedMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
+	float GetNutritionSprintDrainMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
+	bool IsNutritionLow() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
+	bool IsNutritionCritical() const;
+
 private:
 	bool bDeathBroadcast = false;
 
+	float GetNutritionSeverity(float Percent) const;
+	float GetCriticalDamageSeverity(float Percent) const;
 	void BroadcastStatsChanged();
 };
