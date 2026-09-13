@@ -23,6 +23,7 @@ void UWildBoundSprintComponent::BeginPlay()
 	if (Character && Character->GetCharacterMovement())
 	{
 		BaseWalkSpeed = Character->GetCharacterMovement()->MaxWalkSpeed;
+		BaseMaxAcceleration = Character->GetCharacterMovement()->MaxAcceleration;
 	}
 
 	SurvivalComponent = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
@@ -31,7 +32,15 @@ void UWildBoundSprintComponent::BeginPlay()
 
 void UWildBoundSprintComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	SetSprinting(false);
+	bIsSprinting = false;
+	if (ACharacter* Character = CharacterOwner.Get())
+	{
+		if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
+		{
+			Movement->MaxWalkSpeed = BaseWalkSpeed;
+			Movement->MaxAcceleration = BaseMaxAcceleration;
+		}
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -117,6 +126,34 @@ float UWildBoundSprintComponent::GetCurrentSpeedMultiplier() const
 	return EncumbranceMultiplier * NutritionMultiplier;
 }
 
+float UWildBoundSprintComponent::GetFatigueAccelerationMultiplier() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	if (!Survival)
+	{
+		return 1.0f;
+	}
+
+	constexpr float LowStaminaThreshold = 0.35f;
+	const float StaminaSeverity = FMath::Clamp(
+		(LowStaminaThreshold - Survival->GetStaminaPercent()) / LowStaminaThreshold,
+		0.0f,
+		1.0f);
+
+	const float NutritionMultiplier = Survival->GetNutritionMoveSpeedMultiplier();
+	const float NutritionRange = FMath::Max(1.0f - Survival->MinimumNutritionMoveSpeedMultiplier, KINDA_SMALL_NUMBER);
+	const float NutritionSeverity = FMath::Clamp(
+		(1.0f - NutritionMultiplier) / NutritionRange,
+		0.0f,
+		1.0f);
+
+	const float CombinedSeverity = FMath::Clamp(
+		1.0f - ((1.0f - StaminaSeverity) * (1.0f - NutritionSeverity)),
+		0.0f,
+		1.0f);
+	return FMath::Lerp(1.0f, MinimumFatiguedAccelerationMultiplier, CombinedSeverity);
+}
+
 void UWildBoundSprintComponent::ApplyMovementSpeed()
 {
 	ACharacter* Character = CharacterOwner.Get();
@@ -128,6 +165,7 @@ void UWildBoundSprintComponent::ApplyMovementSpeed()
 
 	const float TargetBaseSpeed = bIsSprinting ? SprintSpeed : BaseWalkSpeed;
 	Movement->MaxWalkSpeed = TargetBaseSpeed * GetCurrentSpeedMultiplier();
+	Movement->MaxAcceleration = BaseMaxAcceleration * GetFatigueAccelerationMultiplier();
 }
 
 void UWildBoundSprintComponent::SetSprinting(bool bNewSprinting)
