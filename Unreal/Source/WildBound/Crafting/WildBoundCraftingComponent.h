@@ -81,6 +81,11 @@ public:
 	void SelectRecipeFromMouse(int32 RecipeIndex);
 	void CraftSelectedRecipeFromMouse();
 
+	bool IsCraftInProgress() const { return bCraftInProgress; }
+	float GetCraftProgress() const;
+	float GetCraftSuccessFlashAlpha() const;
+	const FString& GetLastCraftedDisplayName() const { return LastCraftedDisplayName; }
+
 private:
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	TArray<FWildBoundCraftingRecipe> Recipes;
@@ -90,6 +95,13 @@ private:
 	bool bWorkbenchMode = false;
 	int32 SelectedRecipeIndex = 0;
 
+	bool bCraftInProgress = false;
+	int32 PendingRecipeIndex = INDEX_NONE;
+	float CraftElapsedSeconds = 0.0f;
+	float ActiveCraftDurationSeconds = 0.0f;
+	float LastCraftSuccessWorldTime = -1000.0f;
+	FString LastCraftedDisplayName;
+
 	void BuildRecipesForCurrentMode();
 	void EnsureCraftingWidget();
 	void ToggleCrafting();
@@ -97,5 +109,8 @@ private:
 	void SetCraftingOpen(bool bOpen);
 	void MoveSelection(int32 Direction);
 	void CraftSelectedRecipe();
+	void CompletePendingCraft();
+	void CancelPendingCraft();
+	void PlayCraftCompletionSound(int32 RarityTier) const;
 	void RemoveCraftingWidget();
 };
