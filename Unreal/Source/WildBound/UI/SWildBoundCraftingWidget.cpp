@@ -125,6 +125,11 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 					? EVisibility::Visible
 					: EVisibility::Collapsed;
 			})
+			.IsEnabled_Lambda([this]()
+			{
+				const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+				return Crafting && !Crafting->IsCraftInProgress();
+			})
 			.ContentPadding(FMargin(0.0f))
 			.OnClicked_Lambda([this, RecipeIndex]()
 			{
@@ -338,8 +343,29 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 8.0f)
 							[
 								SNew(SBorder)
-								.Padding(FMargin(12.0f, 9.0f))
-								.BorderBackgroundColor(FLinearColor(0.018f, 0.025f, 0.021f, 0.99f))
+								.Padding(FMargin(12.0f, 10.0f))
+								.BorderBackgroundColor_Lambda([this]()
+								{
+									const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+									if (!Crafting)
+									{
+										return FSlateColor(FLinearColor(0.018f, 0.025f, 0.021f, 0.99f));
+									}
+
+									const float Flash = Crafting->GetCraftSuccessFlashAlpha();
+									if (Flash > 0.0f)
+									{
+										const FLinearColor Base(0.025f, 0.080f, 0.035f, 0.99f);
+										const FLinearColor Peak(0.20f, 0.46f, 0.16f, 0.99f);
+										return FSlateColor(Base + (Peak - Base) * Flash);
+									}
+									if (Crafting->IsCraftInProgress())
+									{
+										const float Pulse = 0.5f + 0.5f * FMath::Sin(Crafting->GetCraftProgress() * PI * 4.0f);
+										return FSlateColor(FLinearColor(0.055f + 0.025f * Pulse, 0.080f + 0.035f * Pulse, 0.045f, 0.99f));
+									}
+									return FSlateColor(FLinearColor(0.018f, 0.025f, 0.021f, 0.99f));
+								})
 								[
 									SNew(STextBlock)
 									.Text(this, &SWildBoundCraftingWidget::GetCraftStatusText)
@@ -354,7 +380,9 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 								.IsEnabled_Lambda([this]()
 								{
 									const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
-									return Crafting && Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex());
+									return Crafting
+										&& !Crafting->IsCraftInProgress()
+										&& Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex());
 								})
 								.ContentPadding(FMargin(14.0f, 10.0f))
 								.OnClicked_Lambda([this]()
@@ -367,7 +395,13 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 								})
 								[
 									SNew(STextBlock)
-									.Text(FText::FromString(TEXT("CRAFT ITEM")))
+									.Text_Lambda([this]()
+									{
+										const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+										return FText::FromString(Crafting && Crafting->IsCraftInProgress()
+											? TEXT("ASSEMBLING...")
+											: TEXT("CRAFT ITEM"));
+									})
 									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
 									.Justification(ETextJustify::Center)
 								]
@@ -559,6 +593,19 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 		return FText::FromString(TEXT("CRAFTING UNAVAILABLE"));
 	}
 
+	if (Crafting->IsCraftInProgress())
+	{
+		const int32 Percent = FMath::RoundToInt(Crafting->GetCraftProgress() * 100.0f);
+		return FText::FromString(FString::Printf(TEXT("ASSEMBLING   %d%%   |   HOLD POSITION"), Percent));
+	}
+
+	if (Crafting->GetCraftSuccessFlashAlpha() > 0.0f)
+	{
+		return FText::FromString(FString::Printf(
+			TEXT("CRAFT COMPLETE   |   %s"),
+			*Crafting->GetLastCraftedDisplayName()));
+	}
+
 	const int32 Index = Crafting->GetSelectedRecipeIndex();
 	if (IsRecipeOwned(Crafting, Index))
 	{
@@ -567,9 +614,7 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 
 	if (Crafting->CanCraftRecipe(Index))
 	{
-		return FText::FromString(Crafting->IsWorkbenchMode()
-			? TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER")
-			: TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER"));
+		return FText::FromString(TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER"));
 	}
 
 	return FText::FromString(TEXT("MISSING MATERIALS   |   SCAVENGE REQUIRED"));
@@ -578,12 +623,32 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 FSlateColor SWildBoundCraftingWidget::GetCraftStatusColor() const
 {
 	const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
-	if (Crafting && IsRecipeOwned(Crafting, Crafting->GetSelectedRecipeIndex()))
+	if (!Crafting)
+	{
+		return FSlateColor(FLinearColor(0.58f, 0.59f, 0.55f, 1.0f));
+	}
+
+	if (Crafting->IsCraftInProgress())
+	{
+		return Crafting->IsWorkbenchMode()
+			? FSlateColor(FLinearColor(0.92f, 0.73f, 0.38f, 1.0f))
+			: FSlateColor(FLinearColor(0.64f, 0.86f, 0.58f, 1.0f));
+	}
+
+	const float Flash = Crafting->GetCraftSuccessFlashAlpha();
+	if (Flash > 0.0f)
+	{
+		const FLinearColor Base(0.64f, 0.88f, 0.54f, 1.0f);
+		const FLinearColor Peak(0.96f, 1.00f, 0.78f, 1.0f);
+		return FSlateColor(Base + (Peak - Base) * Flash);
+	}
+
+	if (IsRecipeOwned(Crafting, Crafting->GetSelectedRecipeIndex()))
 	{
 		return FSlateColor(FLinearColor(0.48f, 0.68f, 0.76f, 1.0f));
 	}
 
-	const bool bReady = Crafting && Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex());
+	const bool bReady = Crafting->CanCraftRecipe(Crafting->GetSelectedRecipeIndex());
 	return bReady
 		? FSlateColor(FLinearColor(0.57f, 0.83f, 0.49f, 1.0f))
 		: FSlateColor(FLinearColor(0.91f, 0.42f, 0.22f, 1.0f));
