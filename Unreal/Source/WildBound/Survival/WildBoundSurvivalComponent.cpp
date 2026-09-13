@@ -51,20 +51,18 @@ void UWildBoundSurvivalComponent::TickComponent(float DeltaTime, ELevelTick Tick
 		}
 	}
 
+	RegenMultiplier *= GetNutritionStaminaRegenMultiplier();
 	Stamina = FMath::Clamp(
 		Stamina + (StaminaRegenPerSecond * RegenMultiplier * DeltaTime),
 		0.0f,
 		MaxStamina);
 
-	float SurvivalDamage = 0.0f;
-	if (Hunger <= 0.0f)
-	{
-		SurvivalDamage += StarvationDamagePerSecond * DeltaTime;
-	}
-	if (Thirst <= 0.0f)
-	{
-		SurvivalDamage += DehydrationDamagePerSecond * DeltaTime;
-	}
+	const float HungerDamageSeverity = GetCriticalDamageSeverity(GetHungerPercent());
+	const float ThirstDamageSeverity = GetCriticalDamageSeverity(GetThirstPercent());
+	const float SurvivalDamage =
+		(StarvationDamagePerSecond * FMath::Square(HungerDamageSeverity)
+			+ DehydrationDamagePerSecond * FMath::Square(ThirstDamageSeverity)) * DeltaTime;
+
 	if (SurvivalDamage > 0.0f)
 	{
 		ApplySurvivalDamage(SurvivalDamage);
@@ -160,6 +158,58 @@ float UWildBoundSurvivalComponent::GetThirstPercent() const
 float UWildBoundSurvivalComponent::GetStaminaPercent() const
 {
 	return MaxStamina > 0.0f ? Stamina / MaxStamina : 0.0f;
+}
+
+float UWildBoundSurvivalComponent::GetNutritionSeverity(float Percent) const
+{
+	const float Threshold = FMath::Max(LowNutritionThreshold, KINDA_SMALL_NUMBER);
+	return FMath::Clamp((Threshold - Percent) / Threshold, 0.0f, 1.0f);
+}
+
+float UWildBoundSurvivalComponent::GetCriticalDamageSeverity(float Percent) const
+{
+	const float Threshold = FMath::Max(HealthDamageThreshold, KINDA_SMALL_NUMBER);
+	return FMath::Clamp((Threshold - Percent) / Threshold, 0.0f, 1.0f);
+}
+
+float UWildBoundSurvivalComponent::GetNutritionStaminaRegenMultiplier() const
+{
+	const float HungerSeverity = GetNutritionSeverity(GetHungerPercent());
+	const float ThirstSeverity = GetNutritionSeverity(GetThirstPercent());
+	const float CombinedSeverity = 1.0f - ((1.0f - HungerSeverity) * (1.0f - ThirstSeverity));
+	return FMath::Lerp(1.0f, MinimumNutritionStaminaRegenMultiplier, CombinedSeverity);
+}
+
+float UWildBoundSurvivalComponent::GetNutritionMoveSpeedMultiplier() const
+{
+	const float HungerSeverity = GetNutritionSeverity(GetHungerPercent()) * 0.65f;
+	const float ThirstSeverity = GetNutritionSeverity(GetThirstPercent());
+	const float CombinedSeverity = FMath::Clamp(
+		1.0f - ((1.0f - HungerSeverity) * (1.0f - ThirstSeverity)),
+		0.0f,
+		1.0f);
+	return FMath::Lerp(1.0f, MinimumNutritionMoveSpeedMultiplier, CombinedSeverity);
+}
+
+float UWildBoundSurvivalComponent::GetNutritionSprintDrainMultiplier() const
+{
+	const float HungerSeverity = GetNutritionSeverity(GetHungerPercent()) * 0.75f;
+	const float ThirstSeverity = GetNutritionSeverity(GetThirstPercent());
+	const float CombinedSeverity = FMath::Clamp(
+		1.0f - ((1.0f - HungerSeverity) * (1.0f - ThirstSeverity)),
+		0.0f,
+		1.0f);
+	return FMath::Lerp(1.0f, MaximumNutritionSprintDrainMultiplier, CombinedSeverity);
+}
+
+bool UWildBoundSurvivalComponent::IsNutritionLow() const
+{
+	return GetHungerPercent() <= LowNutritionThreshold || GetThirstPercent() <= LowNutritionThreshold;
+}
+
+bool UWildBoundSurvivalComponent::IsNutritionCritical() const
+{
+	return GetHungerPercent() <= CriticalNutritionThreshold || GetThirstPercent() <= CriticalNutritionThreshold;
 }
 
 void UWildBoundSurvivalComponent::BroadcastStatsChanged()
