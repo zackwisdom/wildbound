@@ -32,6 +32,11 @@ private:
 	FText GetRadiationText() const;
 	FSlateColor GetRadiationColor() const;
 
+	EVisibility GetSurvivalWarningVisibility() const;
+	FText GetSurvivalWarningText() const;
+	FSlateColor GetSurvivalWarningColor() const;
+	FSlateColor GetSurvivalWarningBackground() const;
+
 	int32 GetSelectedHotbarSlot() const;
 	FSlateColor GetHotbarSlotOneBackground() const;
 	FSlateColor GetHotbarSlotTwoBackground() const;
