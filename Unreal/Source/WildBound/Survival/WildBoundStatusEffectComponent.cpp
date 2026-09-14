@@ -35,6 +35,7 @@ void UWildBoundStatusEffectComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	RefreshComponentReferences();
+	DetectTreatmentEvents();
 }
 
 void UWildBoundStatusEffectComponent::TickComponent(
@@ -44,6 +45,7 @@ void UWildBoundStatusEffectComponent::TickComponent(
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	RefreshComponentReferences();
+	DetectTreatmentEvents();
 
 	MedicalTreatmentRemaining = FMath::Max(0.0f, MedicalTreatmentRemaining - DeltaTime);
 	RadiationTreatmentRemaining = FMath::Max(0.0f, RadiationTreatmentRemaining - DeltaTime);
@@ -72,6 +74,42 @@ void UWildBoundStatusEffectComponent::RefreshComponentReferences()
 	if (!InventoryComponent.IsValid())
 	{
 		InventoryComponent = Owner->FindComponentByClass<UWildBoundInventoryComponent>();
+	}
+}
+
+void UWildBoundStatusEffectComponent::DetectTreatmentEvents()
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const UWildBoundRadiationComponent* Radiation = RadiationComponent.Get();
+	const float CurrentHealth = Survival ? Survival->Health : PreviousHealth;
+	const float CurrentRadiationDose = Radiation ? Radiation->AccumulatedDose : PreviousRadiationDose;
+
+	if (!bTreatmentSnapshotInitialized)
+	{
+		PreviousHealth = CurrentHealth;
+		PreviousRadiationDose = CurrentRadiationDose;
+		bTreatmentSnapshotInitialized = Survival || Radiation;
+		return;
+	}
+
+	if (Survival)
+	{
+		const float HealthGain = CurrentHealth - PreviousHealth;
+		if (HealthGain >= 20.0f)
+		{
+			RegisterMedicalTreatment(HealthGain >= 70.0f ? 60.0f : DefaultMedicalTreatmentDuration);
+		}
+		PreviousHealth = CurrentHealth;
+	}
+
+	if (Radiation)
+	{
+		const float DoseReduction = PreviousRadiationDose - CurrentRadiationDose;
+		if (DoseReduction >= 10.0f)
+		{
+			RegisterRadiationTreatment();
+		}
+		PreviousRadiationDose = CurrentRadiationDose;
 	}
 }
 
