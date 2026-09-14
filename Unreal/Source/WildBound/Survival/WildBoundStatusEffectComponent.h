@@ -100,8 +100,12 @@ private:
 
 	float MedicalTreatmentRemaining = 0.0f;
 	float RadiationTreatmentRemaining = 0.0f;
+	float PreviousHealth = 0.0f;
+	float PreviousRadiationDose = 0.0f;
+	bool bTreatmentSnapshotInitialized = false;
 
 	void RefreshComponentReferences();
+	void DetectTreatmentEvents();
 	void AddEffect(
 		TArray<FWildBoundStatusEffect>& Effects,
 		FName EffectId,
