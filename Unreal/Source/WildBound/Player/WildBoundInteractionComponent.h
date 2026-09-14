@@ -29,6 +29,15 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Hotbar")
 	int32 GetSelectedHotbarSlot() const { return SelectedHotbarSlot; }
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Treatment")
+	bool IsTreatmentInProgress() const { return bTreatmentInProgress; }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Treatment")
+	float GetTreatmentProgress() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Treatment")
+	FString GetTreatmentLabel() const { return TreatmentActionLabel; }
+
 	void SetContextPrompt(const FString& Prompt, int32 Priority = 0);
 	FString GetContextPrompt() const;
 
@@ -56,6 +65,12 @@ private:
 	TSharedPtr<SWidget> LootViewportRoot;
 	bool bLootWindowOpen = false;
 
+	bool bTreatmentInProgress = false;
+	FName PendingTreatmentItemId = NAME_None;
+	float TreatmentElapsedSeconds = 0.0f;
+	float TreatmentDurationSeconds = 0.0f;
+	FString TreatmentActionLabel;
+
 	void TryInteract(AActor* TargetActor);
 	void TryPryTarget(AActor* TargetActor);
 	void SearchLootContainer(AActor* TargetActor);
@@ -69,4 +84,9 @@ private:
 	void HandleHotbarSelection(class APlayerController& PlayerController);
 	void TryUseSelectedHotbarItem();
 	void TryUseInventoryItem(FName ItemId);
+	void StartTreatment(FName ItemId);
+	void UpdateTreatment(float DeltaTime, class APlayerController& PlayerController);
+	void CompleteTreatment();
+	void CancelTreatment(bool bShowMessage = true);
+	void SetTreatmentInputLock(bool bLocked);
 };
