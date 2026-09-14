@@ -4,6 +4,7 @@
 #include "Styling/SlateColor.h"
 #include "Widgets/SCompoundWidget.h"
 
+class UWildBoundStatusEffectComponent;
 class UWildBoundSurvivalComponent;
 
 class SWildBoundHUDWidget : public SCompoundWidget
@@ -31,6 +32,9 @@ private:
 	FText GetStaminaText() const;
 	FText GetRadiationText() const;
 	FSlateColor GetRadiationColor() const;
+	FText GetStatusText() const;
+	FSlateColor GetStatusColor() const;
+	const UWildBoundStatusEffectComponent* GetStatusEffects() const;
 
 	float GetPhysicalFeedbackSeverity() const;
 	EVisibility GetPhysicalFeedbackVisibility() const;
