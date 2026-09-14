@@ -5,6 +5,7 @@
 #include "WildBoundInjuryComponent.generated.h"
 
 class ACharacter;
+class UWildBoundInventoryComponent;
 class UWildBoundSurvivalComponent;
 
 UCLASS(ClassGroup=(WildBound), meta=(BlueprintSpawnableComponent))
@@ -102,10 +103,16 @@ public:
 private:
 	TWeakObjectPtr<ACharacter> CharacterOwner;
 	TWeakObjectPtr<UWildBoundSurvivalComponent> SurvivalComponent;
+	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
 	bool bWasFalling = false;
 	float PeakDownwardFallSpeed = 0.0f;
+	float PreviousObservedHealth = 0.0f;
+	int32 PreviousMedicalSuppliesCount = 0;
+	int32 PreviousTraumaKitCount = 0;
+	bool bTreatmentSnapshotInitialized = false;
 
 	void RefreshReferences();
+	void DetectConsumedMedicalTreatment();
 	void UpdateFallTracking();
 	void HandleLandingImpact(float ImpactSpeed);
 	void UpdateOngoingInjuries(float DeltaTime);
