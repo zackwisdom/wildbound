@@ -1,9 +1,16 @@
 #include "WildBoundInjuryComponent.h"
 
 #include "WildBoundSurvivalComponent.h"
+#include "../Inventory/WildBoundInventoryComponent.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+
+namespace
+{
+	const FName MedicalSuppliesItemId(TEXT("MedicalSupplies"));
+	const FName TraumaKitItemId(TEXT("TraumaKit"));
+}
 
 UWildBoundInjuryComponent::UWildBoundInjuryComponent()
 {
@@ -15,6 +22,7 @@ void UWildBoundInjuryComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	RefreshReferences();
+	DetectConsumedMedicalTreatment();
 
 	if (ACharacter* Character = CharacterOwner.Get())
 	{
@@ -32,6 +40,7 @@ void UWildBoundInjuryComponent::TickComponent(
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	RefreshReferences();
+	DetectConsumedMedicalTreatment();
 	UpdateFallTracking();
 	UpdateOngoingInjuries(DeltaTime);
 }
@@ -52,6 +61,53 @@ void UWildBoundInjuryComponent::RefreshReferences()
 	{
 		SurvivalComponent = Owner->FindComponentByClass<UWildBoundSurvivalComponent>();
 	}
+	if (!InventoryComponent.IsValid())
+	{
+		InventoryComponent = Owner->FindComponentByClass<UWildBoundInventoryComponent>();
+	}
+}
+
+void UWildBoundInjuryComponent::DetectConsumedMedicalTreatment()
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
+	if (!Survival || !Inventory)
+	{
+		return;
+	}
+
+	const float CurrentHealth = Survival->Health;
+	const int32 CurrentMedicalSupplies = Inventory->GetItemCount(MedicalSuppliesItemId);
+	const int32 CurrentTraumaKits = Inventory->GetItemCount(TraumaKitItemId);
+
+	if (!bTreatmentSnapshotInitialized)
+	{
+		PreviousObservedHealth = CurrentHealth;
+		PreviousMedicalSuppliesCount = CurrentMedicalSupplies;
+		PreviousTraumaKitCount = CurrentTraumaKits;
+		bTreatmentSnapshotInitialized = true;
+		return;
+	}
+
+	const float HealthGain = CurrentHealth - PreviousObservedHealth;
+	const bool bTraumaKitConsumed = CurrentTraumaKits < PreviousTraumaKitCount;
+	const bool bMedicalSuppliesConsumed = CurrentMedicalSupplies < PreviousMedicalSuppliesCount;
+
+	if (HealthGain > 0.5f)
+	{
+		if (bTraumaKitConsumed)
+		{
+			TreatWithMedicalSupplies(true);
+		}
+		else if (bMedicalSuppliesConsumed)
+		{
+			TreatWithMedicalSupplies(false);
+		}
+	}
+
+	PreviousObservedHealth = CurrentHealth;
+	PreviousMedicalSuppliesCount = CurrentMedicalSupplies;
+	PreviousTraumaKitCount = CurrentTraumaKits;
 }
 
 void UWildBoundInjuryComponent::UpdateFallTracking()
