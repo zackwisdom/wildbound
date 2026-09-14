@@ -281,15 +281,17 @@ void UWildBoundConditionPanelSubsystem::EnsureConditionPanel()
 	}
 
 	UWildBoundBackpackComponent* Backpack = Pawn->FindComponentByClass<UWildBoundBackpackComponent>();
-	if (!Backpack)
+	UWildBoundStatusEffectComponent* StatusEffects = Pawn->FindComponentByClass<UWildBoundStatusEffectComponent>();
+	UWildBoundInjuryComponent* Injury = Pawn->FindComponentByClass<UWildBoundInjuryComponent>();
+	if (!Backpack || !StatusEffects || !Injury)
 	{
 		return;
 	}
 
 	BackpackComponent = Backpack;
 	const TWeakObjectPtr<UWildBoundBackpackComponent> WeakBackpack = Backpack;
-	const TWeakObjectPtr<UWildBoundStatusEffectComponent> WeakStatus = Pawn->FindComponentByClass<UWildBoundStatusEffectComponent>();
-	const TWeakObjectPtr<UWildBoundInjuryComponent> WeakInjury = Pawn->FindComponentByClass<UWildBoundInjuryComponent>();
+	const TWeakObjectPtr<UWildBoundStatusEffectComponent> WeakStatus = StatusEffects;
+	const TWeakObjectPtr<UWildBoundInjuryComponent> WeakInjury = Injury;
 
 	TSharedPtr<SOverlay> Overlay;
 	SAssignNew(Overlay, SOverlay)
