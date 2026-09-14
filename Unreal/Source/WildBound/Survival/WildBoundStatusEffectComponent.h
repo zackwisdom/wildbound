@@ -5,6 +5,7 @@
 #include "WildBoundStatusEffectComponent.generated.h"
 
 class UWildBoundGearComponent;
+class UWildBoundInjuryComponent;
 class UWildBoundInventoryComponent;
 class UWildBoundRadiationComponent;
 class UWildBoundSurvivalComponent;
@@ -97,6 +98,7 @@ private:
 	TWeakObjectPtr<UWildBoundRadiationComponent> RadiationComponent;
 	TWeakObjectPtr<UWildBoundGearComponent> GearComponent;
 	TWeakObjectPtr<UWildBoundInventoryComponent> InventoryComponent;
+	TWeakObjectPtr<UWildBoundInjuryComponent> InjuryComponent;
 
 	float MedicalTreatmentRemaining = 0.0f;
 	float RadiationTreatmentRemaining = 0.0f;
