@@ -161,7 +161,7 @@ void UWildBoundCraftingComponent::TickComponent(
 			const UWildBoundBackpackComponent* Backpack = Pawn->FindComponentByClass<UWildBoundBackpackComponent>();
 			const UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
 			if ((Backpack && Backpack->IsBackpackOpen())
-				|| (Interaction && Interaction->IsLootWindowOpen()))
+				|| (Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress())))
 			{
 				return;
 			}
@@ -415,11 +415,11 @@ void UWildBoundCraftingComponent::OpenCrafting(bool bUseWorkbench)
 		? GetOwner()->FindComponentByClass<UWildBoundInteractionComponent>()
 		: nullptr;
 	if ((Backpack && Backpack->IsBackpackOpen())
-		|| (Interaction && Interaction->IsLootWindowOpen()))
+		|| (Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress())))
 	{
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(91020, 1.8f, FColor(190, 190, 175), TEXT("Close the open inventory screen before opening crafting."));
+			GEngine->AddOnScreenDebugMessage(91020, 1.8f, FColor(190, 190, 175), TEXT("Finish treatment or close the open inventory screen before opening crafting."));
 		}
 		return;
 	}
