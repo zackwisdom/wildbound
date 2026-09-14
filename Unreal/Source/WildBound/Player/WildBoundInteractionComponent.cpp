@@ -1,7 +1,10 @@
 #include "WildBoundInteractionComponent.h"
 
+#include "../Crafting/WildBoundCraftingComponent.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "../Survival/WildBoundInjuryComponent.h"
 #include "../Survival/WildBoundRadiationComponent.h"
+#include "../Survival/WildBoundStatusEffectComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "../UI/SWildBoundLootWidget.h"
 #include "WildBoundBackpackComponent.h"
@@ -80,6 +83,9 @@ namespace
 	const FString DroppedItemPrefix(TEXT("WBDropItem_"));
 	const FString DroppedQuantityPrefix(TEXT("WBDropQty_"));
 	constexpr int32 HotbarSlotCount = 3;
+	constexpr float BasicMedicalTreatmentDuration = 2.40f;
+	constexpr float TraumaTreatmentDuration = 4.20f;
+	constexpr float RadiationTreatmentDuration = 2.80f;
 
 	bool ParseDroppedItem(const AActor& Actor, FName& OutItemId, int32& OutQuantity)
 	{
@@ -222,6 +228,7 @@ UWildBoundInteractionComponent::UWildBoundInteractionComponent()
 
 void UWildBoundInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	CancelTreatment(false);
 	CloseLootWindow();
 	RemoveLootWidget();
 	ContainerLootByActor.Reset();
@@ -245,6 +252,13 @@ FString UWildBoundInteractionComponent::GetContextPrompt() const
 {
 	const UWorld* World = GetWorld();
 	return !World || World->GetTimeSeconds() > ContextPromptExpiresAt ? FString() : ContextPrompt;
+}
+
+float UWildBoundInteractionComponent::GetTreatmentProgress() const
+{
+	return TreatmentDurationSeconds > KINDA_SMALL_NUMBER
+		? FMath::Clamp(TreatmentElapsedSeconds / TreatmentDurationSeconds, 0.0f, 1.0f)
+		: 0.0f;
 }
 
 UWildBoundInventoryComponent* UWildBoundInteractionComponent::GetInventoryComponent() const
@@ -281,6 +295,12 @@ void UWildBoundInteractionComponent::TickComponent(float DeltaTime, ELevelTick T
 	UWorld* World = GetWorld();
 	if (!Pawn || !PlayerController || !World) return;
 
+	if (bTreatmentInProgress)
+	{
+		UpdateTreatment(DeltaTime, *PlayerController);
+		return;
+	}
+
 	if (bLootWindowOpen)
 	{
 		if (PlayerController->WasInputKeyJustPressed(EKeys::Escape)) CloseLootWindow();
@@ -289,6 +309,9 @@ void UWildBoundInteractionComponent::TickComponent(float DeltaTime, ELevelTick T
 
 	const UWildBoundBackpackComponent* Backpack = Pawn->FindComponentByClass<UWildBoundBackpackComponent>();
 	if (Backpack && Backpack->IsBackpackOpen()) return;
+
+	const UWildBoundCraftingComponent* Crafting = Pawn->FindComponentByClass<UWildBoundCraftingComponent>();
+	if (Crafting && Crafting->IsCraftingOpen()) return;
 
 	HandleHotbarSelection(*PlayerController);
 
@@ -340,6 +363,7 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 	UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 	UWildBoundSurvivalComponent* Survival = Owner ? Owner->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
 	UWildBoundRadiationComponent* Radiation = Owner ? Owner->FindComponentByClass<UWildBoundRadiationComponent>() : nullptr;
+	UWildBoundInjuryComponent* Injury = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
 	if (!Inventory || !Survival || !Inventory->HasItem(ItemId, 1)) return;
 
 	FString UseMessage;
@@ -358,14 +382,22 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 	}
 	else if (ItemId == MedicalItemId || ItemId == TraumaKitItemId)
 	{
-		if (Survival->Health >= Survival->MaxHealth - KINDA_SMALL_NUMBER) { if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(220,155,145),TEXT("Health is already full.")); return; }
-		if (!Inventory->RemoveItem(ItemId,1)) return; const float HealAmount = ItemId == TraumaKitItemId ? 80.0f : 45.0f; Survival->Heal(HealAmount);
-		UseMessage = FString::Printf(TEXT("Used medical treatment  +%.0f HEALTH"), HealAmount); MessageColor = FColor(220,155,145);
+		const bool bTraumaKit = ItemId == TraumaKitItemId;
+		const bool bNeedsHealth = Survival->Health < Survival->MaxHealth - KINDA_SMALL_NUMBER;
+		const bool bHasTreatableInjury = Injury && (bTraumaKit ? Injury->CanUseTraumaKit() : Injury->CanUseBasicMedicalTreatment());
+		if (!bNeedsHealth && !bHasTreatableInjury)
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(220,155,145),TEXT("No medical treatment is currently needed."));
+			return;
+		}
+		StartTreatment(ItemId);
+		return;
 	}
 	else if (ItemId == RadTreatmentItemId)
 	{
 		if (!Radiation || Radiation->AccumulatedDose <= KINDA_SMALL_NUMBER) { if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(205,190,145),TEXT("Radiation dose is already clear.")); return; }
-		if (!Inventory->RemoveItem(ItemId,1)) return; Radiation->ReduceDose(30.0f); UseMessage = TEXT("Radiation treatment used  -30 DOSE"); MessageColor = FColor(205,190,145);
+		StartTreatment(ItemId);
+		return;
 	}
 	else
 	{
@@ -377,6 +409,222 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 		return;
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(91003,2.2f,MessageColor,UseMessage);
+}
+
+void UWildBoundInteractionComponent::StartTreatment(FName ItemId)
+{
+	if (bTreatmentInProgress || ItemId.IsNone())
+	{
+		return;
+	}
+
+	AActor* Owner = GetOwner();
+	UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+	const UWildBoundInjuryComponent* Injury = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
+	if (!Inventory || !Inventory->HasItem(ItemId, 1))
+	{
+		return;
+	}
+
+	PendingTreatmentItemId = ItemId;
+	TreatmentElapsedSeconds = 0.0f;
+
+	if (ItemId == TraumaKitItemId)
+	{
+		TreatmentDurationSeconds = TraumaTreatmentDuration;
+		if (Injury && Injury->HasFracture()) TreatmentActionLabel = TEXT("SPLINTING FRACTURE");
+		else if (Injury && Injury->HasBleeding()) TreatmentActionLabel = TEXT("STABILIZING TRAUMA");
+		else TreatmentActionLabel = TEXT("APPLYING TRAUMA KIT");
+	}
+	else if (ItemId == MedicalItemId)
+	{
+		TreatmentDurationSeconds = BasicMedicalTreatmentDuration;
+		TreatmentActionLabel = Injury && Injury->HasBleeding() ? TEXT("BANDAGING WOUNDS") : TEXT("APPLYING FIRST AID");
+	}
+	else if (ItemId == RadTreatmentItemId)
+	{
+		TreatmentDurationSeconds = RadiationTreatmentDuration;
+		TreatmentActionLabel = TEXT("ADMINISTERING RAD TREATMENT");
+	}
+	else
+	{
+		PendingTreatmentItemId = NAME_None;
+		return;
+	}
+
+	bTreatmentInProgress = true;
+	SetTreatmentInputLock(true);
+	SetContextPrompt(FString::Printf(TEXT("%s  0%%   |   ESC CANCEL"), *TreatmentActionLabel), 100);
+}
+
+void UWildBoundInteractionComponent::UpdateTreatment(float DeltaTime, APlayerController& PlayerController)
+{
+	if (!bTreatmentInProgress)
+	{
+		return;
+	}
+
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Escape))
+	{
+		CancelTreatment(true);
+		return;
+	}
+
+	const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+	const UWildBoundSurvivalComponent* Survival = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
+	if (!Inventory || !Inventory->HasItem(PendingTreatmentItemId, 1) || !Survival || !Survival->IsAlive())
+	{
+		CancelTreatment(false);
+		return;
+	}
+
+	TreatmentElapsedSeconds = FMath::Min(
+		TreatmentElapsedSeconds + FMath::Max(0.0f, DeltaTime),
+		TreatmentDurationSeconds);
+
+	const int32 ProgressPercent = FMath::RoundToInt(GetTreatmentProgress() * 100.0f);
+	SetContextPrompt(
+		FString::Printf(TEXT("%s  %d%%   |   ESC CANCEL"), *TreatmentActionLabel, ProgressPercent),
+		100);
+
+	if (TreatmentElapsedSeconds >= TreatmentDurationSeconds - KINDA_SMALL_NUMBER)
+	{
+		CompleteTreatment();
+	}
+}
+
+void UWildBoundInteractionComponent::CompleteTreatment()
+{
+	if (!bTreatmentInProgress)
+	{
+		return;
+	}
+
+	AActor* Owner = GetOwner();
+	UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+	UWildBoundSurvivalComponent* Survival = Owner ? Owner->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
+	UWildBoundRadiationComponent* Radiation = Owner ? Owner->FindComponentByClass<UWildBoundRadiationComponent>() : nullptr;
+	UWildBoundInjuryComponent* Injury = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
+	UWildBoundStatusEffectComponent* StatusEffects = Owner ? Owner->FindComponentByClass<UWildBoundStatusEffectComponent>() : nullptr;
+	const FName CompletedItem = PendingTreatmentItemId;
+
+	if (!Inventory || !Survival || !Inventory->HasItem(CompletedItem, 1))
+	{
+		CancelTreatment(false);
+		return;
+	}
+
+	FString SuccessMessage;
+	FColor SuccessColor(170, 215, 165);
+
+	if (CompletedItem == MedicalItemId || CompletedItem == TraumaKitItemId)
+	{
+		const bool bTraumaKit = CompletedItem == TraumaKitItemId;
+		const float HealthBefore = Survival->Health;
+		const bool bHadTreatableInjury = Injury && (bTraumaKit ? Injury->CanUseTraumaKit() : Injury->CanUseBasicMedicalTreatment());
+		if (!Inventory->RemoveItem(CompletedItem, 1))
+		{
+			CancelTreatment(false);
+			return;
+		}
+
+		const float HealAmount = bTraumaKit ? 80.0f : 45.0f;
+		Survival->Heal(HealAmount);
+
+		// The injury component normally detects a consumed medical item + health gain.
+		// If health was already full, there is no gain to detect, so apply the injury treatment explicitly.
+		if (bHadTreatableInjury && HealthBefore >= Survival->MaxHealth - KINDA_SMALL_NUMBER && Injury)
+		{
+			Injury->TreatWithMedicalSupplies(bTraumaKit);
+		}
+		if (StatusEffects)
+		{
+			StatusEffects->RegisterMedicalTreatment(bTraumaKit ? 60.0f : -1.0f);
+		}
+
+		if (bTraumaKit)
+		{
+			SuccessMessage = bHadTreatableInjury
+				? TEXT("TRAUMA TREATMENT COMPLETE   |   FRACTURE / BLEEDING STABILIZED   |   +80 HEALTH")
+				: TEXT("TRAUMA TREATMENT COMPLETE   |   +80 HEALTH");
+		}
+		else
+		{
+			SuccessMessage = bHadTreatableInjury
+				? TEXT("BANDAGING COMPLETE   |   BLEEDING CONTROLLED / PAIN REDUCED   |   +45 HEALTH")
+				: TEXT("FIRST AID COMPLETE   |   +45 HEALTH");
+		}
+	}
+	else if (CompletedItem == RadTreatmentItemId)
+	{
+		if (!Radiation || Radiation->AccumulatedDose <= KINDA_SMALL_NUMBER || !Inventory->RemoveItem(CompletedItem, 1))
+		{
+			CancelTreatment(false);
+			return;
+		}
+
+		Radiation->ReduceDose(30.0f);
+		if (StatusEffects)
+		{
+			StatusEffects->RegisterRadiationTreatment();
+		}
+		SuccessMessage = TEXT("RADIATION TREATMENT COMPLETE   |   -30 DOSE");
+		SuccessColor = FColor(205, 190, 145);
+	}
+	else
+	{
+		CancelTreatment(false);
+		return;
+	}
+
+	bTreatmentInProgress = false;
+	PendingTreatmentItemId = NAME_None;
+	TreatmentElapsedSeconds = 0.0f;
+	TreatmentDurationSeconds = 0.0f;
+	TreatmentActionLabel.Reset();
+	ContextPromptExpiresAt = -1.0f;
+	ContextPromptPriority = MIN_int32;
+	SetTreatmentInputLock(false);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(91360, 3.0f, SuccessColor, SuccessMessage);
+	}
+}
+
+void UWildBoundInteractionComponent::CancelTreatment(bool bShowMessage)
+{
+	if (!bTreatmentInProgress)
+	{
+		return;
+	}
+
+	bTreatmentInProgress = false;
+	PendingTreatmentItemId = NAME_None;
+	TreatmentElapsedSeconds = 0.0f;
+	TreatmentDurationSeconds = 0.0f;
+	TreatmentActionLabel.Reset();
+	ContextPromptExpiresAt = -1.0f;
+	ContextPromptPriority = MIN_int32;
+	SetTreatmentInputLock(false);
+
+	if (bShowMessage && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(91360, 2.0f, FColor(205, 165, 120), TEXT("Treatment interrupted. Medical item was not consumed."));
+	}
+}
+
+void UWildBoundInteractionComponent::SetTreatmentInputLock(bool bLocked)
+{
+	APawn* Pawn = Cast<APawn>(GetOwner());
+	APlayerController* PlayerController = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	PlayerController->SetIgnoreMoveInput(bLocked);
+	PlayerController->SetIgnoreLookInput(bLocked);
 }
 
 FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* TargetActor) const
