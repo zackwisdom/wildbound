@@ -3,6 +3,7 @@
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
 #include "../Survival/WildBoundRadiationComponent.h"
+#include "../Survival/WildBoundStatusEffectComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
@@ -118,6 +119,18 @@ void SWildBoundHUDWidget::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight()
 					[
 						SNew(SProgressBar).Percent(this, &SWildBoundHUDWidget::GetRadiationDosePercent).FillColorAndOpacity(FLinearColor(0.73f, 0.49f, 0.10f, 1.0f))
+					]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 8.0f, 0.0f, 4.0f)
+					[
+						SNew(SSeparator)
+					]
+					+ SVerticalBox::Slot().AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(this, &SWildBoundHUDWidget::GetStatusText)
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
+						.ColorAndOpacity(this, &SWildBoundHUDWidget::GetStatusColor)
+						.AutoWrapText(true)
 					]
 				]
 			]
@@ -331,6 +344,42 @@ FSlateColor SWildBoundHUDWidget::GetRadiationColor() const
 	if (Exposure >= 40.0f) return FSlateColor(FLinearColor(0.95f, 0.48f, 0.08f, 1.0f));
 	if (Exposure >= 10.0f) return FSlateColor(FLinearColor(0.82f, 0.69f, 0.22f, 1.0f));
 	return FSlateColor(FLinearColor(0.55f, 0.58f, 0.54f, 1.0f));
+}
+
+const UWildBoundStatusEffectComponent* SWildBoundHUDWidget::GetStatusEffects() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const AActor* Owner = Survival ? Survival->GetOwner() : nullptr;
+	return Owner ? Owner->FindComponentByClass<UWildBoundStatusEffectComponent>() : nullptr;
+}
+
+FText SWildBoundHUDWidget::GetStatusText() const
+{
+	const UWildBoundStatusEffectComponent* StatusEffects = GetStatusEffects();
+	const FString CompactStatus = StatusEffects ? StatusEffects->GetCompactStatusText() : TEXT("STABLE");
+	return FText::FromString(FString::Printf(TEXT("STATUS  %s"), *CompactStatus));
+}
+
+FSlateColor SWildBoundHUDWidget::GetStatusColor() const
+{
+	const UWildBoundStatusEffectComponent* StatusEffects = GetStatusEffects();
+	if (!StatusEffects)
+	{
+		return FSlateColor(FLinearColor(0.58f, 0.62f, 0.58f, 0.95f));
+	}
+
+	switch (StatusEffects->GetHighestSeverity())
+	{
+	case EWildBoundStatusSeverity::Critical:
+		return FSlateColor(FLinearColor(1.0f, 0.40f, 0.32f, 1.0f));
+	case EWildBoundStatusSeverity::Warning:
+		return FSlateColor(FLinearColor(0.96f, 0.70f, 0.28f, 1.0f));
+	case EWildBoundStatusSeverity::Positive:
+		return FSlateColor(FLinearColor(0.46f, 0.78f, 0.52f, 1.0f));
+	case EWildBoundStatusSeverity::Notice:
+	default:
+		return FSlateColor(FLinearColor(0.68f, 0.72f, 0.66f, 0.96f));
+	}
 }
 
 float SWildBoundHUDWidget::GetPhysicalFeedbackSeverity() const
