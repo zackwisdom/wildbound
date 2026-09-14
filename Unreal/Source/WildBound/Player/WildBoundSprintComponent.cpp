@@ -1,6 +1,7 @@
 #include "WildBoundSprintComponent.h"
 
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "../Survival/WildBoundInjuryComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -68,6 +69,8 @@ void UWildBoundSprintComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	const bool bMoving = Character->GetVelocity().SizeSquared2D() > FMath::Square(10.0f);
 	const float EncumbranceSeverity = GetEncumbranceSeverity();
 	const bool bOverEncumbered = EncumbranceSeverity > 0.0f;
+	const UWildBoundInjuryComponent* Injuries = Character->FindComponentByClass<UWildBoundInjuryComponent>();
+	const bool bFractureBlocksSprint = Injuries && Injuries->FractureSeverity >= 0.78f;
 
 	if (bMoving && bOverEncumbered)
 	{
@@ -77,7 +80,7 @@ void UWildBoundSprintComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	}
 
 	const bool bCanBeginSprint = bIsSprinting || Survival->Stamina >= MinimumStaminaToStartSprint;
-	const bool bWantsSprint = bSprintKeyDown && bMoving && bCanBeginSprint;
+	const bool bWantsSprint = bSprintKeyDown && bMoving && bCanBeginSprint && !bFractureBlocksSprint;
 
 	if (bWantsSprint)
 	{
@@ -86,9 +89,11 @@ void UWildBoundSprintComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 			MaximumEncumberedSprintDrainMultiplier,
 			EncumbranceSeverity);
 		const float NutritionDrainMultiplier = Survival->GetNutritionSprintDrainMultiplier();
+		const float InjuryDrainMultiplier = Injuries ? Injuries->GetSprintDrainMultiplier() : 1.0f;
 		const float DrainAmount = SprintStaminaDrainPerSecond
 			* EncumbranceDrainMultiplier
 			* NutritionDrainMultiplier
+			* InjuryDrainMultiplier
 			* DeltaTime;
 
 		if (Survival->ConsumeStamina(DrainAmount))
@@ -123,7 +128,10 @@ float UWildBoundSprintComponent::GetCurrentSpeedMultiplier() const
 		GetEncumbranceSeverity());
 	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
 	const float NutritionMultiplier = Survival ? Survival->GetNutritionMoveSpeedMultiplier() : 1.0f;
-	return EncumbranceMultiplier * NutritionMultiplier;
+	const AActor* Owner = GetOwner();
+	const UWildBoundInjuryComponent* Injuries = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
+	const float InjuryMultiplier = Injuries ? Injuries->GetMovementSpeedMultiplier() : 1.0f;
+	return EncumbranceMultiplier * NutritionMultiplier * InjuryMultiplier;
 }
 
 float UWildBoundSprintComponent::GetFatigueAccelerationMultiplier() const
@@ -151,7 +159,11 @@ float UWildBoundSprintComponent::GetFatigueAccelerationMultiplier() const
 		1.0f - ((1.0f - StaminaSeverity) * (1.0f - NutritionSeverity)),
 		0.0f,
 		1.0f);
-	return FMath::Lerp(1.0f, MinimumFatiguedAccelerationMultiplier, CombinedSeverity);
+	const float FatigueMultiplier = FMath::Lerp(1.0f, MinimumFatiguedAccelerationMultiplier, CombinedSeverity);
+	const AActor* Owner = GetOwner();
+	const UWildBoundInjuryComponent* Injuries = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
+	const float InjuryMultiplier = Injuries ? Injuries->GetAccelerationMultiplier() : 1.0f;
+	return FatigueMultiplier * InjuryMultiplier;
 }
 
 void UWildBoundSprintComponent::ApplyMovementSpeed()
