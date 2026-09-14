@@ -2,6 +2,7 @@
 
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundBackpackComponent.h"
+#include "../Player/WildBoundInteractionComponent.h"
 #include "../UI/SWildBoundCraftingWidget.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -155,6 +156,17 @@ void UWildBoundCraftingComponent::TickComponent(
 
 	if (PlayerController->WasInputKeyJustPressed(EKeys::C))
 	{
+		if (!bCraftingOpen)
+		{
+			const UWildBoundBackpackComponent* Backpack = Pawn->FindComponentByClass<UWildBoundBackpackComponent>();
+			const UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
+			if ((Backpack && Backpack->IsBackpackOpen())
+				|| (Interaction && Interaction->IsLootWindowOpen()))
+			{
+				return;
+			}
+		}
+
 		ToggleCrafting();
 		return;
 	}
@@ -399,11 +411,15 @@ void UWildBoundCraftingComponent::OpenCrafting(bool bUseWorkbench)
 	const UWildBoundBackpackComponent* Backpack = GetOwner()
 		? GetOwner()->FindComponentByClass<UWildBoundBackpackComponent>()
 		: nullptr;
-	if (Backpack && Backpack->IsBackpackOpen())
+	const UWildBoundInteractionComponent* Interaction = GetOwner()
+		? GetOwner()->FindComponentByClass<UWildBoundInteractionComponent>()
+		: nullptr;
+	if ((Backpack && Backpack->IsBackpackOpen())
+		|| (Interaction && Interaction->IsLootWindowOpen()))
 	{
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(91020, 1.8f, FColor(190, 190, 175), TEXT("Close the backpack before opening crafting."));
+			GEngine->AddOnScreenDebugMessage(91020, 1.8f, FColor(190, 190, 175), TEXT("Close the open inventory screen before opening crafting."));
 		}
 		return;
 	}
