@@ -1,5 +1,6 @@
 #include "WildBoundStatusEffectComponent.h"
 
+#include "WildBoundInjuryComponent.h"
 #include "WildBoundRadiationComponent.h"
 #include "WildBoundSurvivalComponent.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
@@ -10,6 +11,9 @@ namespace
 {
 	const FName EffectSevereInjury(TEXT("SevereInjury"));
 	const FName EffectInjured(TEXT("Injured"));
+	const FName EffectBleeding(TEXT("Bleeding"));
+	const FName EffectFracture(TEXT("Fracture"));
+	const FName EffectPain(TEXT("Pain"));
 	const FName EffectStarving(TEXT("Starving"));
 	const FName EffectHungry(TEXT("Hungry"));
 	const FName EffectDehydrated(TEXT("Dehydrated"));
@@ -74,6 +78,10 @@ void UWildBoundStatusEffectComponent::RefreshComponentReferences()
 	if (!InventoryComponent.IsValid())
 	{
 		InventoryComponent = Owner->FindComponentByClass<UWildBoundInventoryComponent>();
+	}
+	if (!InjuryComponent.IsValid())
+	{
+		InjuryComponent = Owner->FindComponentByClass<UWildBoundInjuryComponent>();
 	}
 }
 
@@ -148,17 +156,54 @@ TArray<FWildBoundStatusEffect> UWildBoundStatusEffectComponent::GetActiveEffects
 {
 	TArray<FWildBoundStatusEffect> Effects;
 
+	const UWildBoundInjuryComponent* Injuries = InjuryComponent.Get();
+	if (Injuries)
+	{
+		if (Injuries->HasBleeding())
+		{
+			if (Injuries->BleedingSeverity >= 0.65f)
+			{
+				AddEffect(Effects, EffectBleeding, TEXT("SEVERE BLEEDING"), TEXT("Rapid blood loss | medical supplies or trauma kit"), EWildBoundStatusSeverity::Critical, false);
+			}
+			else
+			{
+				AddEffect(Effects, EffectBleeding, TEXT("BLEEDING"), TEXT("Ongoing blood loss | medical supplies or trauma kit"), EWildBoundStatusSeverity::Warning, false);
+			}
+		}
+
+		if (Injuries->HasFracture())
+		{
+			if (Injuries->FractureSeverity >= 0.65f)
+			{
+				AddEffect(Effects, EffectFracture, TEXT("SEVERE FRACTURE"), TEXT("Movement heavily impaired | trauma kit required"), EWildBoundStatusSeverity::Critical, false);
+			}
+			else
+			{
+				AddEffect(Effects, EffectFracture, TEXT("FRACTURE"), TEXT("Movement impaired | trauma kit required"), EWildBoundStatusSeverity::Warning, false);
+			}
+		}
+
+		if (Injuries->PainSeverity >= 0.72f)
+		{
+			AddEffect(Effects, EffectPain, TEXT("SEVERE PAIN"), TEXT("Acceleration and stamina compromised"), EWildBoundStatusSeverity::Warning, false);
+		}
+		else if (Injuries->PainSeverity >= 0.30f)
+		{
+			AddEffect(Effects, EffectPain, TEXT("PAIN"), TEXT("Physical performance reduced"), EWildBoundStatusSeverity::Notice, false);
+		}
+	}
+
 	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
 	if (Survival)
 	{
 		const float HealthPercent = Survival->GetHealthPercent();
 		if (HealthPercent <= InjuryCriticalThreshold)
 		{
-			AddEffect(Effects, EffectSevereInjury, TEXT("SEVERE INJURY"), TEXT("Health critically compromised"), EWildBoundStatusSeverity::Critical, false);
+			AddEffect(Effects, EffectSevereInjury, TEXT("CRITICAL CONDITION"), TEXT("Health critically compromised"), EWildBoundStatusSeverity::Critical, false);
 		}
 		else if (HealthPercent <= InjuryWarningThreshold)
 		{
-			AddEffect(Effects, EffectInjured, TEXT("INJURED"), TEXT("Health below safe operating level"), EWildBoundStatusSeverity::Warning, false);
+			AddEffect(Effects, EffectInjured, TEXT("WOUNDED"), TEXT("Health below safe operating level"), EWildBoundStatusSeverity::Warning, false);
 		}
 
 		const float HungerPercent = Survival->GetHungerPercent();
