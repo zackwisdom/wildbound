@@ -1,5 +1,6 @@
 #include "WildBoundStatusEffectsSubsystem.h"
 
+#include "../Survival/WildBoundInjuryComponent.h"
 #include "../Survival/WildBoundStatusEffectComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
@@ -47,6 +48,14 @@ void UWildBoundStatusEffectsSubsystem::EnsureStatusEffectsSetup()
 	if (!Pawn)
 	{
 		return;
+	}
+
+	if (!Pawn->FindComponentByClass<UWildBoundInjuryComponent>())
+	{
+		UWildBoundInjuryComponent* Injuries = NewObject<UWildBoundInjuryComponent>(Pawn, TEXT("WildBoundInjuries"));
+		Pawn->AddInstanceComponent(Injuries);
+		Injuries->RegisterComponent();
+		UE_LOG(LogTemp, Log, TEXT("WildBound injuries: trauma and treatment system attached to player."));
 	}
 
 	if (!Pawn->FindComponentByClass<UWildBoundStatusEffectComponent>())
