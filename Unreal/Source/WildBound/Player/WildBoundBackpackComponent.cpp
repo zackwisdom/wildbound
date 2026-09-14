@@ -88,6 +88,11 @@ void UWildBoundBackpackComponent::TickComponent(
 		? GetOwner()->FindComponentByClass<UWildBoundInteractionComponent>()
 		: nullptr;
 
+	if (Interaction && Interaction->IsTreatmentInProgress())
+	{
+		return;
+	}
+
 	if (PlayerController->WasInputKeyJustPressed(EKeys::Tab))
 	{
 		if (Interaction && Interaction->IsLootWindowOpen())
