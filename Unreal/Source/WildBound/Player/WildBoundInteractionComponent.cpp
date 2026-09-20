@@ -6,6 +6,7 @@
 #include "../Survival/WildBoundRadiationComponent.h"
 #include "../Survival/WildBoundStatusEffectComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
+#include "../System/WildBoundEvidenceLogSubsystem.h"
 #include "../UI/SWildBoundLootWidget.h"
 #include "WildBoundBackpackComponent.h"
 #include "Engine/Engine.h"
@@ -697,32 +698,61 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 	}
 	if (TargetActor->ActorHasTag(ClueTag))
 	{
+		FName EvidenceId = NAME_None;
+		FString EvidenceTitle;
+		FString EvidenceSource;
 		FString ClueText;
+
 		if (TargetActor->ActorHasTag(C17ClueTag))
 		{
+			EvidenceId = FName(TEXT("SectorC17Survey"));
+			EvidenceTitle = TEXT("SECTOR C-17 FIELD SURVEY");
+			EvidenceSource = TEXT("Civil Defense survey");
 			ClueText = TEXT("CIVIL DEFENSE FIELD SURVEY - SECTOR C-17\nBackground radiation elevated BEFORE the detonation alert.\nThree samples transferred off-site. Receiving authority: [REDACTED].");
 		}
 		else if (TargetActor->ActorHasTag(RadiationClinicClueTag))
 		{
+			EvidenceId = FName(TEXT("ClinicIntakeLog"));
+			EvidenceTitle = TEXT("CLINIC DECONTAMINATION INTAKE");
+			EvidenceSource = TEXT("Clinic quarantine approach");
 			ClueText = TEXT("CLINIC DECONTAMINATION INTAKE - 04:18\nFirst walk-ins reported metallic taste and nausea before civil sirens.\nPortable survey meter: 3.8x baseline at 04:21.\nDETONATION ALERT RECEIVED: 04:47.");
 		}
 		else if (TargetActor->ActorHasTag(RadiationWarehouseClueTag))
 		{
+			EvidenceId = FName(TEXT("MunicipalTransferManifest"));
+			EvidenceTitle = TEXT("MUNICIPAL TRANSFER MANIFEST");
+			EvidenceSource = TEXT("Warehouse loading yard");
 			ClueText = TEXT("MUNICIPAL TRANSFER MANIFEST - 03:52\nThree sealed environmental samples received from Sector C-17.\nTransfer authorization predates the emergency declaration.\nDestination code: RCV-[REDACTED] | Receiving authority withheld.");
 		}
 		else if (TargetActor->ActorHasTag(RadiationDrainageClueTag))
 		{
+			EvidenceId = FName(TEXT("CivilDefenseMonitor04"));
+			EvidenceTitle = TEXT("CIVIL DEFENSE MONITOR 04");
+			EvidenceSource = TEXT("Northern drainage channel");
 			ClueText = TEXT("CIVIL DEFENSE MONITOR 04 - LAST BUFFER\n04:09  BASELINE 1.0x\n04:13  2.4x\n04:26  4.1x\nALERT NETWORK NOT YET ACTIVE. SENSOR DISCONNECTED REMOTELY: 04:31.");
 		}
 		else if (TargetActor->ActorHasTag(RadiationTreatmentClueTag))
 		{
+			EvidenceId = FName(TEXT("WaterAuthorityDirective"));
+			EvidenceTitle = TEXT("WATER AUTHORITY EMERGENCY DIRECTIVE");
+			EvidenceSource = TEXT("Water-treatment control point");
 			ClueText = TEXT("WATER AUTHORITY EMERGENCY DIRECTIVE - 04:34\nDO NOT BROADCAST CONTAMINATION ALARM.\nHold public advisory pending external authority clearance.\nThree samples already transferred off-site. Detonation alert followed 13 minutes later.");
 		}
 
 		if (!ClueText.IsEmpty())
 		{
 			TargetActor->Tags.AddUnique(InspectedTag);
-			if (GEngine) GEngine->AddOnScreenDebugMessage(91002,10.0f,FColor(220,194,122),ClueText);
+			if (UWorld* World = GetWorld())
+			{
+				if (UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>())
+				{
+					EvidenceLog->RecordEvidence(EvidenceId, EvidenceTitle, EvidenceSource, ClueText);
+				}
+			}
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91002, 10.0f, FColor(220, 194, 122), ClueText);
+			}
 			return;
 		}
 	}
