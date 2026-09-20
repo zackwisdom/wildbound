@@ -345,3 +345,15 @@ float UWildBoundRadiationComponent::GetRadiationSprintDrainMultiplier() const
 	const float Severity = GetDosePenaltySeverity(FatigueDoseThreshold);
 	return FMath::Lerp(1.0f, MaximumRadiationSprintDrainMultiplier, Severity);
 }
+
+
+void UWildBoundRadiationComponent::RestorePersistentState(
+	float SavedDose,
+	float SavedTreatmentProtectionRemaining)
+{
+	AccumulatedDose = FMath::Clamp(SavedDose, 0.0f, MaxDose);
+	TreatmentProtectionRemaining = FMath::Clamp(
+		SavedTreatmentProtectionRemaining,
+		0.0f,
+		FMath::Max(PostTreatmentProtectionDuration, 0.0f));
+}
