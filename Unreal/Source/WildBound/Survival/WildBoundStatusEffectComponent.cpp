@@ -233,15 +233,15 @@ TArray<FWildBoundStatusEffect> UWildBoundStatusEffectComponent::GetActiveEffects
 		const float DosePercent = Radiation->GetDosePercent();
 		if (DosePercent >= SevereRadiationThreshold)
 		{
-			AddEffect(Effects, EffectSevereRadiation, TEXT("SEVERE RADIATION SICKNESS"), TEXT("Radiation dose causing health damage"), EWildBoundStatusSeverity::Critical, false);
+			AddEffect(Effects, EffectSevereRadiation, TEXT("SEVERE RADIATION SICKNESS"), TEXT("Health damage | movement and stamina heavily impaired"), EWildBoundStatusSeverity::Critical, false);
 		}
 		else if (DosePercent >= RadiationSicknessThreshold)
 		{
-			AddEffect(Effects, EffectRadiationSickness, TEXT("RADIATION SICKNESS"), TEXT("Accumulated radiation dose elevated"), EWildBoundStatusSeverity::Warning, false);
+			AddEffect(Effects, EffectRadiationSickness, TEXT("RADIATION SICKNESS"), TEXT("Stamina recovery and sprint efficiency reduced"), EWildBoundStatusSeverity::Warning, false);
 		}
 		else if (Radiation->IsExposed())
 		{
-			AddEffect(Effects, EffectRadiationExposure, TEXT("RADIATION EXPOSURE"), TEXT("Receiving active radiation dose"), EWildBoundStatusSeverity::Notice, false);
+			AddEffect(Effects, EffectRadiationExposure, TEXT("RADIATION EXPOSURE"), TEXT("Receiving active dose | protection reduces intake"), EWildBoundStatusSeverity::Notice, false);
 		}
 	}
 
@@ -251,7 +251,7 @@ TArray<FWildBoundStatusEffect> UWildBoundStatusEffectComponent::GetActiveEffects
 	}
 	if (RadiationTreatmentRemaining > 0.0f)
 	{
-		AddEffect(Effects, EffectRadiationTreatment, TEXT("RAD TREATMENT ACTIVE"), TEXT("Recent radiation treatment"), EWildBoundStatusSeverity::Positive, true, RadiationTreatmentRemaining);
+		AddEffect(Effects, EffectRadiationTreatment, TEXT("RAD TREATMENT ACTIVE"), TEXT("Temporary resistance to new radiation dose"), EWildBoundStatusSeverity::Positive, true, RadiationTreatmentRemaining);
 	}
 
 	const UWildBoundGearComponent* Gear = GearComponent.Get();
@@ -259,7 +259,7 @@ TArray<FWildBoundStatusEffect> UWildBoundStatusEffectComponent::GetActiveEffects
 	{
 		if (Gear->HasFilterMask())
 		{
-			AddEffect(Effects, EffectFilterMask, TEXT("FILTER MASK"), TEXT("Radiation dose intake reduced"), EWildBoundStatusSeverity::Positive, true);
+			AddEffect(Effects, EffectFilterMask, TEXT("FILTER MASK"), TEXT("Radiation dose intake reduced by 45%"), EWildBoundStatusSeverity::Positive, true);
 		}
 		if (Gear->HasReinforcedBackpack())
 		{
