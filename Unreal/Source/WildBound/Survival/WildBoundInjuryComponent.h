@@ -100,6 +100,8 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Injury")
 	FString GetTreatmentRequirementText() const;
 
+	void RestorePersistentState(float SavedBleeding, float SavedFracture, float SavedPain);
+
 private:
 	TWeakObjectPtr<ACharacter> CharacterOwner;
 	TWeakObjectPtr<UWildBoundSurvivalComponent> SurvivalComponent;
