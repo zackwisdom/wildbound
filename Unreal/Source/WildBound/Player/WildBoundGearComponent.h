@@ -42,7 +42,6 @@ private:
 	TWeakObjectPtr<UWildBoundRadiationComponent> RadiationComponent;
 
 	float BaseCarryWeight = -1.0f;
-	float BaseRadiationDosePerSecond = -1.0f;
 	int32 BaseMaxSlots = -1;
 
 	void RefreshComponentReferences();
