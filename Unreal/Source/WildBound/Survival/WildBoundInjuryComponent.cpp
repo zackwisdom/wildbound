@@ -309,3 +309,18 @@ FString UWildBoundInjuryComponent::GetTreatmentRequirementText() const
 	}
 	return TEXT("NO INJURY TREATMENT REQUIRED");
 }
+
+
+void UWildBoundInjuryComponent::RestorePersistentState(
+	float SavedBleeding,
+	float SavedFracture,
+	float SavedPain)
+{
+	BleedingSeverity = FMath::Clamp(SavedBleeding, 0.0f, 1.0f);
+	FractureSeverity = FMath::Clamp(SavedFracture, 0.0f, 1.0f);
+	PainSeverity = FMath::Clamp(SavedPain, 0.0f, 1.0f);
+
+	bWasFalling = false;
+	PeakDownwardFallSpeed = 0.0f;
+	bTreatmentSnapshotInitialized = false;
+}
