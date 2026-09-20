@@ -546,10 +546,13 @@ void UWildBoundPauseMenuSubsystem::LoadGame()
 		? World->GetSubsystem<UWildBoundSaveSubsystem>()
 		: nullptr;
 
-	if (SaveSubsystem && SaveSubsystem->LoadNow(true))
+	if (!SaveSubsystem || !SaveSubsystem->HasSaveGame())
 	{
-		ContinueGame();
+		return;
 	}
+
+	ContinueGame();
+	SaveSubsystem->ReloadLastSave();
 }
 
 void UWildBoundPauseMenuSubsystem::OpenSettings()
