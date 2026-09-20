@@ -563,12 +563,12 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 			return;
 		}
 
-		Radiation->ReduceDose(30.0f);
+		Radiation->ApplyTreatment(30.0f);
 		if (StatusEffects)
 		{
 			StatusEffects->RegisterRadiationTreatment();
 		}
-		SuccessMessage = TEXT("RADIATION TREATMENT COMPLETE   |   -30 DOSE");
+		SuccessMessage = TEXT("RADIATION TREATMENT COMPLETE   |   -30 DOSE   |   45s REDUCED INTAKE");
 		SuccessColor = FColor(205, 190, 145);
 	}
 	else
