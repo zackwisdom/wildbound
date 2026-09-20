@@ -21,6 +21,11 @@ namespace
 	const FName RadiationExtremeTag(TEXT("WBRadiationExtreme"));
 
 	const FName InteractableTag(TEXT("WBInteractable"));
+	const FName ClueTag(TEXT("WBTypeClue"));
+	const FName ClinicClueTag(TEXT("WBClueRadClinic"));
+	const FName WarehouseClueTag(TEXT("WBClueRadWarehouse"));
+	const FName DrainageClueTag(TEXT("WBClueRadDrainage"));
+	const FName TreatmentClueTag(TEXT("WBClueRadTreatment"));
 	const FName ContainerTag(TEXT("WBTypeContainer"));
 	const FName QualityRareTag(TEXT("WBLootQualityRare"));
 	const FName QualityEpicTag(TEXT("WBLootQualityEpic"));
@@ -253,6 +258,58 @@ namespace
 			0.40f);
 	}
 
+
+	void SpawnStoryClue(
+		UWorld& World,
+		const FVector& Location,
+		const FRotator& Rotation,
+		const FName& StoryTag,
+		const TCHAR* Label,
+		bool bMonitorStyle)
+	{
+		const FLinearColor PaperColor(0.42f, 0.385f, 0.285f, 1.0f);
+		const FLinearColor MonitorBody(0.085f, 0.09f, 0.08f, 1.0f);
+		const FLinearColor DeadScreen(0.045f, 0.055f, 0.050f, 1.0f);
+
+		AStaticMeshActor* Clue = SpawnProp(
+			World,
+			GetCubeMesh(),
+			Location + FVector(0.0f, 0.0f, bMonitorStyle ? 82.0f : 38.0f),
+			bMonitorStyle ? FVector(1.15f, 0.65f, 0.82f) : FVector(1.35f, 0.90f, 0.08f),
+			Rotation,
+			bMonitorStyle ? MonitorBody : PaperColor,
+			Label,
+			true,
+			false,
+			bMonitorStyle ? 0.72f : 0.96f,
+			bMonitorStyle ? 0.25f : 0.0f);
+
+		if (!Clue)
+		{
+			return;
+		}
+
+		Clue->Tags.AddUnique(InteractableTag);
+		Clue->Tags.AddUnique(ClueTag);
+		Clue->Tags.AddUnique(StoryTag);
+
+		if (bMonitorStyle)
+		{
+			SpawnProp(
+				World,
+				GetCubeMesh(),
+				Location + Rotation.RotateVector(FVector(0.0f, -68.0f, 92.0f)),
+				FVector(0.92f, 0.08f, 0.50f),
+				Rotation,
+				DeadScreen,
+				TEXT("WB_Radiation_DeadMonitorScreen"),
+				false,
+				false,
+				0.88f,
+				0.12f);
+		}
+	}
+
 	bool FindTownOrigin(UWorld& World, FVector& OutOrigin)
 	{
 		for (TActorIterator<AStaticMeshActor> It(&World); It; ++It)
@@ -324,6 +381,17 @@ namespace
 		SpawnProp(World, GetCylinderMesh(), Center + FVector(40.0f, -40.0f, 72.0f), FVector(0.42f, 0.42f, 0.72f), FRotator::ZeroRotator, Rust, TEXT("WB_Radiation_Clinic_WasteDrum"), true, false, 0.80f, 0.28f);
 		SpawnProp(World, GetCubeMesh(), Center + FVector(360.0f, 160.0f, 40.0f), FVector(1.5f, 0.9f, 0.35f), FRotator(5.0f, -12.0f, 3.0f), DarkRubber, TEXT("WB_Radiation_Clinic_BagPile"), true, false, 0.98f);
 
+		// Failed decontamination line: abandoned gurneys, tipped wash frame, and the clinic intake log.
+		SpawnProp(World, GetCubeMesh(), Center + FVector(-120.0f, 520.0f, 48.0f), FVector(2.1f, 0.72f, 0.18f), FRotator(4.0f, 6.0f, 2.0f), MedicalWhite * 0.78f, TEXT("WB_Radiation_Clinic_AbandonedGurney"), true, false, 0.86f, 0.18f);
+		SpawnProp(World, GetCubeMesh(), Center + FVector(310.0f, 470.0f, 135.0f), FVector(0.18f, 2.0f, 2.7f), FRotator(7.0f, -12.0f, 9.0f), Rust, TEXT("WB_Radiation_Clinic_TippedDeconFrame"), true, false, 0.82f, 0.32f);
+		SpawnStoryClue(
+			World,
+			Center + FVector(-520.0f, 280.0f, 0.0f),
+			FRotator(0.0f, 12.0f, 0.0f),
+			ClinicClueTag,
+			TEXT("WB_Radiation_Clinic_IntakeLog"),
+			false);
+
 		SpawnHotZoneContainer(
 			World,
 			Center + FVector(-430.0f, -120.0f, 0.0f),
@@ -365,6 +433,17 @@ namespace
 		SpawnProp(World, GetCubeMesh(), Center + FVector(100.0f, 40.0f, 8.0f), FVector(5.0f, 3.4f, 0.05f), FRotator(0.0f, -10.0f, 0.0f), Sludge, TEXT("WB_Radiation_Warehouse_Sludge"), false, false, 0.99f);
 		SpawnProp(World, GetCubeMesh(), Center + FVector(-320.0f, 210.0f, 62.0f), FVector(2.2f, 1.0f, 0.55f), FRotator(8.0f, 16.0f, 5.0f), Steel, TEXT("WB_Radiation_Warehouse_PalletDebris"), true, false, 0.82f, 0.26f);
 		SpawnProp(World, GetCubeMesh(), Center + FVector(410.0f, -170.0f, 55.0f), FVector(1.5f, 1.1f, 0.50f), FRotator(-5.0f, -12.0f, 4.0f), Concrete, TEXT("WB_Radiation_Warehouse_BrokenBarrier"), true, false, 0.96f);
+
+		// An evacuation load was abandoned mid-transfer. The manifest is still clipped to the staging desk.
+		SpawnProp(World, GetCubeMesh(), Center + FVector(-520.0f, -250.0f, 58.0f), FVector(2.2f, 1.1f, 0.58f), FRotator(0.0f, 8.0f, 0.0f), Steel * 0.86f, TEXT("WB_Radiation_Warehouse_AbandonedEvacCrate"), true, false, 0.84f, 0.30f);
+		SpawnProp(World, GetCubeMesh(), Center + FVector(-250.0f, -340.0f, 62.0f), FVector(1.4f, 0.78f, 0.62f), FRotator(6.0f, -18.0f, 4.0f), Concrete * 0.80f, TEXT("WB_Radiation_Warehouse_DroppedSupplyCase"), true, false, 0.96f);
+		SpawnStoryClue(
+			World,
+			Center + FVector(-620.0f, 180.0f, 0.0f),
+			FRotator(0.0f, -6.0f, 0.0f),
+			WarehouseClueTag,
+			TEXT("WB_Radiation_Warehouse_TransferManifest"),
+			false);
 
 		SpawnHotZoneContainer(
 			World,
@@ -421,6 +500,18 @@ namespace
 				0.99f);
 		}
 
+		// Dead Civil Defense monitoring post overlooking the runoff channel.
+		const FVector MonitorBase = TownOrigin + FVector(-3950.0f, 16080.0f, 0.0f);
+		SpawnProp(World, GetCubeMesh(), MonitorBase + FVector(0.0f, 0.0f, 150.0f), FVector(0.16f, 0.16f, 3.0f), FRotator::ZeroRotator, Silt * 0.72f, TEXT("WB_Radiation_Drainage_MonitorMast"), true, false, 0.82f, 0.24f);
+		SpawnProp(World, GetCubeMesh(), MonitorBase + FVector(0.0f, 0.0f, 330.0f), FVector(1.6f, 0.22f, 0.55f), FRotator(0.0f, -4.0f, 0.0f), Silt * 0.58f, TEXT("WB_Radiation_Drainage_SensorHead"), false, false, 0.82f, 0.24f);
+		SpawnStoryClue(
+			World,
+			MonitorBase + FVector(220.0f, 0.0f, 0.0f),
+			FRotator(0.0f, 0.0f, 0.0f),
+			DrainageClueTag,
+			TEXT("WB_Radiation_Drainage_DeadMonitor"),
+			true);
+
 		SpawnHotZoneContainer(
 			World,
 			TownOrigin + FVector(-2050.0f, 16820.0f, 0.0f),
@@ -474,6 +565,17 @@ namespace
 
 		SpawnProp(World, GetCubeMesh(), Center + FVector(-480.0f, 300.0f, 60.0f), FVector(2.4f, 0.35f, 1.2f), FRotator(4.0f, -8.0f, 3.0f), Concrete, TEXT("WB_Radiation_TreatmentPlant_CollapsedWall"), true, false, 0.98f);
 		SpawnProp(World, GetCubeMesh(), Center + FVector(410.0f, 360.0f, 58.0f), FVector(1.8f, 1.1f, 0.50f), FRotator(-6.0f, 14.0f, 5.0f), DarkMetal, TEXT("WB_Radiation_TreatmentPlant_FilterDebris"), true, false, 0.82f, 0.26f);
+
+		// Control point abandoned after an attempted shutdown. The emergency board still holds the final directive.
+		SpawnProp(World, GetCubeMesh(), Center + FVector(-920.0f, 260.0f, 90.0f), FVector(1.8f, 0.60f, 1.8f), FRotator(0.0f, -8.0f, 0.0f), DarkMetal, TEXT("WB_Radiation_TreatmentPlant_DeadControlRack"), true, false, 0.78f, 0.34f);
+		SpawnProp(World, GetCubeMesh(), Center + FVector(-1050.0f, -120.0f, 42.0f), FVector(2.7f, 0.55f, 0.42f), FRotator(10.0f, 6.0f, 5.0f), Concrete * 0.72f, TEXT("WB_Radiation_TreatmentPlant_EvacBarricade"), true, false, 0.97f);
+		SpawnStoryClue(
+			World,
+			Center + FVector(-760.0f, 420.0f, 0.0f),
+			FRotator(0.0f, -8.0f, 0.0f),
+			TreatmentClueTag,
+			TEXT("WB_Radiation_TreatmentPlant_EmergencyDirective"),
+			true);
 
 		SpawnHotZoneContainer(
 			World,
