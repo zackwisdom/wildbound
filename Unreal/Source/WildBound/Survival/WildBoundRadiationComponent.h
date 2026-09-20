@@ -109,6 +109,8 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
 	float GetTreatmentProtectionRemaining() const { return TreatmentProtectionRemaining; }
 
+	void RestorePersistentState(float SavedDose, float SavedTreatmentProtectionRemaining);
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> GeigerAudioComponent;
