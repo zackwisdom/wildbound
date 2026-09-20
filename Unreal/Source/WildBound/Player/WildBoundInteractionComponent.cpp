@@ -31,6 +31,7 @@ namespace
 
 	const FName PryLockedTag(TEXT("WBPryLocked"));
 	const FName PryContainerTag(TEXT("WBPryContainer"));
+	const FName PryOpenedTag(TEXT("WBPryOpened"));
 	const FName PryAccessTag(TEXT("WBPryAccess"));
 	const FName CommercialGateGroupTag(TEXT("WBPryGroupCommercialGate"));
 
@@ -772,7 +773,7 @@ void UWildBoundInteractionComponent::TryPryTarget(AActor* TargetActor)
 	if (TargetActor->ActorHasTag(PryAccessTag)) { DestroyInteractionGroup(CommercialGateGroupTag); if (GEngine) GEngine->AddOnScreenDebugMessage(91041,2.2f,FColor(185,205,165),TEXT("Maintenance gate forced open.")); return; }
 	if (TargetActor->ActorHasTag(PryContainerTag))
 	{
-		TargetActor->Tags.Remove(PryLockedTag); TargetActor->Tags.Remove(PryContainerTag); TargetActor->Tags.AddUnique(ContainerTag);
+		TargetActor->Tags.Remove(PryLockedTag); TargetActor->Tags.Remove(PryContainerTag); TargetActor->Tags.AddUnique(ContainerTag); TargetActor->Tags.AddUnique(PryOpenedTag);
 		if (GEngine) GEngine->AddOnScreenDebugMessage(91041,2.2f,GetRarityColor(GetContainerQualityTier(*TargetActor)),FString::Printf(TEXT("[%s] cache forced open. Search it."),*GetContainerQualityName(*TargetActor)));
 	}
 }
@@ -955,4 +956,109 @@ void UWildBoundInteractionComponent::DestroyInteractionGroup(const FName& GroupT
 	TArray<AActor*> ActorsToDestroy;
 	for (TActorIterator<AActor> It(World); It; ++It) if (AActor* Actor = *It; Actor && Actor->ActorHasTag(GroupTag)) ActorsToDestroy.Add(Actor);
 	for (AActor* Actor : ActorsToDestroy) if (IsValid(Actor)) Actor->Destroy();
+}
+
+
+void UWildBoundInteractionComponent::BuildPersistentContainerStates(
+	TArray<FWildBoundPersistentContainerState>& OutStates) const
+{
+	OutStates.Reset();
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (!Actor)
+		{
+			continue;
+		}
+
+		const bool bSearched = Actor->ActorHasTag(SearchedContainerTag);
+		const bool bPryUnlocked = Actor->ActorHasTag(PryOpenedTag);
+		if (!bSearched && !bPryUnlocked)
+		{
+			continue;
+		}
+
+		FWildBoundPersistentContainerState State;
+		State.Location = Actor->GetActorLocation();
+		State.bSearched = bSearched;
+		State.bPryUnlocked = bPryUnlocked;
+
+		if (const TArray<FWildBoundContainerLootEntry>* Loot =
+			ContainerLootByActor.Find(TWeakObjectPtr<AActor>(Actor)))
+		{
+			State.Loot = *Loot;
+		}
+
+		OutStates.Add(MoveTemp(State));
+	}
+}
+
+void UWildBoundInteractionComponent::RestorePersistentContainerStates(
+	const TArray<FWildBoundPersistentContainerState>& SavedStates)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	ContainerLootByActor.Reset();
+
+	for (const FWildBoundPersistentContainerState& State : SavedStates)
+	{
+		AActor* BestMatch = nullptr;
+		float BestDistanceSq = FMath::Square(140.0f);
+
+		for (TActorIterator<AActor> It(World); It; ++It)
+		{
+			AActor* Candidate = *It;
+			if (!Candidate)
+			{
+				continue;
+			}
+
+			const bool bContainerLike =
+				Candidate->ActorHasTag(ContainerTag)
+				|| Candidate->ActorHasTag(PryLockedTag)
+				|| Candidate->ActorHasTag(PryContainerTag)
+				|| Candidate->ActorHasTag(PryOpenedTag);
+			if (!bContainerLike)
+			{
+				continue;
+			}
+
+			const float DistanceSq = FVector::DistSquared(State.Location, Candidate->GetActorLocation());
+			if (DistanceSq <= BestDistanceSq)
+			{
+				BestDistanceSq = DistanceSq;
+				BestMatch = Candidate;
+			}
+		}
+
+		if (!BestMatch)
+		{
+			continue;
+		}
+
+		if (State.bPryUnlocked)
+		{
+			BestMatch->Tags.Remove(PryLockedTag);
+			BestMatch->Tags.Remove(PryContainerTag);
+			BestMatch->Tags.AddUnique(ContainerTag);
+			BestMatch->Tags.AddUnique(PryOpenedTag);
+		}
+
+		if (State.bSearched)
+		{
+			BestMatch->Tags.AddUnique(SearchedContainerTag);
+			ContainerLootByActor.Add(TWeakObjectPtr<AActor>(BestMatch), State.Loot);
+			RefreshContainerInteractableState(BestMatch);
+		}
+	}
 }
