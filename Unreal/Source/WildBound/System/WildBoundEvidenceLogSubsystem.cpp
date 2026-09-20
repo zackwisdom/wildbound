@@ -102,6 +102,28 @@ bool UWildBoundEvidenceLogSubsystem::HasEvidence(FName EvidenceId) const
 	});
 }
 
+void UWildBoundEvidenceLogSubsystem::RestorePersistentEvidence(
+	const TArray<FWildBoundEvidenceEntry>& SavedEntries)
+{
+	EvidenceEntries.Reset();
+	UnlockedConclusions.Reset();
+
+	for (const FWildBoundEvidenceEntry& SavedEntry : SavedEntries)
+	{
+		if (SavedEntry.EvidenceId.IsNone()
+			|| SavedEntry.Title.IsEmpty()
+			|| SavedEntry.Body.IsEmpty()
+			|| HasEvidence(SavedEntry.EvidenceId))
+		{
+			continue;
+		}
+
+		EvidenceEntries.Add(SavedEntry);
+	}
+
+	EvaluateMysteryProgress();
+}
+
 void UWildBoundEvidenceLogSubsystem::EvaluateMysteryProgress()
 {
 	const bool bHasC17 = HasEvidence(SectorC17EvidenceId);
