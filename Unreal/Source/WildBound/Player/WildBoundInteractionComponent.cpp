@@ -300,6 +300,12 @@ void UWildBoundInteractionComponent::TickComponent(float DeltaTime, ELevelTick T
 	UWorld* World = GetWorld();
 	if (!Pawn || !PlayerController || !World) return;
 
+	if (const UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
+		EvidenceLog && EvidenceLog->IsEvidenceLogOpen())
+	{
+		return;
+	}
+
 	if (bTreatmentInProgress)
 	{
 		UpdateTreatment(DeltaTime, *PlayerController);
