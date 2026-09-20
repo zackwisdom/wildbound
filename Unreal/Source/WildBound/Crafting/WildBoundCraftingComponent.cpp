@@ -3,6 +3,7 @@
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundBackpackComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
+#include "../System/WildBoundEvidenceLogSubsystem.h"
 #include "../UI/SWildBoundCraftingWidget.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -150,6 +151,14 @@ void UWildBoundCraftingComponent::TickComponent(
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	APlayerController* PlayerController = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
 	if (!PlayerController)
+	{
+		return;
+	}
+
+	if (const UWildBoundEvidenceLogSubsystem* EvidenceLog = GetWorld()
+		? GetWorld()->GetSubsystem<UWildBoundEvidenceLogSubsystem>()
+		: nullptr;
+		EvidenceLog && EvidenceLog->IsEvidenceLogOpen())
 	{
 		return;
 	}
