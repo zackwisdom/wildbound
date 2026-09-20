@@ -355,13 +355,13 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 		bFoodSupplyReady |= Actor->ActorHasTag(FoodGroupTag);
 		bCommercialGateReady |= Actor->ActorHasTag(CommercialGateGroupTag);
 
-		if (bTownReady
-			&& bContainersReady
-			&& bRadiationReady
-			&& bWaterSupplyReady
+		const bool bCoreWorldReady = bTownReady && bContainersReady && bRadiationReady;
+		const bool bStartupWorldReady = bWaterSupplyReady
 			&& bMedicalSupplyReady
 			&& bFoodSupplyReady
-			&& bCommercialGateReady)
+			&& bCommercialGateReady;
+
+		if (bCoreWorldReady && (bInitialized || bStartupWorldReady))
 		{
 			return true;
 		}
