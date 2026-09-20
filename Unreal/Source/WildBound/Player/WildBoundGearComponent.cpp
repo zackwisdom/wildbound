@@ -68,10 +68,6 @@ void UWildBoundGearComponent::RefreshComponentReferences()
 	if (!RadiationComponent.IsValid())
 	{
 		RadiationComponent = Owner->FindComponentByClass<UWildBoundRadiationComponent>();
-		if (RadiationComponent.IsValid() && BaseRadiationDosePerSecond < 0.0f)
-		{
-			BaseRadiationDosePerSecond = RadiationComponent->FullExposureDosePerSecond;
-		}
 	}
 }
 
@@ -114,13 +110,7 @@ void UWildBoundGearComponent::ApplyGearEffects()
 
 	if (UWildBoundRadiationComponent* Radiation = RadiationComponent.Get())
 	{
-		if (BaseRadiationDosePerSecond < 0.0f)
-		{
-			BaseRadiationDosePerSecond = Radiation->FullExposureDosePerSecond;
-		}
-
-		Radiation->FullExposureDosePerSecond = BaseRadiationDosePerSecond
-			* (HasFilterMask() ? FilterMaskDoseMultiplier : 1.0f);
+		Radiation->SetDoseIntakeMultiplier(HasFilterMask() ? FilterMaskDoseMultiplier : 1.0f);
 	}
 }
 
@@ -140,9 +130,6 @@ void UWildBoundGearComponent::RestoreBaseValues()
 
 	if (UWildBoundRadiationComponent* Radiation = RadiationComponent.Get())
 	{
-		if (BaseRadiationDosePerSecond >= 0.0f)
-		{
-			Radiation->FullExposureDosePerSecond = BaseRadiationDosePerSecond;
-		}
+		Radiation->SetDoseIntakeMultiplier(1.0f);
 	}
 }
