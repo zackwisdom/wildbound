@@ -334,6 +334,10 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 	bool bTownReady = false;
 	bool bContainersReady = false;
 	bool bRadiationReady = false;
+	bool bWaterSupplyReady = false;
+	bool bMedicalSupplyReady = false;
+	bool bFoodSupplyReady = false;
+	bool bCommercialGateReady = false;
 
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
@@ -346,8 +350,18 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 		bTownReady |= Actor->ActorHasTag(TownTag);
 		bContainersReady |= Actor->ActorHasTag(ContainerTag);
 		bRadiationReady |= Actor->ActorHasTag(RadiationSetpieceTag);
+		bWaterSupplyReady |= Actor->ActorHasTag(WaterGroupTag);
+		bMedicalSupplyReady |= Actor->ActorHasTag(MedicalGroupTag);
+		bFoodSupplyReady |= Actor->ActorHasTag(FoodGroupTag);
+		bCommercialGateReady |= Actor->ActorHasTag(CommercialGateGroupTag);
 
-		if (bTownReady && bContainersReady && bRadiationReady)
+		if (bTownReady
+			&& bContainersReady
+			&& bRadiationReady
+			&& bWaterSupplyReady
+			&& bMedicalSupplyReady
+			&& bFoodSupplyReady
+			&& bCommercialGateReady)
 		{
 			return true;
 		}
