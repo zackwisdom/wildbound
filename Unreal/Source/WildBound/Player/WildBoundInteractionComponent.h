@@ -9,10 +9,34 @@ class SWidget;
 class SWildBoundLootWidget;
 class UWildBoundInventoryComponent;
 
+USTRUCT()
 struct FWildBoundContainerLootEntry
 {
+	GENERATED_BODY()
+
+	UPROPERTY()
 	FName ItemId = NAME_None;
+
+	UPROPERTY()
 	int32 Quantity = 0;
+};
+
+USTRUCT()
+struct FWildBoundPersistentContainerState
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector Location = FVector::ZeroVector;
+
+	UPROPERTY()
+	bool bSearched = false;
+
+	UPROPERTY()
+	bool bPryUnlocked = false;
+
+	UPROPERTY()
+	TArray<FWildBoundContainerLootEntry> Loot;
 };
 
 UCLASS(ClassGroup=(WildBound), meta=(BlueprintSpawnableComponent))
@@ -51,6 +75,9 @@ public:
 	void TakeAllContainerLoot();
 	bool StoreInventoryStackInOpenContainer(int32 StackIndex, bool bStoreWholeStack = true);
 	void CloseLootWindow();
+
+	void BuildPersistentContainerStates(TArray<FWildBoundPersistentContainerState>& OutStates) const;
+	void RestorePersistentContainerStates(const TArray<FWildBoundPersistentContainerState>& SavedStates);
 
 private:
 	float InteractionDistance = 450.0f;
