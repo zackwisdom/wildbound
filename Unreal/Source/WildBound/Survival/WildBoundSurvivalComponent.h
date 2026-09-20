@@ -138,6 +138,8 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
 	bool IsNutritionCritical() const;
 
+	void RestorePersistentVitals(float SavedHealth, float SavedHunger, float SavedThirst, float SavedStamina);
+
 private:
 	bool bDeathBroadcast = false;
 
