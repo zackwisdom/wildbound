@@ -52,6 +52,7 @@ public:
 	bool HasEvidence(FName EvidenceId) const;
 
 	const TArray<FWildBoundEvidenceEntry>& GetEvidenceEntries() const { return EvidenceEntries; }
+	void RestorePersistentEvidence(const TArray<FWildBoundEvidenceEntry>& SavedEntries);
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Evidence")
 	bool IsEvidenceLogOpen() const { return bEvidenceLogOpen; }
