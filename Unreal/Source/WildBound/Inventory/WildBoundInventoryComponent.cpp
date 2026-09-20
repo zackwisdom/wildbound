@@ -472,3 +472,41 @@ bool UWildBoundInventoryComponent::IsItemInHotbar(FName ItemId, int32& OutSlotIn
 	}
 	return false;
 }
+
+
+void UWildBoundInventoryComponent::RestorePersistentState(
+	const TArray<FWildBoundInventoryStack>& SavedStacks,
+	const TArray<FName>& SavedHotbarSlots)
+{
+	Stacks.Reset();
+	for (const FWildBoundInventoryStack& SavedStack : SavedStacks)
+	{
+		if (SavedStack.ItemId.IsNone() || SavedStack.Quantity <= 0)
+		{
+			continue;
+		}
+
+		FWildBoundInventoryStack RestoredStack;
+		RestoredStack.ItemId = SavedStack.ItemId;
+		RestoredStack.Quantity = FMath::Clamp(SavedStack.Quantity, 1, DefaultMaxStackSize);
+		Stacks.Add(RestoredStack);
+
+		if (Stacks.Num() >= MaxSlots)
+		{
+			break;
+		}
+	}
+
+	HotbarSlots.SetNum(3);
+	for (int32 Index = 0; Index < HotbarSlots.Num(); ++Index)
+	{
+		const FName SavedItem = SavedHotbarSlots.IsValidIndex(Index)
+			? SavedHotbarSlots[Index]
+			: NAME_None;
+		HotbarSlots[Index] = !SavedItem.IsNone() && HasItem(SavedItem, 1)
+			? SavedItem
+			: NAME_None;
+	}
+
+	OnInventoryChanged.Broadcast();
+}
