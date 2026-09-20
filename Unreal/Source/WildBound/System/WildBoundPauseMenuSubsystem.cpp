@@ -6,7 +6,7 @@
 #include "../Player/WildBoundBackpackComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
 #include "Engine/Engine.h"
-#include "Engine/GameUserSettings.h"
+#include "GameFramework/GameUserSettings.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "Framework/Application/SlateApplication.h"
