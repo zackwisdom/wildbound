@@ -29,6 +29,13 @@ struct FWildBoundEvidenceEntry
 	float DiscoveredAtSeconds = 0.0f;
 };
 
+struct FWildBoundMysteryConclusion
+{
+	FName ConclusionId = NAME_None;
+	FString Title;
+	FString Summary;
+};
+
 UCLASS()
 class WILDBOUND_API UWildBoundEvidenceLogSubsystem : public UWorldSubsystem
 {
@@ -51,6 +58,7 @@ public:
 
 private:
 	TArray<FWildBoundEvidenceEntry> EvidenceEntries;
+	TArray<FWildBoundMysteryConclusion> UnlockedConclusions;
 	TSharedPtr<SWidget> EvidenceViewportRoot;
 	FTimerHandle EvidenceInputTimer;
 	bool bEvidenceLogOpen = false;
@@ -60,5 +68,9 @@ private:
 	void SetEvidenceLogOpen(bool bOpen);
 	void RemoveEvidenceWidget();
 	bool CanOpenEvidenceLog() const;
+	void EvaluateMysteryProgress();
+	bool UnlockConclusion(FName ConclusionId, const FString& Title, const FString& Summary);
 	FText BuildEvidenceText() const;
+	FString BuildCaseAnalysisText() const;
+	FString BuildTimelineText() const;
 };
