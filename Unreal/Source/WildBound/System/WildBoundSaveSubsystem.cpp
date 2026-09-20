@@ -48,7 +48,7 @@ void UWildBoundSaveSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 void UWildBoundSaveSubsystem::Deinitialize()
 {
-	if (bInitialized && !bApplyingLoad)
+	if (bInitialized && !bApplyingLoad && !bSuppressExitSave)
 	{
 		SaveNow(false);
 	}
@@ -65,6 +65,25 @@ void UWildBoundSaveSubsystem::Deinitialize()
 bool UWildBoundSaveSubsystem::HasSaveGame() const
 {
 	return UGameplayStatics::DoesSaveGameExist(SaveSlotName, SaveUserIndex);
+}
+
+bool UWildBoundSaveSubsystem::ReloadLastSave()
+{
+	UWorld* World = GetWorld();
+	if (!World || !HasSaveGame())
+	{
+		return false;
+	}
+
+	const FString CurrentLevelName = UGameplayStatics::GetCurrentLevelName(World, true);
+	if (CurrentLevelName.IsEmpty())
+	{
+		return false;
+	}
+
+	bSuppressExitSave = true;
+	UGameplayStatics::OpenLevel(World, FName(*CurrentLevelName));
+	return true;
 }
 
 void UWildBoundSaveSubsystem::TryInitializePersistence()
