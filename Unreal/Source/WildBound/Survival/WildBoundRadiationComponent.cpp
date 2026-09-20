@@ -86,9 +86,11 @@ void UWildBoundRadiationComponent::TickComponent(
 		CurrentExposure = 0.0f;
 	}
 
+	TreatmentProtectionRemaining = FMath::Max(0.0f, TreatmentProtectionRemaining - DeltaTime);
+
 	if (CurrentExposure > 0.0f && AccumulatedDose < MaxDose)
 	{
-		const float DoseGain = (CurrentExposure / 100.0f) * FullExposureDosePerSecond * DeltaTime;
+		const float DoseGain = GetCurrentDoseRatePerSecond() * DeltaTime;
 		AccumulatedDose = FMath::Clamp(AccumulatedDose + DoseGain, 0.0f, MaxDose);
 	}
 
@@ -257,4 +259,60 @@ void UWildBoundRadiationComponent::ReduceDose(float Amount)
 		return;
 	}
 	AccumulatedDose = FMath::Clamp(AccumulatedDose - Amount, 0.0f, MaxDose);
+}
+
+void UWildBoundRadiationComponent::ApplyTreatment(float DoseReduction)
+{
+	ReduceDose(DoseReduction);
+	TreatmentProtectionRemaining = FMath::Max(TreatmentProtectionRemaining, PostTreatmentProtectionDuration);
+}
+
+void UWildBoundRadiationComponent::SetDoseIntakeMultiplier(float Multiplier)
+{
+	DoseIntakeMultiplier = FMath::Clamp(Multiplier, 0.05f, 1.0f);
+}
+
+float UWildBoundRadiationComponent::GetEffectiveDoseIntakeMultiplier() const
+{
+	const float TreatmentMultiplier = TreatmentProtectionRemaining > 0.0f
+		? PostTreatmentDoseMultiplier
+		: 1.0f;
+	return FMath::Clamp(DoseIntakeMultiplier * TreatmentMultiplier, 0.05f, 1.0f);
+}
+
+float UWildBoundRadiationComponent::GetDoseProtectionPercent() const
+{
+	return FMath::Clamp(1.0f - GetEffectiveDoseIntakeMultiplier(), 0.0f, 0.95f);
+}
+
+float UWildBoundRadiationComponent::GetCurrentDoseRatePerSecond() const
+{
+	const float ExposureAlpha = FMath::Clamp(CurrentExposure / 100.0f, 0.0f, 1.0f);
+	return ExposureAlpha * FullExposureDosePerSecond * GetEffectiveDoseIntakeMultiplier();
+}
+
+float UWildBoundRadiationComponent::GetDosePenaltySeverity(float ThresholdDose) const
+{
+	const float SafeMaxDose = FMath::Max(MaxDose, 1.0f);
+	const float ClampedThreshold = FMath::Clamp(ThresholdDose, 0.0f, SafeMaxDose - KINDA_SMALL_NUMBER);
+	const float Range = FMath::Max(SafeMaxDose - ClampedThreshold, 1.0f);
+	return FMath::Clamp((AccumulatedDose - ClampedThreshold) / Range, 0.0f, 1.0f);
+}
+
+float UWildBoundRadiationComponent::GetRadiationStaminaRegenMultiplier() const
+{
+	const float Severity = GetDosePenaltySeverity(FatigueDoseThreshold);
+	return FMath::Lerp(1.0f, MinimumRadiationStaminaRegenMultiplier, Severity);
+}
+
+float UWildBoundRadiationComponent::GetRadiationMoveSpeedMultiplier() const
+{
+	const float Severity = GetDosePenaltySeverity(MovementPenaltyDoseThreshold);
+	return FMath::Lerp(1.0f, MinimumRadiationMoveSpeedMultiplier, Severity);
+}
+
+float UWildBoundRadiationComponent::GetRadiationSprintDrainMultiplier() const
+{
+	const float Severity = GetDosePenaltySeverity(FatigueDoseThreshold);
+	return FMath::Lerp(1.0f, MaximumRadiationSprintDrainMultiplier, Severity);
 }
