@@ -115,4 +115,8 @@ public:
 	void ClearItemFromHotbar(FName ItemId);
 
 	bool IsItemInHotbar(FName ItemId, int32& OutSlotIndex) const;
+
+	void RestorePersistentState(
+		const TArray<FWildBoundInventoryStack>& SavedStacks,
+		const TArray<FName>& SavedHotbarSlots);
 };
