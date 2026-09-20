@@ -9,6 +9,9 @@
 namespace
 {
 	const FName RadiationHotspotTag(TEXT("WBRadiationHotspot"));
+	const FName RadiationWeakTag(TEXT("WBRadiationWeak"));
+	const FName RadiationStrongTag(TEXT("WBRadiationStrong"));
+	const FName RadiationExtremeTag(TEXT("WBRadiationExtreme"));
 	constexpr int32 GeigerSampleRate = 44100;
 	constexpr float GeigerFrameSeconds = 0.05f;
 }
@@ -63,21 +66,47 @@ void UWildBoundRadiationComponent::TickComponent(
 			continue;
 		}
 
+		float SourceIntensity = 1.0f;
+		float SourceOuterRadius = SafeOuterRadius;
+		float SourceInnerRadius = InnerRadius;
+
+		if (Source->ActorHasTag(RadiationWeakTag))
+		{
+			// Diffuse runoff: lower peak danger, but readable from farther away.
+			SourceIntensity = 0.48f;
+			SourceOuterRadius *= 1.28f;
+			SourceInnerRadius *= 0.80f;
+		}
+		else if (Source->ActorHasTag(RadiationExtremeTag))
+		{
+			SourceIntensity = 1.75f;
+			SourceOuterRadius *= 1.32f;
+			SourceInnerRadius *= 1.25f;
+		}
+		else if (Source->ActorHasTag(RadiationStrongTag))
+		{
+			SourceIntensity = 1.32f;
+			SourceOuterRadius *= 1.12f;
+			SourceInnerRadius *= 1.10f;
+		}
+
+		SourceOuterRadius = FMath::Max(SourceOuterRadius, SourceInnerRadius + 1.0f);
 		const float Distance = FVector::Dist(OwnerLocation, Source->GetActorLocation());
-		if (Distance >= SafeOuterRadius)
+		if (Distance >= SourceOuterRadius)
 		{
 			continue;
 		}
 
 		float Strength = 1.0f;
-		if (Distance > InnerRadius)
+		if (Distance > SourceInnerRadius)
 		{
-			const float Alpha = (Distance - InnerRadius) / (SafeOuterRadius - InnerRadius);
+			const float Alpha = (Distance - SourceInnerRadius) / (SourceOuterRadius - SourceInnerRadius);
 			Strength = 1.0f - FMath::Clamp(Alpha, 0.0f, 1.0f);
 			Strength = FMath::Pow(Strength, 1.35f);
 		}
 
-		TargetExposure = FMath::Max(TargetExposure, Strength * 100.0f);
+		const float SourceExposure = FMath::Clamp(Strength * SourceIntensity * 100.0f, 0.0f, 100.0f);
+		TargetExposure = FMath::Max(TargetExposure, SourceExposure);
 	}
 
 	CurrentExposure = FMath::FInterpTo(CurrentExposure, TargetExposure, DeltaTime, 6.0f);
