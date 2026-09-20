@@ -1,6 +1,7 @@
 #include "WildBoundSurvivalComponent.h"
 
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "WildBoundRadiationComponent.h"
 #include "GameFramework/Actor.h"
 
 UWildBoundSurvivalComponent::UWildBoundSurvivalComponent()
@@ -52,6 +53,14 @@ void UWildBoundSurvivalComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	}
 
 	RegenMultiplier *= GetNutritionStaminaRegenMultiplier();
+	if (Owner)
+	{
+		const UWildBoundRadiationComponent* Radiation = Owner->FindComponentByClass<UWildBoundRadiationComponent>();
+		if (Radiation)
+		{
+			RegenMultiplier *= Radiation->GetRadiationStaminaRegenMultiplier();
+		}
+	}
 	Stamina = FMath::Clamp(
 		Stamina + (StaminaRegenPerSecond * RegenMultiplier * DeltaTime),
 		0.0f,
