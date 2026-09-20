@@ -44,7 +44,6 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Evidence")
 	bool HasEvidence(FName EvidenceId) const;
 
-	UFUNCTION(BlueprintPure, Category="WildBound|Evidence")
 	const TArray<FWildBoundEvidenceEntry>& GetEvidenceEntries() const { return EvidenceEntries; }
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Evidence")
