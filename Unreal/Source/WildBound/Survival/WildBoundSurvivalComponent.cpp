@@ -225,3 +225,18 @@ void UWildBoundSurvivalComponent::BroadcastStatsChanged()
 {
 	OnStatsChanged.Broadcast();
 }
+
+
+void UWildBoundSurvivalComponent::RestorePersistentVitals(
+	float SavedHealth,
+	float SavedHunger,
+	float SavedThirst,
+	float SavedStamina)
+{
+	Health = FMath::Clamp(SavedHealth, 0.0f, MaxHealth);
+	Hunger = FMath::Clamp(SavedHunger, 0.0f, MaxHunger);
+	Thirst = FMath::Clamp(SavedThirst, 0.0f, MaxThirst);
+	Stamina = FMath::Clamp(SavedStamina, 0.0f, MaxStamina);
+	bDeathBroadcast = Health <= 0.0f;
+	BroadcastStatsChanged();
+}
