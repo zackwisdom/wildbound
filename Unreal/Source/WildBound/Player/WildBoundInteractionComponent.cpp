@@ -41,6 +41,10 @@ namespace
 	const FName MedicalTag(TEXT("WBItemMedical"));
 	const FName FoodTag(TEXT("WBItemFood"));
 	const FName C17ClueTag(TEXT("WBClueC17"));
+	const FName RadiationClinicClueTag(TEXT("WBClueRadClinic"));
+	const FName RadiationWarehouseClueTag(TEXT("WBClueRadWarehouse"));
+	const FName RadiationDrainageClueTag(TEXT("WBClueRadDrainage"));
+	const FName RadiationTreatmentClueTag(TEXT("WBClueRadTreatment"));
 	const FName WaterGroupTag(TEXT("WBGroupWater"));
 	const FName MedicalGroupTag(TEXT("WBGroupMedical"));
 	const FName FoodGroupTag(TEXT("WBGroupFood"));
@@ -661,6 +665,10 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 	if (TargetActor->ActorHasTag(MedicalTag)) return TEXT("Take first-aid kit");
 	if (TargetActor->ActorHasTag(FoodTag)) return TEXT("Take preserved food");
 	if (TargetActor->ActorHasTag(C17ClueTag)) return TargetActor->ActorHasTag(InspectedTag) ? TEXT("Re-read Civil Defense survey") : TEXT("Inspect Civil Defense survey");
+	if (TargetActor->ActorHasTag(RadiationClinicClueTag)) return TargetActor->ActorHasTag(InspectedTag) ? TEXT("Re-read clinic intake log") : TEXT("Inspect clinic intake log");
+	if (TargetActor->ActorHasTag(RadiationWarehouseClueTag)) return TargetActor->ActorHasTag(InspectedTag) ? TEXT("Re-read transfer manifest") : TEXT("Inspect transfer manifest");
+	if (TargetActor->ActorHasTag(RadiationDrainageClueTag)) return TargetActor->ActorHasTag(InspectedTag) ? TEXT("Re-read monitor buffer") : TEXT("Inspect dead monitoring station");
+	if (TargetActor->ActorHasTag(RadiationTreatmentClueTag)) return TargetActor->ActorHasTag(InspectedTag) ? TEXT("Re-read emergency directive") : TEXT("Inspect emergency directive");
 	return TEXT("Interact");
 }
 
@@ -687,10 +695,36 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 		if (ItemId.IsNone() || Quantity <= 0 || !CanInventoryFit(*Inventory,ItemId,Quantity) || !Inventory->AddItem(ItemId,Quantity)) { if (GEngine) GEngine->AddOnScreenDebugMessage(91002,2.0f,FColor::Red,TEXT("Inventory full")); return; }
 		if (GEngine) GEngine->AddOnScreenDebugMessage(91002,2.5f,GetRarityColor(Inventory->GetItemRarityTier(ItemId)),PickupMessage); DestroyInteractionGroup(GroupTag); return;
 	}
-	if (TargetActor->ActorHasTag(ClueTag) && TargetActor->ActorHasTag(C17ClueTag))
+	if (TargetActor->ActorHasTag(ClueTag))
 	{
-		TargetActor->Tags.AddUnique(InspectedTag);
-		if (GEngine) GEngine->AddOnScreenDebugMessage(91002,9.0f,FColor(220,194,122),TEXT("CIVIL DEFENSE FIELD SURVEY - SECTOR C-17\nBackground radiation elevated BEFORE the detonation alert.\nThree samples transferred off-site. Receiving authority: [REDACTED]."));
+		FString ClueText;
+		if (TargetActor->ActorHasTag(C17ClueTag))
+		{
+			ClueText = TEXT("CIVIL DEFENSE FIELD SURVEY - SECTOR C-17\nBackground radiation elevated BEFORE the detonation alert.\nThree samples transferred off-site. Receiving authority: [REDACTED].");
+		}
+		else if (TargetActor->ActorHasTag(RadiationClinicClueTag))
+		{
+			ClueText = TEXT("CLINIC DECONTAMINATION INTAKE - 04:18\nFirst walk-ins reported metallic taste and nausea before civil sirens.\nPortable survey meter: 3.8x baseline at 04:21.\nDETONATION ALERT RECEIVED: 04:47.");
+		}
+		else if (TargetActor->ActorHasTag(RadiationWarehouseClueTag))
+		{
+			ClueText = TEXT("MUNICIPAL TRANSFER MANIFEST - 03:52\nThree sealed environmental samples received from Sector C-17.\nTransfer authorization predates the emergency declaration.\nDestination code: RCV-[REDACTED] | Receiving authority withheld.");
+		}
+		else if (TargetActor->ActorHasTag(RadiationDrainageClueTag))
+		{
+			ClueText = TEXT("CIVIL DEFENSE MONITOR 04 - LAST BUFFER\n04:09  BASELINE 1.0x\n04:13  2.4x\n04:26  4.1x\nALERT NETWORK NOT YET ACTIVE. SENSOR DISCONNECTED REMOTELY: 04:31.");
+		}
+		else if (TargetActor->ActorHasTag(RadiationTreatmentClueTag))
+		{
+			ClueText = TEXT("WATER AUTHORITY EMERGENCY DIRECTIVE - 04:34\nDO NOT BROADCAST CONTAMINATION ALARM.\nHold public advisory pending external authority clearance.\nThree samples already transferred off-site. Detonation alert followed 13 minutes later.");
+		}
+
+		if (!ClueText.IsEmpty())
+		{
+			TargetActor->Tags.AddUnique(InspectedTag);
+			if (GEngine) GEngine->AddOnScreenDebugMessage(91002,10.0f,FColor(220,194,122),ClueText);
+			return;
+		}
 	}
 }
 
