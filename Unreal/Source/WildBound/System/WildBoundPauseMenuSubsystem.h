@@ -20,6 +20,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Pause")
 	bool IsPauseMenuOpen() const { return bPauseMenuOpen; }
 
+	bool IsSettingsOpen() const { return bSettingsOpen; }
+	void HandleEscape();
+
 	void ContinueGame();
 	void SaveGame();
 	void LoadGame();
