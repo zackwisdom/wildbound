@@ -330,7 +330,24 @@ FText SWildBoundHUDWidget::GetRadiationText() const
 	else if (Exposure >= 15) ClickPattern = TEXT("click...click");
 	else if (Exposure >= 2) ClickPattern = TEXT("click");
 
-	return FText::FromString(FString::Printf(TEXT("GEIGER  %s   EXP %d%%  DOSE %d"), ClickPattern, Exposure, Dose));
+	const int32 Protection = FMath::RoundToInt(Radiation->GetDoseProtectionPercent() * 100.0f);
+	const float DoseRate = Radiation->GetCurrentDoseRatePerSecond();
+	if (Protection > 0)
+	{
+		return FText::FromString(FString::Printf(
+			TEXT("GEIGER  %s   EXP %d%%  DOSE %d   RATE %.2f/s   PROT %d%%"),
+			ClickPattern,
+			Exposure,
+			Dose,
+			DoseRate,
+			Protection));
+	}
+	return FText::FromString(FString::Printf(
+		TEXT("GEIGER  %s   EXP %d%%  DOSE %d   RATE %.2f/s"),
+		ClickPattern,
+		Exposure,
+		Dose,
+		DoseRate));
 }
 
 FSlateColor SWildBoundHUDWidget::GetRadiationColor() const
