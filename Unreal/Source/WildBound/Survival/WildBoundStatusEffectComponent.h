@@ -70,7 +70,7 @@ public:
 	float DefaultMedicalTreatmentDuration = 35.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Status|Treatment", meta=(ClampMin="1.0"))
-	float DefaultRadiationTreatmentDuration = 60.0f;
+	float DefaultRadiationTreatmentDuration = 45.0f;
 
 	UFUNCTION(BlueprintCallable, Category="WildBound|Status")
 	void RegisterMedicalTreatment(float DurationSeconds = -1.0f);
