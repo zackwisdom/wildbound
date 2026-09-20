@@ -1,6 +1,7 @@
 #include "WildBoundBackpackComponent.h"
 
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "../System/WildBoundEvidenceLogSubsystem.h"
 #include "../UI/SWildBoundBackpackWidget.h"
 #include "WildBoundInteractionComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -80,6 +81,14 @@ void UWildBoundBackpackComponent::TickComponent(
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	APlayerController* PlayerController = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
 	if (!PlayerController)
+	{
+		return;
+	}
+
+	if (const UWildBoundEvidenceLogSubsystem* EvidenceLog = GetWorld()
+		? GetWorld()->GetSubsystem<UWildBoundEvidenceLogSubsystem>()
+		: nullptr;
+		EvidenceLog && EvidenceLog->IsEvidenceLogOpen())
 	{
 		return;
 	}
