@@ -37,6 +37,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation", meta=(ClampMin="0.0"))
 	float FullExposureDosePerSecond = 1.25f;
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="WildBound|Radiation")
+	float DoseIntakeMultiplier = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Sickness", meta=(ClampMin="0.0", ClampMax="100.0"))
+	float FatigueDoseThreshold = 25.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Sickness", meta=(ClampMin="0.0", ClampMax="100.0"))
+	float MovementPenaltyDoseThreshold = 45.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Sickness", meta=(ClampMin="0.05", ClampMax="1.0"))
+	float MinimumRadiationStaminaRegenMultiplier = 0.45f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Sickness", meta=(ClampMin="0.5", ClampMax="1.0"))
+	float MinimumRadiationMoveSpeedMultiplier = 0.82f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Sickness", meta=(ClampMin="1.0"))
+	float MaximumRadiationSprintDrainMultiplier = 1.65f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Treatment", meta=(ClampMin="0.0"))
+	float PostTreatmentProtectionDuration = 45.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation|Treatment", meta=(ClampMin="0.1", ClampMax="1.0"))
+	float PostTreatmentDoseMultiplier = 0.70f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Radiation", meta=(ClampMin="0.0", ClampMax="100.0"))
 	float HighDoseDamageThreshold = 70.0f;
 
@@ -58,6 +82,33 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Radiation")
 	void ReduceDose(float Amount);
 
+	UFUNCTION(BlueprintCallable, Category="WildBound|Radiation")
+	void ApplyTreatment(float DoseReduction);
+
+	UFUNCTION(BlueprintCallable, Category="WildBound|Radiation")
+	void SetDoseIntakeMultiplier(float Multiplier);
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetEffectiveDoseIntakeMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetDoseProtectionPercent() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetCurrentDoseRatePerSecond() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetRadiationStaminaRegenMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetRadiationMoveSpeedMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetRadiationSprintDrainMultiplier() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Radiation")
+	float GetTreatmentProtectionRemaining() const { return TreatmentProtectionRemaining; }
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> GeigerAudioComponent;
@@ -66,6 +117,9 @@ private:
 	TObjectPtr<USoundWaveProcedural> GeigerSoundWave;
 
 	float SecondsUntilNextGeigerClick = 0.0f;
+	float TreatmentProtectionRemaining = 0.0f;
+
+	float GetDosePenaltySeverity(float ThresholdDose) const;
 
 	void InitializeGeigerAudio();
 	void UpdateGeigerAudio(float DeltaTime);
