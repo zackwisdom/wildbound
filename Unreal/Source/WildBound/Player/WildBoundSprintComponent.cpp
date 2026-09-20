@@ -2,6 +2,7 @@
 
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Survival/WildBoundInjuryComponent.h"
+#include "../Survival/WildBoundRadiationComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -90,10 +91,13 @@ void UWildBoundSprintComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 			EncumbranceSeverity);
 		const float NutritionDrainMultiplier = Survival->GetNutritionSprintDrainMultiplier();
 		const float InjuryDrainMultiplier = Injuries ? Injuries->GetSprintDrainMultiplier() : 1.0f;
+		const UWildBoundRadiationComponent* Radiation = Character->FindComponentByClass<UWildBoundRadiationComponent>();
+		const float RadiationDrainMultiplier = Radiation ? Radiation->GetRadiationSprintDrainMultiplier() : 1.0f;
 		const float DrainAmount = SprintStaminaDrainPerSecond
 			* EncumbranceDrainMultiplier
 			* NutritionDrainMultiplier
 			* InjuryDrainMultiplier
+			* RadiationDrainMultiplier
 			* DeltaTime;
 
 		if (Survival->ConsumeStamina(DrainAmount))
@@ -131,7 +135,9 @@ float UWildBoundSprintComponent::GetCurrentSpeedMultiplier() const
 	const AActor* Owner = GetOwner();
 	const UWildBoundInjuryComponent* Injuries = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
 	const float InjuryMultiplier = Injuries ? Injuries->GetMovementSpeedMultiplier() : 1.0f;
-	return EncumbranceMultiplier * NutritionMultiplier * InjuryMultiplier;
+	const UWildBoundRadiationComponent* Radiation = Owner ? Owner->FindComponentByClass<UWildBoundRadiationComponent>() : nullptr;
+	const float RadiationMultiplier = Radiation ? Radiation->GetRadiationMoveSpeedMultiplier() : 1.0f;
+	return EncumbranceMultiplier * NutritionMultiplier * InjuryMultiplier * RadiationMultiplier;
 }
 
 float UWildBoundSprintComponent::GetFatigueAccelerationMultiplier() const
