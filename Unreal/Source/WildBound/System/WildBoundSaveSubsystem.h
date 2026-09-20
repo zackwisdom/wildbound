@@ -26,11 +26,15 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Save")
 	bool HasSaveGame() const;
 
+	UFUNCTION(BlueprintCallable, Category="WildBound|Save")
+	bool ReloadLastSave();
+
 private:
 	FTimerHandle StartupTimer;
 	FTimerHandle AutosaveTimer;
 	bool bInitialized = false;
 	bool bApplyingLoad = false;
+	bool bSuppressExitSave = false;
 
 	const FString SaveSlotName = TEXT("WildBound_Autosave");
 	static constexpr int32 SaveUserIndex = 0;
