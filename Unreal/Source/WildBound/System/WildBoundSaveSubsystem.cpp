@@ -1,6 +1,7 @@
 #include "WildBoundSaveSubsystem.h"
 
 #include "WildBoundEvidenceLogSubsystem.h"
+#include "WildBoundMainMenuSubsystem.h"
 #include "WildBoundSaveGame.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
@@ -16,6 +17,8 @@
 
 namespace
 {
+	bool GWildBoundLoadOnNextWorld = false;
+
 	const FName TownTag(TEXT("WildBoundTownBlockout"));
 	const FName RadiationSetpieceTag(TEXT("WildBoundRadiationSetpiece"));
 	const FName ContainerTag(TEXT("WBTypeContainer"));
@@ -82,6 +85,8 @@ bool UWildBoundSaveSubsystem::ReloadLastSave()
 	}
 
 	bSuppressExitSave = true;
+	GWildBoundLoadOnNextWorld = true;
+	UWildBoundMainMenuSubsystem::SuppressNextWorldMenuOnce();
 	UGameplayStatics::OpenLevel(World, FName(*CurrentLevelName));
 	return true;
 }
@@ -104,7 +109,19 @@ void UWildBoundSaveSubsystem::TryInitializePersistence()
 		return;
 	}
 
-	bInitialized = true;
+	if (GWildBoundLoadOnNextWorld && HasSaveGame())
+	{
+		GWildBoundLoadOnNextWorld = false;
+		if (!LoadNow(false))
+		{
+			return;
+		}
+	}
+	else
+	{
+		GWildBoundLoadOnNextWorld = false;
+		bInitialized = true;
+	}
 
 	if (UWorld* World = GetWorld())
 	{
