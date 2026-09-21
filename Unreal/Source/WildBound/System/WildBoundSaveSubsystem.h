@@ -35,6 +35,8 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Save")
 	bool HasStartedSession() const { return bSessionStarted; }
 
+	bool IsPersistenceReady() const { return bInitialized; }
+
 private:
 	FTimerHandle StartupTimer;
 	FTimerHandle AutosaveTimer;
