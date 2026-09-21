@@ -111,11 +111,11 @@ void UWildBoundSaveSubsystem::TryInitializePersistence()
 
 	if (GWildBoundLoadOnNextWorld && HasSaveGame())
 	{
-		GWildBoundLoadOnNextWorld = false;
 		if (!LoadNow(false))
 		{
 			return;
 		}
+		GWildBoundLoadOnNextWorld = false;
 	}
 	else
 	{
