@@ -29,12 +29,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Save")
 	bool ReloadLastSave();
 
+	UFUNCTION(BlueprintCallable, Category="WildBound|Save")
+	bool StartNewGame();
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Save")
+	bool HasStartedSession() const { return bSessionStarted; }
+
 private:
 	FTimerHandle StartupTimer;
 	FTimerHandle AutosaveTimer;
 	bool bInitialized = false;
 	bool bApplyingLoad = false;
 	bool bSuppressExitSave = false;
+	bool bSessionStarted = false;
 
 	const FString SaveSlotName = TEXT("WildBound_Autosave");
 	static constexpr int32 SaveUserIndex = 0;
