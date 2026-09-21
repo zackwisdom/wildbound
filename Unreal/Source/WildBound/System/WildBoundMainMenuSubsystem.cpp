@@ -566,11 +566,18 @@ void UWildBoundMainMenuSubsystem::TryOpenMainMenu()
 		? World->GetSubsystem<UWildBoundSaveSubsystem>()
 		: nullptr;
 
-	if (!World
-		|| !PlayerController
-		|| !SaveSubsystem
-		|| !SaveSubsystem->IsPersistenceReady())
+	if (!World || !PlayerController)
 	{
+		return;
+	}
+
+	if (!SaveSubsystem || !SaveSubsystem->IsPersistenceReady())
+	{
+		PlayerController->SetIgnoreMoveInput(true);
+		PlayerController->SetIgnoreLookInput(true);
+		PlayerController->bShowMouseCursor = false;
+		FInputModeUIOnly InputMode;
+		PlayerController->SetInputMode(InputMode);
 		return;
 	}
 
