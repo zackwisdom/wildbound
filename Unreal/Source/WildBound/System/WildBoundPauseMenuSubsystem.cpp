@@ -1,6 +1,7 @@
 #include "WildBoundPauseMenuSubsystem.h"
 
 #include "WildBoundEvidenceLogSubsystem.h"
+#include "WildBoundMainMenuSubsystem.h"
 #include "WildBoundSaveSubsystem.h"
 #include "../Crafting/WildBoundCraftingComponent.h"
 #include "../Player/WildBoundBackpackComponent.h"
@@ -717,8 +718,10 @@ bool UWildBoundPauseMenuSubsystem::HasBlockingUIOpen() const
 	const UWildBoundCraftingComponent* Crafting = Pawn->FindComponentByClass<UWildBoundCraftingComponent>();
 	const UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
 	const UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
+	const UWildBoundMainMenuSubsystem* MainMenu = World->GetSubsystem<UWildBoundMainMenuSubsystem>();
 
-	return (Backpack && Backpack->IsBackpackOpen())
+	return (MainMenu && MainMenu->IsMainMenuOpen())
+		|| (Backpack && Backpack->IsBackpackOpen())
 		|| (Crafting && Crafting->IsCraftingOpen())
 		|| (Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress()))
 		|| (EvidenceLog && EvidenceLog->IsEvidenceLogOpen());
