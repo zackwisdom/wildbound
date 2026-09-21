@@ -48,7 +48,7 @@ void UWildBoundSaveSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 void UWildBoundSaveSubsystem::Deinitialize()
 {
-	if (bInitialized && !bApplyingLoad && !bSuppressExitSave)
+	if (bInitialized && bSessionStarted && !bApplyingLoad && !bSuppressExitSave)
 	{
 		SaveNow(false);
 	}
@@ -86,6 +86,17 @@ bool UWildBoundSaveSubsystem::ReloadLastSave()
 	return true;
 }
 
+bool UWildBoundSaveSubsystem::StartNewGame()
+{
+	if (HasSaveGame() && !UGameplayStatics::DeleteGameInSlot(SaveSlotName, SaveUserIndex))
+	{
+		return false;
+	}
+
+	bSessionStarted = true;
+	return true;
+}
+
 void UWildBoundSaveSubsystem::TryInitializePersistence()
 {
 	if (bInitialized || !ArePersistenceTargetsReady())
@@ -93,19 +104,7 @@ void UWildBoundSaveSubsystem::TryInitializePersistence()
 		return;
 	}
 
-	if (HasSaveGame())
-	{
-		LoadNow(false);
-	}
-	else
-	{
-		bInitialized = true;
-	}
-
-	if (!bInitialized)
-	{
-		return;
-	}
+	bInitialized = true;
 
 	if (UWorld* World = GetWorld())
 	{
@@ -129,7 +128,7 @@ void UWildBoundSaveSubsystem::PerformAutosave()
 
 bool UWildBoundSaveSubsystem::SaveNow(bool bShowMessage)
 {
-	if (bApplyingLoad || !ArePersistenceTargetsReady())
+	if (!bSessionStarted || bApplyingLoad || !ArePersistenceTargetsReady())
 	{
 		return false;
 	}
@@ -175,6 +174,7 @@ bool UWildBoundSaveSubsystem::LoadNow(bool bShowMessage)
 	if (bLoaded)
 	{
 		bInitialized = true;
+		bSessionStarted = true;
 		if (bShowMessage && GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(
