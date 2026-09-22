@@ -56,6 +56,7 @@ private:
 
 	void TryInitializePersistence();
 	void PerformAutosave();
+	void MovePlayerToSafehouseStart();
 	bool CaptureSave(UWildBoundSaveGame& SaveGame) const;
 	bool ApplySave(const UWildBoundSaveGame& SaveGame);
 	bool ArePersistenceTargetsReady() const;
