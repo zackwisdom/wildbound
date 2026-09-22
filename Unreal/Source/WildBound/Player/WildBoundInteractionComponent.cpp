@@ -7,6 +7,7 @@
 #include "../Survival/WildBoundStatusEffectComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
 #include "../System/WildBoundEvidenceLogSubsystem.h"
+#include "../System/WildBoundSaveSubsystem.h"
 #include "../UI/SWildBoundLootWidget.h"
 #include "WildBoundBackpackComponent.h"
 #include "Engine/Engine.h"
@@ -50,6 +51,9 @@ namespace
 	const FName WaterGroupTag(TEXT("WBGroupWater"));
 	const FName MedicalGroupTag(TEXT("WBGroupMedical"));
 	const FName FoodGroupTag(TEXT("WBGroupFood"));
+	const FName SafehouseStashTag(TEXT("WBSafehouseStash"));
+	const FName SafehouseBedTag(TEXT("WBSafehouseBed"));
+	const FName SafehouseSaveTag(TEXT("WBSafehouseSavePoint"));
 
 	const FName WaterItemId(TEXT("Water"));
 	const FName FoodItemId(TEXT("Food"));
@@ -149,6 +153,7 @@ namespace
 
 	FString GetContainerTypeName(const AActor& Container)
 	{
+		if (Container.ActorHasTag(SafehouseStashTag)) return TEXT("SAFEHOUSE STASH");
 		if (Container.ActorHasTag(ToolboxContainerTag)) return TEXT("TOOLBOX");
 		if (Container.ActorHasTag(MedicalPoolTag) && Container.ActorHasTag(CabinetContainerTag)) return TEXT("MEDICAL CABINET");
 		if (Container.ActorHasTag(LockerContainerTag)) return TEXT("LOCKER");
@@ -656,6 +661,10 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 		return TEXT("Pick up item");
 	}
 
+	if (TargetActor->ActorHasTag(SafehouseBedTag)) return TEXT("Rest at safehouse");
+	if (TargetActor->ActorHasTag(SafehouseSaveTag)) return TEXT("Record progress");
+	if (TargetActor->ActorHasTag(SafehouseStashTag)) return TEXT("Open safehouse stash");
+
 	if (TargetActor->ActorHasTag(PryLockedTag))
 	{
 		const bool bHasCrowbar = Inventory && Inventory->HasItem(CrowbarItemId, 1);
@@ -683,6 +692,55 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 {
 	if (!TargetActor) return;
+
+	if (TargetActor->ActorHasTag(SafehouseBedTag))
+	{
+		AActor* Owner = GetOwner();
+		UWildBoundSurvivalComponent* Survival = Owner ? Owner->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
+		if (!Survival) return;
+
+		if (!Survival->RestAtSafehouse())
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91070,
+					2.4f,
+					FColor(220, 165, 105),
+					TEXT("Too hungry or dehydrated to rest safely. Eat and drink first."));
+			}
+			return;
+		}
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91070,
+				3.0f,
+				FColor(175, 205, 165),
+				TEXT("RESTED   |   STAMINA RESTORED   |   +12 HEALTH   |   -6 HUNGER   |   -8 THIRST"));
+		}
+		return;
+	}
+
+	if (TargetActor->ActorHasTag(SafehouseSaveTag))
+	{
+		UWorld* World = GetWorld();
+		UWildBoundSaveSubsystem* SaveSubsystem = World ? World->GetSubsystem<UWildBoundSaveSubsystem>() : nullptr;
+		if (!SaveSubsystem || !SaveSubsystem->SaveNow(true))
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91071,
+					2.0f,
+					FColor(210, 155, 110),
+					TEXT("Unable to record progress right now."));
+			}
+		}
+		return;
+	}
+
 	if (TargetActor->ActorHasTag(DroppedItemTag))
 	{
 		UWildBoundInventoryComponent* Inventory = GetInventoryComponent(); FName ItemId; int32 Quantity = 0;
@@ -785,7 +843,10 @@ void UWildBoundInteractionComponent::SearchLootContainer(AActor* TargetActor)
 	if (!ContainerLootByActor.Contains(Key))
 	{
 		TArray<FWildBoundContainerLootEntry> GeneratedLoot;
-		GenerateContainerLoot(*TargetActor, GeneratedLoot);
+		if (!TargetActor->ActorHasTag(SafehouseStashTag))
+		{
+			GenerateContainerLoot(*TargetActor, GeneratedLoot);
+		}
 		ContainerLootByActor.Add(Key, MoveTemp(GeneratedLoot));
 		TargetActor->Tags.AddUnique(SearchedContainerTag);
 	}
