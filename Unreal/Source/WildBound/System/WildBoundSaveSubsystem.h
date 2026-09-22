@@ -32,6 +32,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Save")
 	bool StartNewGame();
 
+	bool RestartFreshRun();
+	bool ReturnToTitle();
+	void NotifyPlayerDied();
+
 	UFUNCTION(BlueprintPure, Category="WildBound|Save")
 	bool HasStartedSession() const { return bSessionStarted; }
 
@@ -44,6 +48,7 @@ private:
 	bool bApplyingLoad = false;
 	bool bSuppressExitSave = false;
 	bool bSessionStarted = false;
+	bool bRunEnded = false;
 
 	const FString SaveSlotName = TEXT("WildBound_Autosave");
 	static constexpr int32 SaveUserIndex = 0;
