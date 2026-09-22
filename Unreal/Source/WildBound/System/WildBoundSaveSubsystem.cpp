@@ -30,6 +30,8 @@ namespace
 	const FName MedicalGroupTag(TEXT("WBGroupMedical"));
 	const FName FoodGroupTag(TEXT("WBGroupFood"));
 	const FName CommercialGateGroupTag(TEXT("WBPryGroupCommercialGate"));
+	const FName SafehouseSetTag(TEXT("WildBoundSafehouse"));
+	const FName SafehouseSpawnAnchorTag(TEXT("WBSafehouseSpawnAnchor"));
 }
 
 void UWildBoundSaveSubsystem::OnWorldBeginPlay(UWorld& InWorld)
@@ -104,6 +106,7 @@ bool UWildBoundSaveSubsystem::StartNewGame()
 
 	bRunEnded = false;
 	bSessionStarted = true;
+	MovePlayerToSafehouseStart();
 	return true;
 }
 
@@ -191,6 +194,7 @@ void UWildBoundSaveSubsystem::TryInitializePersistence()
 		bRunEnded = false;
 		bSessionStarted = true;
 		bInitialized = true;
+		MovePlayerToSafehouseStart();
 	}
 	else
 	{
@@ -457,6 +461,7 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 	bool bMedicalSupplyReady = false;
 	bool bFoodSupplyReady = false;
 	bool bCommercialGateReady = false;
+	bool bSafehouseReady = false;
 
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
@@ -473,8 +478,9 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 		bMedicalSupplyReady |= Actor->ActorHasTag(MedicalGroupTag);
 		bFoodSupplyReady |= Actor->ActorHasTag(FoodGroupTag);
 		bCommercialGateReady |= Actor->ActorHasTag(CommercialGateGroupTag);
+		bSafehouseReady |= Actor->ActorHasTag(SafehouseSetTag);
 
-		const bool bCoreWorldReady = bTownReady && bContainersReady && bRadiationReady;
+		const bool bCoreWorldReady = bTownReady && bContainersReady && bRadiationReady && bSafehouseReady;
 		const bool bStartupWorldReady = bWaterSupplyReady
 			&& bMedicalSupplyReady
 			&& bFoodSupplyReady
@@ -487,6 +493,35 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 	}
 
 	return false;
+}
+
+void UWildBoundSaveSubsystem::MovePlayerToSafehouseStart()
+{
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (!World || !Pawn)
+	{
+		return;
+	}
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (!Actor || !Actor->ActorHasTag(SafehouseSpawnAnchorTag))
+		{
+			continue;
+		}
+
+		const FVector StartLocation = Actor->GetActorLocation() + FVector(0.0f, 330.0f, 145.0f);
+		Pawn->SetActorLocationAndRotation(
+			StartLocation,
+			FRotator(0.0f, -90.0f, 0.0f),
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics);
+		return;
+	}
 }
 
 bool UWildBoundSaveSubsystem::HasActorsWithTag(FName Tag) const
