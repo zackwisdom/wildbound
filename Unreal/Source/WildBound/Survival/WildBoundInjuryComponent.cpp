@@ -326,3 +326,13 @@ void UWildBoundInjuryComponent::RestorePersistentState(
 	PeakDownwardFallSpeed = 0.0f;
 	bTreatmentSnapshotInitialized = false;
 }
+
+
+void UWildBoundInjuryComponent::RestAtSafehouse()
+{
+	const float PainFloor = FMath::Clamp(
+		FMath::Max(BleedingSeverity * 0.35f, FractureSeverity * 0.68f),
+		0.0f,
+		1.0f);
+	PainSeverity = FMath::Max(PainFloor, FMath::Clamp(PainSeverity - 0.30f, 0.0f, 1.0f));
+}
