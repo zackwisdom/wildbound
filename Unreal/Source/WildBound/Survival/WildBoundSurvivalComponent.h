@@ -105,6 +105,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Survival")
 	void ApplySurvivalDamage(float Amount);
 
+	void ApplySurvivalDamageFromCause(float Amount, FName DamageCause);
+
 	UFUNCTION(BlueprintCallable, Category="WildBound|Survival")
 	void Heal(float Amount);
 
@@ -138,10 +140,13 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Survival|Nutrition")
 	bool IsNutritionCritical() const;
 
+	FString GetDeathCauseText() const;
+
 	void RestorePersistentVitals(float SavedHealth, float SavedHunger, float SavedThirst, float SavedStamina);
 
 private:
 	bool bDeathBroadcast = false;
+	FName LastDamageCause = NAME_None;
 
 	float GetNutritionSeverity(float Percent) const;
 	float GetCriticalDamageSeverity(float Percent) const;
