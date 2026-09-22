@@ -516,7 +516,7 @@ void UWildBoundSaveSubsystem::MovePlayerToSafehouseStart()
 		const FVector StartLocation = Actor->GetActorLocation() + FVector(0.0f, 330.0f, 145.0f);
 		Pawn->SetActorLocationAndRotation(
 			StartLocation,
-			FRotator(0.0f, -90.0f, 0.0f),
+			FRotator(0.0f, 90.0f, 0.0f),
 			false,
 			nullptr,
 			ETeleportType::TeleportPhysics);
