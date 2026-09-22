@@ -22,6 +22,7 @@ namespace
 	const FName SafehouseStashTag(TEXT("WBSafehouseStash"));
 	const FName SafehouseBedTag(TEXT("WBSafehouseBed"));
 	const FName SafehouseSaveTag(TEXT("WBSafehouseSavePoint"));
+	const FName SafehouseSpawnAnchorTag(TEXT("WBSafehouseSpawnAnchor"));
 	const FName WorkbenchTag(TEXT("WBWorkbench"));
 
 	UStaticMesh* GetCube()
@@ -177,7 +178,11 @@ namespace
 		const FLinearColor Charcoal(0.045f, 0.050f, 0.047f, 1.0f);
 
 		// Raised slab and three-sided scrap shelter. Front faces north toward town.
-		SpawnPiece(World, GetCube(), Base + FVector(0.0f, 0.0f, 12.0f), FVector(7.0f, 5.2f, 0.12f), FRotator::ZeroRotator, Concrete, TEXT("WB_Safehouse_Floor"), true, 0.98f);
+		AStaticMeshActor* Floor = SpawnPiece(World, GetCube(), Base + FVector(0.0f, 0.0f, 12.0f), FVector(7.0f, 5.2f, 0.12f), FRotator::ZeroRotator, Concrete, TEXT("WB_Safehouse_Floor"), true, 0.98f);
+		if (Floor)
+		{
+			Floor->Tags.AddUnique(SafehouseSpawnAnchorTag);
+		}
 		SpawnPiece(World, GetCube(), Base + FVector(0.0f, -255.0f, 205.0f), FVector(7.0f, 0.15f, 4.1f), FRotator::ZeroRotator, ScrapSteel, TEXT("WB_Safehouse_BackWall"), true, 0.78f, 0.28f);
 		SpawnPiece(World, GetCube(), Base + FVector(-345.0f, -20.0f, 205.0f), FVector(0.15f, 4.7f, 4.1f), FRotator::ZeroRotator, ScrapSteel, TEXT("WB_Safehouse_LeftWall"), true, 0.78f, 0.28f);
 		SpawnPiece(World, GetCube(), Base + FVector(345.0f, -20.0f, 205.0f), FVector(0.15f, 4.7f, 4.1f), FRotator::ZeroRotator, ScrapSteel, TEXT("WB_Safehouse_RightWall"), true, 0.78f, 0.28f);
