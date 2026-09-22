@@ -18,6 +18,7 @@
 namespace
 {
 	bool GWildBoundLoadOnNextWorld = false;
+	bool GWildBoundNewGameOnNextWorld = false;
 
 	const FName TownTag(TEXT("WildBoundTownBlockout"));
 	const FName RadiationSetpieceTag(TEXT("WildBoundRadiationSetpiece"));
@@ -51,7 +52,7 @@ void UWildBoundSaveSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 void UWildBoundSaveSubsystem::Deinitialize()
 {
-	if (bInitialized && bSessionStarted && !bApplyingLoad && !bSuppressExitSave)
+	if (bInitialized && bSessionStarted && !bRunEnded && !bApplyingLoad && !bSuppressExitSave)
 	{
 		SaveNow(false);
 	}
@@ -86,7 +87,9 @@ bool UWildBoundSaveSubsystem::ReloadLastSave()
 
 	bSuppressExitSave = true;
 	GWildBoundLoadOnNextWorld = true;
+	GWildBoundNewGameOnNextWorld = false;
 	UWildBoundMainMenuSubsystem::SuppressNextWorldMenuOnce();
+	UGameplayStatics::SetGamePaused(World, false);
 	UGameplayStatics::OpenLevel(World, FName(*CurrentLevelName));
 	return true;
 }
@@ -98,8 +101,70 @@ bool UWildBoundSaveSubsystem::StartNewGame()
 		return false;
 	}
 
+	bRunEnded = false;
 	bSessionStarted = true;
 	return true;
+}
+
+bool UWildBoundSaveSubsystem::RestartFreshRun()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	if (HasSaveGame() && !UGameplayStatics::DeleteGameInSlot(SaveSlotName, SaveUserIndex))
+	{
+		return false;
+	}
+
+	const FString CurrentLevelName = UGameplayStatics::GetCurrentLevelName(World, true);
+	if (CurrentLevelName.IsEmpty())
+	{
+		return false;
+	}
+
+	bSuppressExitSave = true;
+	GWildBoundLoadOnNextWorld = false;
+	GWildBoundNewGameOnNextWorld = true;
+	UWildBoundMainMenuSubsystem::SuppressNextWorldMenuOnce();
+	UGameplayStatics::SetGamePaused(World, false);
+	UGameplayStatics::OpenLevel(World, FName(*CurrentLevelName));
+	return true;
+}
+
+bool UWildBoundSaveSubsystem::ReturnToTitle()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	const FString CurrentLevelName = UGameplayStatics::GetCurrentLevelName(World, true);
+	if (CurrentLevelName.IsEmpty())
+	{
+		return false;
+	}
+
+	bSuppressExitSave = true;
+	bSessionStarted = false;
+	GWildBoundLoadOnNextWorld = false;
+	GWildBoundNewGameOnNextWorld = false;
+	UGameplayStatics::SetGamePaused(World, false);
+	UGameplayStatics::OpenLevel(World, FName(*CurrentLevelName));
+	return true;
+}
+
+void UWildBoundSaveSubsystem::NotifyPlayerDied()
+{
+	bRunEnded = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(AutosaveTimer);
+	}
 }
 
 void UWildBoundSaveSubsystem::TryInitializePersistence()
@@ -116,10 +181,20 @@ void UWildBoundSaveSubsystem::TryInitializePersistence()
 			return;
 		}
 		GWildBoundLoadOnNextWorld = false;
+		GWildBoundNewGameOnNextWorld = false;
+	}
+	else if (GWildBoundNewGameOnNextWorld)
+	{
+		GWildBoundLoadOnNextWorld = false;
+		GWildBoundNewGameOnNextWorld = false;
+		bRunEnded = false;
+		bSessionStarted = true;
+		bInitialized = true;
 	}
 	else
 	{
 		GWildBoundLoadOnNextWorld = false;
+		GWildBoundNewGameOnNextWorld = false;
 		bInitialized = true;
 	}
 
@@ -145,7 +220,7 @@ void UWildBoundSaveSubsystem::PerformAutosave()
 
 bool UWildBoundSaveSubsystem::SaveNow(bool bShowMessage)
 {
-	if (!bSessionStarted || bApplyingLoad || !ArePersistenceTargetsReady())
+	if (!bSessionStarted || bRunEnded || bApplyingLoad || !ArePersistenceTargetsReady())
 	{
 		return false;
 	}
@@ -191,6 +266,7 @@ bool UWildBoundSaveSubsystem::LoadNow(bool bShowMessage)
 	if (bLoaded)
 	{
 		bInitialized = true;
+		bRunEnded = false;
 		bSessionStarted = true;
 		if (bShowMessage && GEngine)
 		{
