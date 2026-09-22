@@ -131,6 +131,7 @@ namespace
 
 	FString GetContainerQualityName(const AActor& Container)
 	{
+		if (Container.ActorHasTag(SafehouseStashTag)) return TEXT("STORAGE");
 		switch (GetContainerQualityTier(Container))
 		{
 		case 3: return TEXT("EPIC");
@@ -712,13 +713,18 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 			return;
 		}
 
+		if (UWildBoundInjuryComponent* Injury = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr)
+		{
+			Injury->RestAtSafehouse();
+		}
+
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(
 				91070,
 				3.0f,
 				FColor(175, 205, 165),
-				TEXT("RESTED   |   STAMINA RESTORED   |   +12 HEALTH   |   -6 HUNGER   |   -8 THIRST"));
+				TEXT("RESTED   |   STAMINA RESTORED   |   +12 HEALTH   |   PAIN EASED   |   -6 HUNGER   |   -8 THIRST"));
 		}
 		return;
 	}
