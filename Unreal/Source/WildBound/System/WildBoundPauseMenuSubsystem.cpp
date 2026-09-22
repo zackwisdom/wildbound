@@ -1,5 +1,6 @@
 #include "WildBoundPauseMenuSubsystem.h"
 
+#include "WildBoundDeathSubsystem.h"
 #include "WildBoundEvidenceLogSubsystem.h"
 #include "WildBoundMainMenuSubsystem.h"
 #include "WildBoundSaveSubsystem.h"
@@ -719,8 +720,10 @@ bool UWildBoundPauseMenuSubsystem::HasBlockingUIOpen() const
 	const UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
 	const UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
 	const UWildBoundMainMenuSubsystem* MainMenu = World->GetSubsystem<UWildBoundMainMenuSubsystem>();
+	const UWildBoundDeathSubsystem* Death = World->GetSubsystem<UWildBoundDeathSubsystem>();
 
-	return (MainMenu && MainMenu->IsMainMenuOpen())
+	return (Death && Death->IsGameOverOpen())
+		|| (MainMenu && MainMenu->IsMainMenuOpen())
 		|| (Backpack && Backpack->IsBackpackOpen())
 		|| (Crafting && Crafting->IsCraftingOpen())
 		|| (Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress()))
