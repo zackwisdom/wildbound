@@ -1006,6 +1006,13 @@ void UWildBoundInteractionComponent::TakeAllContainerLoot()
 void UWildBoundInteractionComponent::RefreshContainerInteractableState(AActor* TargetActor)
 {
 	if (!TargetActor) return;
+
+	if (TargetActor->ActorHasTag(SafehouseStashTag))
+	{
+		TargetActor->Tags.AddUnique(InteractableTag);
+		return;
+	}
+
 	const TArray<FWildBoundContainerLootEntry>* Loot = ContainerLootByActor.Find(TWeakObjectPtr<AActor>(TargetActor));
 	if (Loot && !Loot->IsEmpty()) TargetActor->Tags.AddUnique(InteractableTag);
 	else TargetActor->Tags.Remove(InteractableTag);
