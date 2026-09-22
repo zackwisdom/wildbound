@@ -384,18 +384,26 @@ bool UWildBoundOnboardingSubsystem::ShouldShowOnboardingUI() const
 		return false;
 	}
 
+	APlayerController* PlayerController = World->GetFirstPlayerController();
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
 	const UWildBoundSaveSubsystem* SaveSubsystem = World->GetSubsystem<UWildBoundSaveSubsystem>();
 	const UWildBoundMainMenuSubsystem* MainMenu = World->GetSubsystem<UWildBoundMainMenuSubsystem>();
 	const UWildBoundPauseMenuSubsystem* PauseMenu = World->GetSubsystem<UWildBoundPauseMenuSubsystem>();
 	const UWildBoundDeathSubsystem* Death = World->GetSubsystem<UWildBoundDeathSubsystem>();
 	const UWildBoundEvidenceLogSubsystem* Evidence = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
+	const UWildBoundBackpackComponent* Backpack = Pawn ? Pawn->FindComponentByClass<UWildBoundBackpackComponent>() : nullptr;
+	const UWildBoundCraftingComponent* Crafting = Pawn ? Pawn->FindComponentByClass<UWildBoundCraftingComponent>() : nullptr;
+	const UWildBoundInteractionComponent* Interaction = Pawn ? Pawn->FindComponentByClass<UWildBoundInteractionComponent>() : nullptr;
 
 	return SaveSubsystem
 		&& SaveSubsystem->HasStartedSession()
 		&& !(MainMenu && MainMenu->IsMainMenuOpen())
 		&& !(PauseMenu && PauseMenu->IsPauseMenuOpen())
 		&& !(Death && Death->IsGameOverOpen())
-		&& !(Evidence && Evidence->IsEvidenceLogOpen());
+		&& !(Evidence && Evidence->IsEvidenceLogOpen())
+		&& !(Backpack && Backpack->IsBackpackOpen())
+		&& !(Crafting && Crafting->IsCraftingOpen())
+		&& !(Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress()));
 }
 
 void UWildBoundOnboardingSubsystem::EnsureOnboardingWidget()
