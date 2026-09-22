@@ -75,7 +75,20 @@ void UWildBoundOnboardingSubsystem::RestorePersistentState(int32 SavedProgressSt
 	bIntroActive = false;
 	TutorialToast.Reset();
 	TutorialToastExpiresAt = -1.0f;
-	bRunStartCaptured = false;
+
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (Pawn && ProgressStage >= 1 && ProgressStage < CompletedStage)
+	{
+		RunStartLocation = Pawn->GetActorLocation();
+		bRunStartCaptured = true;
+	}
+	else
+	{
+		bRunStartCaptured = false;
+	}
+
 	SetIntroInputLock(false);
 }
 
@@ -601,12 +614,22 @@ void UWildBoundOnboardingSubsystem::SetIntroInputLock(bool bLocked)
 		return;
 	}
 
+	APawn* Pawn = PlayerController->GetPawn();
 	const UWildBoundMainMenuSubsystem* MainMenu = World ? World->GetSubsystem<UWildBoundMainMenuSubsystem>() : nullptr;
 	const UWildBoundPauseMenuSubsystem* PauseMenu = World ? World->GetSubsystem<UWildBoundPauseMenuSubsystem>() : nullptr;
 	const UWildBoundDeathSubsystem* Death = World ? World->GetSubsystem<UWildBoundDeathSubsystem>() : nullptr;
+	const UWildBoundEvidenceLogSubsystem* Evidence = World ? World->GetSubsystem<UWildBoundEvidenceLogSubsystem>() : nullptr;
+	const UWildBoundBackpackComponent* Backpack = Pawn ? Pawn->FindComponentByClass<UWildBoundBackpackComponent>() : nullptr;
+	const UWildBoundCraftingComponent* Crafting = Pawn ? Pawn->FindComponentByClass<UWildBoundCraftingComponent>() : nullptr;
+	const UWildBoundInteractionComponent* Interaction = Pawn ? Pawn->FindComponentByClass<UWildBoundInteractionComponent>() : nullptr;
+
 	if (!bLocked && ((MainMenu && MainMenu->IsMainMenuOpen())
 		|| (PauseMenu && PauseMenu->IsPauseMenuOpen())
-		|| (Death && Death->IsGameOverOpen())))
+		|| (Death && Death->IsGameOverOpen())
+		|| (Evidence && Evidence->IsEvidenceLogOpen())
+		|| (Backpack && Backpack->IsBackpackOpen())
+		|| (Crafting && Crafting->IsCraftingOpen())
+		|| (Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress()))))
 	{
 		return;
 	}
