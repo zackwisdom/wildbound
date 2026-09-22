@@ -75,4 +75,10 @@ public:
 
 	UPROPERTY(SaveGame)
 	bool bCommercialGateOpened = false;
+
+	UPROPERTY(SaveGame)
+	int32 OnboardingProgressStage = 0;
+
+	UPROPERTY(SaveGame)
+	int32 TutorialHintFlags = 0;
 };
