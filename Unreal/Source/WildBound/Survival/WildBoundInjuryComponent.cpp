@@ -193,7 +193,9 @@ void UWildBoundInjuryComponent::UpdateOngoingInjuries(float DeltaTime)
 	if (HasBleeding())
 	{
 		const float MovementMultiplier = bMoving ? MovingBleedingDamageMultiplier : 1.0f;
-		Survival->ApplySurvivalDamage(BleedingDamagePerSecond * BleedingSeverity * MovementMultiplier * DeltaTime);
+		Survival->ApplySurvivalDamageFromCause(
+			BleedingDamagePerSecond * BleedingSeverity * MovementMultiplier * DeltaTime,
+			FName(TEXT("Bleeding")));
 	}
 
 	const float PainFloor = FMath::Clamp(FMath::Max(BleedingSeverity * 0.35f, FractureSeverity * 0.68f), 0.0f, 1.0f);
@@ -225,7 +227,7 @@ void UWildBoundInjuryComponent::ApplyTrauma(float HealthDamage, float BleedingAm
 	{
 		if (HealthDamage > 0.0f)
 		{
-			Survival->ApplySurvivalDamage(HealthDamage);
+			Survival->ApplySurvivalDamageFromCause(HealthDamage, FName(TEXT("Fall")));
 		}
 	}
 
