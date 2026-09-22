@@ -130,7 +130,9 @@ void UWildBoundRadiationComponent::TickComponent(
 		{
 			const float DamageRange = FMath::Max(MaxDose - HighDoseDamageThreshold, 1.0f);
 			const float DamageScale = FMath::Clamp((AccumulatedDose - HighDoseDamageThreshold) / DamageRange, 0.0f, 1.0f);
-			Survival->ApplySurvivalDamage(HighDoseDamagePerSecond * DamageScale * DeltaTime);
+			Survival->ApplySurvivalDamageFromCause(
+				HighDoseDamagePerSecond * DamageScale * DeltaTime,
+				FName(TEXT("Radiation")));
 		}
 	}
 
