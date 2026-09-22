@@ -101,6 +101,7 @@ public:
 	FString GetTreatmentRequirementText() const;
 
 	void RestorePersistentState(float SavedBleeding, float SavedFracture, float SavedPain);
+	void RestAtSafehouse();
 
 private:
 	TWeakObjectPtr<ACharacter> CharacterOwner;
