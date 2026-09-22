@@ -158,6 +158,21 @@ void UWildBoundSurvivalComponent::Heal(float Amount)
 	BroadcastStatsChanged();
 }
 
+bool UWildBoundSurvivalComponent::RestAtSafehouse()
+{
+	if (!IsAlive() || Hunger < 15.0f || Thirst < 15.0f)
+	{
+		return false;
+	}
+
+	Health = FMath::Clamp(Health + 12.0f, 0.0f, MaxHealth);
+	Stamina = MaxStamina;
+	Hunger = FMath::Clamp(Hunger - 6.0f, 0.0f, MaxHunger);
+	Thirst = FMath::Clamp(Thirst - 8.0f, 0.0f, MaxThirst);
+	BroadcastStatsChanged();
+	return true;
+}
+
 float UWildBoundSurvivalComponent::GetHealthPercent() const
 {
 	return MaxHealth > 0.0f ? Health / MaxHealth : 0.0f;
