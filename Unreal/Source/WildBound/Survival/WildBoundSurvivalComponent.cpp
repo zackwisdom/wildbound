@@ -18,6 +18,7 @@ void UWildBoundSurvivalComponent::BeginPlay()
 	Thirst = MaxThirst;
 	Stamina = MaxStamina;
 	bDeathBroadcast = false;
+	LastDamageCause = NAME_None;
 	BroadcastStatsChanged();
 }
 
@@ -68,13 +69,15 @@ void UWildBoundSurvivalComponent::TickComponent(float DeltaTime, ELevelTick Tick
 
 	const float HungerDamageSeverity = GetCriticalDamageSeverity(GetHungerPercent());
 	const float ThirstDamageSeverity = GetCriticalDamageSeverity(GetThirstPercent());
-	const float SurvivalDamage =
-		(StarvationDamagePerSecond * FMath::Square(HungerDamageSeverity)
-			+ DehydrationDamagePerSecond * FMath::Square(ThirstDamageSeverity)) * DeltaTime;
+	const float StarvationDamage = StarvationDamagePerSecond * FMath::Square(HungerDamageSeverity) * DeltaTime;
+	const float DehydrationDamage = DehydrationDamagePerSecond * FMath::Square(ThirstDamageSeverity) * DeltaTime;
+	const float SurvivalDamage = StarvationDamage + DehydrationDamage;
 
 	if (SurvivalDamage > 0.0f)
 	{
-		ApplySurvivalDamage(SurvivalDamage);
+		ApplySurvivalDamageFromCause(
+			SurvivalDamage,
+			StarvationDamage > DehydrationDamage ? FName(TEXT("Starvation")) : FName(TEXT("Dehydration")));
 	}
 
 	if (!FMath::IsNearlyEqual(PreviousHealth, Health)
@@ -123,11 +126,17 @@ void UWildBoundSurvivalComponent::RestoreStamina(float Amount)
 
 void UWildBoundSurvivalComponent::ApplySurvivalDamage(float Amount)
 {
+	ApplySurvivalDamageFromCause(Amount, FName(TEXT("CriticalInjuries")));
+}
+
+void UWildBoundSurvivalComponent::ApplySurvivalDamageFromCause(float Amount, FName DamageCause)
+{
 	if (Amount <= 0.0f || !IsAlive())
 	{
 		return;
 	}
 
+	LastDamageCause = DamageCause.IsNone() ? FName(TEXT("CriticalInjuries")) : DamageCause;
 	Health = FMath::Clamp(Health - Amount, 0.0f, MaxHealth);
 	BroadcastStatsChanged();
 
@@ -227,6 +236,16 @@ void UWildBoundSurvivalComponent::BroadcastStatsChanged()
 }
 
 
+FString UWildBoundSurvivalComponent::GetDeathCauseText() const
+{
+	if (LastDamageCause == FName(TEXT("Starvation"))) return TEXT("STARVATION");
+	if (LastDamageCause == FName(TEXT("Dehydration"))) return TEXT("DEHYDRATION");
+	if (LastDamageCause == FName(TEXT("Bleeding"))) return TEXT("BLOOD LOSS");
+	if (LastDamageCause == FName(TEXT("Radiation"))) return TEXT("RADIATION SICKNESS");
+	if (LastDamageCause == FName(TEXT("Fall"))) return TEXT("TRAUMATIC FALL");
+	return TEXT("CRITICAL INJURIES");
+}
+
 void UWildBoundSurvivalComponent::RestorePersistentVitals(
 	float SavedHealth,
 	float SavedHunger,
@@ -238,5 +257,6 @@ void UWildBoundSurvivalComponent::RestorePersistentVitals(
 	Thirst = FMath::Clamp(SavedThirst, 0.0f, MaxThirst);
 	Stamina = FMath::Clamp(SavedStamina, 0.0f, MaxStamina);
 	bDeathBroadcast = Health <= 0.0f;
+	LastDamageCause = Health <= 0.0f ? FName(TEXT("CriticalInjuries")) : NAME_None;
 	BroadcastStatsChanged();
 }
