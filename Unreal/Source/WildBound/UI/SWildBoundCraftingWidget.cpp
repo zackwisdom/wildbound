@@ -219,9 +219,9 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 							{
 								const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 								const int32 Count = Crafting ? Crafting->GetRecipes().Num() : 0;
-								return FText::FromString(FString::Printf(
-									Crafting && Crafting->IsBuildTabActive() ? TEXT("%d BUILDABLES") : TEXT("%d RECIPES"),
-									Count));
+								return FText::FromString(Crafting && Crafting->IsBuildTabActive()
+									? FString::Printf(TEXT("%d BUILDABLES"), Count)
+									: FString::Printf(TEXT("%d RECIPES"), Count));
 							})
 							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
 							.ColorAndOpacity(FLinearColor(0.72f, 0.74f, 0.68f, 1.0f))
