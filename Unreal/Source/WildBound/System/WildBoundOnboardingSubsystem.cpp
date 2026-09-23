@@ -1,5 +1,6 @@
 #include "WildBoundOnboardingSubsystem.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "WildBoundDeathSubsystem.h"
 #include "WildBoundEvidenceLogSubsystem.h"
 #include "WildBoundMainMenuSubsystem.h"
@@ -404,6 +405,7 @@ bool UWildBoundOnboardingSubsystem::ShouldShowOnboardingUI() const
 	const UWildBoundPauseMenuSubsystem* PauseMenu = World->GetSubsystem<UWildBoundPauseMenuSubsystem>();
 	const UWildBoundDeathSubsystem* Death = World->GetSubsystem<UWildBoundDeathSubsystem>();
 	const UWildBoundEvidenceLogSubsystem* Evidence = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
+	const UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>();
 	const UWildBoundBackpackComponent* Backpack = Pawn ? Pawn->FindComponentByClass<UWildBoundBackpackComponent>() : nullptr;
 	const UWildBoundCraftingComponent* Crafting = Pawn ? Pawn->FindComponentByClass<UWildBoundCraftingComponent>() : nullptr;
 	const UWildBoundInteractionComponent* Interaction = Pawn ? Pawn->FindComponentByClass<UWildBoundInteractionComponent>() : nullptr;
@@ -414,6 +416,7 @@ bool UWildBoundOnboardingSubsystem::ShouldShowOnboardingUI() const
 		&& !(PauseMenu && PauseMenu->IsPauseMenuOpen())
 		&& !(Death && Death->IsGameOverOpen())
 		&& !(Evidence && Evidence->IsEvidenceLogOpen())
+		&& !(Building && Building->IsPlacementActive())
 		&& !(Backpack && Backpack->IsBackpackOpen())
 		&& !(Crafting && Crafting->IsCraftingOpen())
 		&& !(Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress()));
