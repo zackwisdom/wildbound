@@ -6,6 +6,7 @@
 #include "../Survival/WildBoundRadiationComponent.h"
 #include "../Survival/WildBoundStatusEffectComponent.h"
 #include "../Survival/WildBoundSurvivalComponent.h"
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "../System/WildBoundEvidenceLogSubsystem.h"
 #include "../System/WildBoundSaveSubsystem.h"
 #include "../UI/SWildBoundLootWidget.h"
@@ -309,6 +310,12 @@ void UWildBoundInteractionComponent::TickComponent(float DeltaTime, ELevelTick T
 
 	if (const UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
 		EvidenceLog && EvidenceLog->IsEvidenceLogOpen())
+	{
+		return;
+	}
+
+	if (const UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>();
+		Building && Building->IsPlacementActive())
 	{
 		return;
 	}
