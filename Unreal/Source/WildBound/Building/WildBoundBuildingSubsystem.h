@@ -5,6 +5,7 @@
 #include "TimerManager.h"
 #include "WildBoundBuildingSubsystem.generated.h"
 
+class AActor;
 class AStaticMeshActor;
 class UMaterialInstanceDynamic;
 class UWildBoundInventoryComponent;
