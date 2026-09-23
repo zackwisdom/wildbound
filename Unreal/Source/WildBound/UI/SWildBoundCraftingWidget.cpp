@@ -539,7 +539,9 @@ FSlateColor SWildBoundCraftingWidget::GetRecipeTextColor(int32 RecipeIndex) cons
 	const UWildBoundInventoryComponent* Inventory = Crafting->GetInventoryComponent();
 	if (Crafting->GetSelectedRecipeIndex() == RecipeIndex)
 	{
-		return FSlateColor(GetRarityColor(Inventory, Recipe.OutputItemId));
+		return Recipe.bBuildRecipe
+			? FSlateColor(FLinearColor(0.92f, 0.72f, 0.38f, 1.0f))
+			: FSlateColor(GetRarityColor(Inventory, Recipe.OutputItemId));
 	}
 	if (IsRecipeOwned(Crafting, RecipeIndex))
 	{
@@ -564,12 +566,14 @@ FText SWildBoundCraftingWidget::GetRecipeTitle(int32 RecipeIndex) const
 	const FString Status = IsRecipeOwned(Crafting, RecipeIndex)
 		? TEXT("OWNED")
 		: (Crafting->CanCraftRecipe(RecipeIndex) ? TEXT("READY") : TEXT("MISSING MATERIALS"));
-	const FString Rarity = Inventory ? Inventory->GetItemRarityName(Recipe.OutputItemId) : TEXT("COMMON");
+	const FString TypeLabel = Recipe.bBuildRecipe
+		? TEXT("BUILD")
+		: (Inventory ? Inventory->GetItemRarityName(Recipe.OutputItemId) : TEXT("COMMON"));
 
 	return FText::FromString(FString::Printf(
 		TEXT("%s  [%s]  %s\n     %s"),
 		*Marker,
-		*Rarity,
+		*TypeLabel,
 		*CleanRecipeName(Recipe.DisplayName),
 		*Status));
 }
@@ -594,6 +598,13 @@ FText SWildBoundCraftingWidget::GetSelectedRecipeOutput() const
 	if (!Recipe || !Inventory)
 	{
 		return FText::FromString(TEXT("OUTPUT  --"));
+	}
+
+	if (Recipe->bBuildRecipe)
+	{
+		return FText::FromString(FString::Printf(
+			TEXT("PLACEABLE STRUCTURE\n%s   |   MATERIALS SPENT ONLY WHEN PLACED"),
+			*CleanRecipeName(Recipe->DisplayName)));
 	}
 
 	const float OutputWeight = Inventory->GetItemUnitWeight(Recipe->OutputItemId) * static_cast<float>(Recipe->OutputQuantity);
@@ -653,6 +664,11 @@ FText SWildBoundCraftingWidget::GetSelectedRecipeWeightChange() const
 		return FText::GetEmpty();
 	}
 
+	if (Recipe->bBuildRecipe)
+	{
+		return FText::FromString(TEXT("PLACEMENT   GRID SNAP DEFAULT ON   |   CANCEL WITHOUT LOSING MATERIALS"));
+	}
+
 	float IngredientWeight = 0.0f;
 	for (const FWildBoundCraftingIngredient& Requirement : Recipe->Ingredients)
 	{
@@ -697,7 +713,10 @@ FText SWildBoundCraftingWidget::GetCraftStatusText() const
 
 	if (Crafting->CanCraftRecipe(Index))
 	{
-		return FText::FromString(TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER"));
+		const FWildBoundCraftingRecipe* Recipe = GetSelectedRecipe(Crafting);
+		return FText::FromString(Recipe && Recipe->bBuildRecipe
+			? TEXT("READY   |   ENTER BUILD MODE   |   PLACE IN WORLD")
+			: TEXT("READY   |   CLICK CRAFT ITEM OR PRESS ENTER"));
 	}
 
 	return FText::FromString(TEXT("MISSING MATERIALS   |   SCAVENGE REQUIRED"));
