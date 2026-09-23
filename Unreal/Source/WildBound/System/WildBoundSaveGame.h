@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
 #include "WildBoundEvidenceLogSubsystem.h"
@@ -14,7 +15,7 @@ class WILDBOUND_API UWildBoundSaveGame : public USaveGame
 
 public:
 	UPROPERTY(SaveGame)
-	int32 SaveVersion = 1;
+	int32 SaveVersion = 2;
 
 	UPROPERTY(SaveGame)
 	FVector PlayerLocation = FVector::ZeroVector;
@@ -81,4 +82,7 @@ public:
 
 	UPROPERTY(SaveGame)
 	int32 TutorialHintFlags = 0;
+
+	UPROPERTY(SaveGame)
+	TArray<FWildBoundPlacedBuildState> PlacedBuilds;
 };
