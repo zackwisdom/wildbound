@@ -1,5 +1,6 @@
 #include "WildBoundBackpackComponent.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../System/WildBoundEvidenceLogSubsystem.h"
 #include "../UI/SWildBoundBackpackWidget.h"
@@ -89,6 +90,14 @@ void UWildBoundBackpackComponent::TickComponent(
 		? GetWorld()->GetSubsystem<UWildBoundEvidenceLogSubsystem>()
 		: nullptr;
 		EvidenceLog && EvidenceLog->IsEvidenceLogOpen())
+	{
+		return;
+	}
+
+	if (const UWildBoundBuildingSubsystem* Building = GetWorld()
+		? GetWorld()->GetSubsystem<UWildBoundBuildingSubsystem>()
+		: nullptr;
+		Building && Building->IsPlacementActive())
 	{
 		return;
 	}
