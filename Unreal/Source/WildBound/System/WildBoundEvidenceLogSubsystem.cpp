@@ -1,5 +1,6 @@
 #include "WildBoundEvidenceLogSubsystem.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "../Crafting/WildBoundCraftingComponent.h"
 #include "../Player/WildBoundBackpackComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
@@ -237,8 +238,12 @@ bool UWildBoundEvidenceLogSubsystem::CanOpenEvidenceLog() const
 	const UWildBoundBackpackComponent* Backpack = Pawn->FindComponentByClass<UWildBoundBackpackComponent>();
 	const UWildBoundCraftingComponent* Crafting = Pawn->FindComponentByClass<UWildBoundCraftingComponent>();
 	const UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
+	const UWildBoundBuildingSubsystem* Building = World
+		? World->GetSubsystem<UWildBoundBuildingSubsystem>()
+		: nullptr;
 
-	if ((Backpack && Backpack->IsBackpackOpen())
+	if ((Building && Building->IsPlacementActive())
+		|| (Backpack && Backpack->IsBackpackOpen())
 		|| (Crafting && Crafting->IsCraftingOpen())
 		|| (Interaction && (Interaction->IsLootWindowOpen() || Interaction->IsTreatmentInProgress())))
 	{
