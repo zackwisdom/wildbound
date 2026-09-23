@@ -1,5 +1,6 @@
 #include "WildBoundSaveSubsystem.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "WildBoundEvidenceLogSubsystem.h"
 #include "WildBoundMainMenuSubsystem.h"
 #include "WildBoundOnboardingSubsystem.h"
@@ -303,8 +304,9 @@ bool UWildBoundSaveSubsystem::CaptureSave(UWildBoundSaveGame& SaveGame) const
 	const UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
 	const UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
 	const UWildBoundOnboardingSubsystem* Onboarding = World->GetSubsystem<UWildBoundOnboardingSubsystem>();
+	const UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>();
 
-	if (!Inventory || !Survival || !Radiation || !Injury || !Interaction || !EvidenceLog || !Onboarding)
+	if (!Inventory || !Survival || !Radiation || !Injury || !Interaction || !EvidenceLog || !Onboarding || !Building)
 	{
 		return false;
 	}
@@ -325,6 +327,7 @@ bool UWildBoundSaveSubsystem::CaptureSave(UWildBoundSaveGame& SaveGame) const
 	SaveGame.EvidenceEntries = EvidenceLog->GetEvidenceEntries();
 	SaveGame.OnboardingProgressStage = Onboarding->GetProgressStage();
 	SaveGame.TutorialHintFlags = Onboarding->GetTutorialHintFlags();
+	SaveGame.PlacedBuilds = Building->GetPlacedBuildStates();
 	Interaction->BuildPersistentContainerStates(SaveGame.ContainerStates);
 
 	SaveGame.InspectedClueLocations.Reset();
@@ -361,8 +364,9 @@ bool UWildBoundSaveSubsystem::ApplySave(const UWildBoundSaveGame& SaveGame)
 	UWildBoundInteractionComponent* Interaction = Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
 	UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
 	UWildBoundOnboardingSubsystem* Onboarding = World->GetSubsystem<UWildBoundOnboardingSubsystem>();
+	UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>();
 
-	if (!Inventory || !Survival || !Radiation || !Injury || !Interaction || !EvidenceLog || !Onboarding)
+	if (!Inventory || !Survival || !Radiation || !Injury || !Interaction || !EvidenceLog || !Onboarding || !Building)
 	{
 		return false;
 	}
@@ -385,6 +389,7 @@ bool UWildBoundSaveSubsystem::ApplySave(const UWildBoundSaveGame& SaveGame)
 		SaveGame.PainSeverity);
 	EvidenceLog->RestorePersistentEvidence(SaveGame.EvidenceEntries);
 	Onboarding->RestorePersistentState(SaveGame.OnboardingProgressStage, SaveGame.TutorialHintFlags);
+	Building->RestorePlacedBuilds(SaveGame.PlacedBuilds);
 	Interaction->RestorePersistentContainerStates(SaveGame.ContainerStates);
 
 	if (SaveGame.bWaterSupplyCollected)
@@ -449,7 +454,8 @@ bool UWildBoundSaveSubsystem::ArePersistenceTargetsReady() const
 		|| !Pawn->FindComponentByClass<UWildBoundInjuryComponent>()
 		|| !Pawn->FindComponentByClass<UWildBoundInteractionComponent>()
 		|| !World->GetSubsystem<UWildBoundEvidenceLogSubsystem>()
-		|| !World->GetSubsystem<UWildBoundOnboardingSubsystem>())
+		|| !World->GetSubsystem<UWildBoundOnboardingSubsystem>()
+		|| !World->GetSubsystem<UWildBoundBuildingSubsystem>())
 	{
 		return false;
 	}
