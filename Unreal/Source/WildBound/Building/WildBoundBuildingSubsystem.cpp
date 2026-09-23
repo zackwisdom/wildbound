@@ -1,8 +1,10 @@
 #include "WildBoundBuildingSubsystem.h"
 
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "CollisionQueryParams.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/OverlapResult.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
