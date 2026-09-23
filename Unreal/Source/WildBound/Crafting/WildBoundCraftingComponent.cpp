@@ -165,6 +165,14 @@ void UWildBoundCraftingComponent::TickComponent(
 		return;
 	}
 
+	if (const UWildBoundBuildingSubsystem* Building = GetWorld()
+		? GetWorld()->GetSubsystem<UWildBoundBuildingSubsystem>()
+		: nullptr;
+		Building && Building->IsPlacementActive())
+	{
+		return;
+	}
+
 	if (PlayerController->WasInputKeyJustPressed(EKeys::C))
 	{
 		if (!bCraftingOpen)
@@ -391,7 +399,7 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		const TCHAR* BuildTypeId,
 		const TCHAR* DisplayName,
 		const TCHAR* Description,
-		std::initializer_list<FWildBoundCraftingIngredient> Ingredients)
+		TArray<FWildBoundCraftingIngredient> Ingredients)
 	{
 		FWildBoundCraftingRecipe Recipe;
 		Recipe.RecipeId = FName(RecipeId);
@@ -399,7 +407,7 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		Recipe.Description = Description;
 		Recipe.bBuildRecipe = true;
 		Recipe.BuildTypeId = FName(BuildTypeId);
-		Recipe.Ingredients = Ingredients;
+		Recipe.Ingredients = MoveTemp(Ingredients);
 		Recipes.Add(Recipe);
 	};
 
