@@ -42,6 +42,12 @@ struct FWildBoundCraftingRecipe
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Crafting")
 	TArray<FWildBoundCraftingIngredient> Ingredients;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Crafting")
+	bool bBuildRecipe = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="WildBound|Crafting")
+	FName BuildTypeId = NAME_None;
 };
 
 UCLASS(ClassGroup=(WildBound), meta=(BlueprintSpawnableComponent))
@@ -66,6 +72,9 @@ public:
 	bool IsWorkbenchMode() const { return bWorkbenchMode; }
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
+	bool IsBuildTabActive() const { return bBuildTabActive; }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
 	bool IsNearWorkbench() const;
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Crafting")
@@ -80,6 +89,8 @@ public:
 	// Mouse/UI entry points. Keyboard controls continue to use the same underlying paths.
 	void SelectRecipeFromMouse(int32 RecipeIndex);
 	void CraftSelectedRecipeFromMouse();
+	void ShowCraftTabFromMouse();
+	void ShowBuildTabFromMouse();
 
 	bool IsCraftInProgress() const { return bCraftInProgress; }
 	float GetCraftProgress() const;
@@ -93,6 +104,7 @@ private:
 	TSharedPtr<SWidget> CraftingViewportRoot;
 	bool bCraftingOpen = false;
 	bool bWorkbenchMode = false;
+	bool bBuildTabActive = false;
 	int32 SelectedRecipeIndex = 0;
 
 	bool bCraftInProgress = false;
@@ -103,6 +115,9 @@ private:
 	FString LastCraftedDisplayName;
 
 	void BuildRecipesForCurrentMode();
+	void BuildWorkbenchItemRecipes();
+	void BuildWorkbenchConstructionRecipes();
+	void SetWorkbenchTab(bool bBuildTab);
 	void EnsureCraftingWidget();
 	void ToggleCrafting();
 	void OpenCrafting(bool bUseWorkbench);
