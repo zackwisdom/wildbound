@@ -1,5 +1,6 @@
 #include "WildBoundPauseMenuSubsystem.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "WildBoundDeathSubsystem.h"
 #include "WildBoundEvidenceLogSubsystem.h"
 #include "WildBoundMainMenuSubsystem.h"
@@ -721,8 +722,10 @@ bool UWildBoundPauseMenuSubsystem::HasBlockingUIOpen() const
 	const UWildBoundEvidenceLogSubsystem* EvidenceLog = World->GetSubsystem<UWildBoundEvidenceLogSubsystem>();
 	const UWildBoundMainMenuSubsystem* MainMenu = World->GetSubsystem<UWildBoundMainMenuSubsystem>();
 	const UWildBoundDeathSubsystem* Death = World->GetSubsystem<UWildBoundDeathSubsystem>();
+	const UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>();
 
-	return (Death && Death->IsGameOverOpen())
+	return (Building && Building->IsPlacementActive())
+		|| (Death && Death->IsGameOverOpen())
 		|| (MainMenu && MainMenu->IsMainMenuOpen())
 		|| (Backpack && Backpack->IsBackpackOpen())
 		|| (Crafting && Crafting->IsCraftingOpen())
