@@ -1,5 +1,6 @@
 #include "WildBoundCraftingComponent.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundBackpackComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
@@ -114,6 +115,7 @@ void UWildBoundCraftingComponent::BeginPlay()
 		? GetOwner()->FindComponentByClass<UWildBoundInventoryComponent>()
 		: nullptr;
 	bWorkbenchMode = false;
+	bBuildTabActive = false;
 	BuildRecipesForCurrentMode();
 	EnsureCraftingWidget();
 }
@@ -278,99 +280,197 @@ void UWildBoundCraftingComponent::BuildRecipesForCurrentMode()
 		};
 		Recipes.Add(RadTreatment);
 	}
+	else if (bBuildTabActive)
+	{
+		BuildWorkbenchConstructionRecipes();
+	}
 	else
 	{
-		FWildBoundCraftingRecipe Flashlight;
-		Flashlight.RecipeId = TEXT("Flashlight");
-		Flashlight.DisplayName = TEXT("BENCH: FLASHLIGHT");
-		Flashlight.Description = TEXT("Assemble a working handheld light from electronics, batteries, plastic housing, and wire.");
-		Flashlight.OutputItemId = TEXT("Flashlight");
-		Flashlight.OutputQuantity = 1;
-		Flashlight.Ingredients =
-		{
-			Ingredient(TEXT("Electronics"), 1),
-			Ingredient(TEXT("Battery"), 2),
-			Ingredient(TEXT("Plastic"), 1),
-			Ingredient(TEXT("Wire"), 1)
-		};
-		Recipes.Add(Flashlight);
-
-		FWildBoundCraftingRecipe Crowbar;
-		Crowbar.RecipeId = TEXT("Crowbar");
-		Crowbar.DisplayName = TEXT("BENCH: IMPROVISED CROWBAR");
-		Crowbar.Description = TEXT("Shape and reinforce salvaged metal into a heavy pry tool for sealed containers and barred routes.");
-		Crowbar.OutputItemId = TEXT("Crowbar");
-		Crowbar.OutputQuantity = 1;
-		Crowbar.Ingredients =
-		{
-			Ingredient(TEXT("ScrapMetal"), 5),
-			Ingredient(TEXT("MechanicalParts"), 2),
-			Ingredient(TEXT("Cloth"), 1)
-		};
-		Recipes.Add(Crowbar);
-
-		FWildBoundCraftingRecipe Backpack;
-		Backpack.RecipeId = TEXT("ReinforcedBackpack");
-		Backpack.DisplayName = TEXT("BENCH: REINFORCED BACKPACK");
-		Backpack.Description = TEXT("Reinforce the pack frame and straps. Increases carrying capacity by 12 kg while carried.");
-		Backpack.OutputItemId = ReinforcedBackpackItemId;
-		Backpack.OutputQuantity = 1;
-		Backpack.Ingredients =
-		{
-			Ingredient(TEXT("ScrapMetal"), 3),
-			Ingredient(TEXT("Cloth"), 6),
-			Ingredient(TEXT("Plastic"), 3),
-			Ingredient(TEXT("Adhesive"), 2),
-			Ingredient(TEXT("MechanicalParts"), 1)
-		};
-		Recipes.Add(Backpack);
-
-		FWildBoundCraftingRecipe FilterMask;
-		FilterMask.RecipeId = TEXT("FilterMask");
-		FilterMask.DisplayName = TEXT("BENCH: FILTER MASK");
-		FilterMask.Description = TEXT("Build a sealed particulate mask. Reduces radiation dose accumulation by 45% while carried.");
-		FilterMask.OutputItemId = FilterMaskItemId;
-		FilterMask.OutputQuantity = 1;
-		FilterMask.Ingredients =
-		{
-			Ingredient(TEXT("Cloth"), 3),
-			Ingredient(TEXT("Plastic"), 2),
-			Ingredient(TEXT("Chemicals"), 2),
-			Ingredient(TEXT("Adhesive"), 1)
-		};
-		Recipes.Add(FilterMask);
-
-		FWildBoundCraftingRecipe Canteen;
-		Canteen.RecipeId = TEXT("Canteen");
-		Canteen.DisplayName = TEXT("BENCH: SEALED CANTEEN");
-		Canteen.Description = TEXT("Build a reusable sealed canteen. While carried, drinking water restores 45 thirst instead of 35.");
-		Canteen.OutputItemId = CanteenItemId;
-		Canteen.OutputQuantity = 1;
-		Canteen.Ingredients =
-		{
-			Ingredient(TEXT("ScrapMetal"), 2),
-			Ingredient(TEXT("Plastic"), 2),
-			Ingredient(TEXT("Adhesive"), 1)
-		};
-		Recipes.Add(Canteen);
-
-		FWildBoundCraftingRecipe UtilityBelt;
-		UtilityBelt.RecipeId = TEXT("UtilityBelt");
-		UtilityBelt.DisplayName = TEXT("BENCH: UTILITY BELT");
-		UtilityBelt.Description = TEXT("Build a rugged tool belt with extra pouches. Adds 4 inventory slots while carried.");
-		UtilityBelt.OutputItemId = UtilityBeltItemId;
-		UtilityBelt.OutputQuantity = 1;
-		UtilityBelt.Ingredients =
-		{
-			Ingredient(TEXT("Cloth"), 4),
-			Ingredient(TEXT("ScrapMetal"), 2),
-			Ingredient(TEXT("Adhesive"), 1),
-			Ingredient(TEXT("MechanicalParts"), 1)
-		};
-		Recipes.Add(UtilityBelt);
+		BuildWorkbenchItemRecipes();
 	}
 
 	SelectedRecipeIndex = 0;
+}
+
+void UWildBoundCraftingComponent::BuildWorkbenchItemRecipes()
+{
+	FWildBoundCraftingRecipe Flashlight;
+	Flashlight.RecipeId = TEXT("Flashlight");
+	Flashlight.DisplayName = TEXT("BENCH: FLASHLIGHT");
+	Flashlight.Description = TEXT("Assemble a working handheld light from electronics, batteries, plastic housing, and wire.");
+	Flashlight.OutputItemId = TEXT("Flashlight");
+	Flashlight.OutputQuantity = 1;
+	Flashlight.Ingredients =
+	{
+		Ingredient(TEXT("Electronics"), 1),
+		Ingredient(TEXT("Battery"), 2),
+		Ingredient(TEXT("Plastic"), 1),
+		Ingredient(TEXT("Wire"), 1)
+	};
+	Recipes.Add(Flashlight);
+
+	FWildBoundCraftingRecipe Crowbar;
+	Crowbar.RecipeId = TEXT("Crowbar");
+	Crowbar.DisplayName = TEXT("BENCH: IMPROVISED CROWBAR");
+	Crowbar.Description = TEXT("Shape and reinforce salvaged metal into a heavy pry tool for sealed containers and barred routes.");
+	Crowbar.OutputItemId = TEXT("Crowbar");
+	Crowbar.OutputQuantity = 1;
+	Crowbar.Ingredients =
+	{
+		Ingredient(TEXT("ScrapMetal"), 5),
+		Ingredient(TEXT("MechanicalParts"), 2),
+		Ingredient(TEXT("Cloth"), 1)
+	};
+	Recipes.Add(Crowbar);
+
+	FWildBoundCraftingRecipe Backpack;
+	Backpack.RecipeId = TEXT("ReinforcedBackpack");
+	Backpack.DisplayName = TEXT("BENCH: REINFORCED BACKPACK");
+	Backpack.Description = TEXT("Reinforce the pack frame and straps. Increases carrying capacity by 12 kg while carried.");
+	Backpack.OutputItemId = ReinforcedBackpackItemId;
+	Backpack.OutputQuantity = 1;
+	Backpack.Ingredients =
+	{
+		Ingredient(TEXT("ScrapMetal"), 3),
+		Ingredient(TEXT("Cloth"), 6),
+		Ingredient(TEXT("Plastic"), 3),
+		Ingredient(TEXT("Adhesive"), 2),
+		Ingredient(TEXT("MechanicalParts"), 1)
+	};
+	Recipes.Add(Backpack);
+
+	FWildBoundCraftingRecipe FilterMask;
+	FilterMask.RecipeId = TEXT("FilterMask");
+	FilterMask.DisplayName = TEXT("BENCH: FILTER MASK");
+	FilterMask.Description = TEXT("Build a sealed particulate mask. Reduces radiation dose accumulation by 45% while carried.");
+	FilterMask.OutputItemId = FilterMaskItemId;
+	FilterMask.OutputQuantity = 1;
+	FilterMask.Ingredients =
+	{
+		Ingredient(TEXT("Cloth"), 3),
+		Ingredient(TEXT("Plastic"), 2),
+		Ingredient(TEXT("Chemicals"), 2),
+		Ingredient(TEXT("Adhesive"), 1)
+	};
+	Recipes.Add(FilterMask);
+
+	FWildBoundCraftingRecipe Canteen;
+	Canteen.RecipeId = TEXT("Canteen");
+	Canteen.DisplayName = TEXT("BENCH: SEALED CANTEEN");
+	Canteen.Description = TEXT("Build a reusable sealed canteen. While carried, drinking water restores 45 thirst instead of 35.");
+	Canteen.OutputItemId = CanteenItemId;
+	Canteen.OutputQuantity = 1;
+	Canteen.Ingredients =
+	{
+		Ingredient(TEXT("ScrapMetal"), 2),
+		Ingredient(TEXT("Plastic"), 2),
+		Ingredient(TEXT("Adhesive"), 1)
+	};
+	Recipes.Add(Canteen);
+
+	FWildBoundCraftingRecipe UtilityBelt;
+	UtilityBelt.RecipeId = TEXT("UtilityBelt");
+	UtilityBelt.DisplayName = TEXT("BENCH: UTILITY BELT");
+	UtilityBelt.Description = TEXT("Build a rugged tool belt with extra pouches. Adds 4 inventory slots while carried.");
+	UtilityBelt.OutputItemId = UtilityBeltItemId;
+	UtilityBelt.OutputQuantity = 1;
+	UtilityBelt.Ingredients =
+	{
+		Ingredient(TEXT("Cloth"), 4),
+		Ingredient(TEXT("ScrapMetal"), 2),
+		Ingredient(TEXT("Adhesive"), 1),
+		Ingredient(TEXT("MechanicalParts"), 1)
+	};
+	Recipes.Add(UtilityBelt);
+}
+
+void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
+{
+	auto AddBuildRecipe = [this](
+		const TCHAR* RecipeId,
+		const TCHAR* BuildTypeId,
+		const TCHAR* DisplayName,
+		const TCHAR* Description,
+		std::initializer_list<FWildBoundCraftingIngredient> Ingredients)
+	{
+		FWildBoundCraftingRecipe Recipe;
+		Recipe.RecipeId = FName(RecipeId);
+		Recipe.DisplayName = DisplayName;
+		Recipe.Description = Description;
+		Recipe.bBuildRecipe = true;
+		Recipe.BuildTypeId = FName(BuildTypeId);
+		Recipe.Ingredients = Ingredients;
+		Recipes.Add(Recipe);
+	};
+
+	AddBuildRecipe(
+		TEXT("BuildFloor"),
+		TEXT("BuildFloor"),
+		TEXT("BUILD: WOOD FLOOR"),
+		TEXT("A 4 m foundation panel for extending a shelter or creating a level construction surface."),
+		{ Ingredient(TEXT("Wood"), 6), Ingredient(TEXT("ScrapMetal"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildWall"),
+		TEXT("BuildWall"),
+		TEXT("BUILD: WOOD WALL"),
+		TEXT("A full-height defensive wall section. Grid snapping makes repeated sections easy to align."),
+		{ Ingredient(TEXT("Wood"), 5), Ingredient(TEXT("ScrapMetal"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildDoorway"),
+		TEXT("BuildDoorway"),
+		TEXT("BUILD: DOORWAY FRAME"),
+		TEXT("A structural wall frame with a central opening for shelter entrances and interior divisions."),
+		{ Ingredient(TEXT("Wood"), 5), Ingredient(TEXT("ScrapMetal"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildRoof"),
+		TEXT("BuildRoof"),
+		TEXT("BUILD: SHELTER ROOF"),
+		TEXT("A weather cover sized to match the floor footprint. It places at standard wall height."),
+		{ Ingredient(TEXT("Wood"), 4), Ingredient(TEXT("Cloth"), 4), Ingredient(TEXT("ScrapMetal"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildBarricade"),
+		TEXT("BuildBarricade"),
+		TEXT("BUILD: BARRICADE"),
+		TEXT("A low improvised barrier built from timber and scrap bracing."),
+		{ Ingredient(TEXT("Wood"), 4), Ingredient(TEXT("ScrapMetal"), 3) });
+
+	AddBuildRecipe(
+		TEXT("BuildStorage"),
+		TEXT("BuildStorage"),
+		TEXT("BUILD: STORAGE CRATE"),
+		TEXT("Permanent two-way storage. Its contents persist with the rest of the world state."),
+		{ Ingredient(TEXT("Wood"), 4), Ingredient(TEXT("ScrapMetal"), 2), Ingredient(TEXT("MechanicalParts"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildCot"),
+		TEXT("BuildCot"),
+		TEXT("BUILD: FIELD COT"),
+		TEXT("A functional rest point. Rest restores stamina, some health, and eases pain at a nutrition cost."),
+		{ Ingredient(TEXT("Wood"), 3), Ingredient(TEXT("Cloth"), 5), Ingredient(TEXT("ScrapMetal"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildWorkbench"),
+		TEXT("BuildWorkbench"),
+		TEXT("BUILD: WORKBENCH"),
+		TEXT("A functional crafting station that unlocks advanced crafting and construction wherever you establish a base."),
+		{ Ingredient(TEXT("Wood"), 6), Ingredient(TEXT("ScrapMetal"), 5), Ingredient(TEXT("MechanicalParts"), 3) });
+}
+
+void UWildBoundCraftingComponent::SetWorkbenchTab(bool bBuildTab)
+{
+	if (!bWorkbenchMode || bCraftInProgress || bBuildTabActive == bBuildTab)
+	{
+		return;
+	}
+
+	bBuildTabActive = bBuildTab;
+	BuildRecipesForCurrentMode();
+	LastCraftSuccessWorldTime = -1000.0f;
+	LastCraftedDisplayName.Reset();
 }
 
 void UWildBoundCraftingComponent::EnsureCraftingWidget()
@@ -434,6 +534,7 @@ void UWildBoundCraftingComponent::OpenCrafting(bool bUseWorkbench)
 	}
 
 	bWorkbenchMode = bUseWorkbench;
+	bBuildTabActive = false;
 	BuildRecipesForCurrentMode();
 	CancelPendingCraft();
 	LastCraftSuccessWorldTime = -1000.0f;
@@ -447,7 +548,7 @@ void UWildBoundCraftingComponent::OpenCrafting(bool bUseWorkbench)
 			1.6f,
 			bWorkbenchMode ? FColor(205, 190, 135) : FColor(175, 205, 165),
 			bWorkbenchMode
-				? TEXT("WORKBENCH CRAFTING — advanced recipes available")
+				? TEXT("WORKBENCH   |   CRAFT + BUILD tabs available")
 				: TEXT("HAND CRAFTING — find a workbench for advanced recipes"));
 	}
 }
@@ -522,6 +623,16 @@ void UWildBoundCraftingComponent::CraftSelectedRecipeFromMouse()
 	CraftSelectedRecipe();
 }
 
+void UWildBoundCraftingComponent::ShowCraftTabFromMouse()
+{
+	SetWorkbenchTab(false);
+}
+
+void UWildBoundCraftingComponent::ShowBuildTabFromMouse()
+{
+	SetWorkbenchTab(true);
+}
+
 bool UWildBoundCraftingComponent::CanCraftRecipe(int32 RecipeIndex) const
 {
 	const UWildBoundInventoryComponent* Inventory = InventoryComponent.Get();
@@ -585,6 +696,38 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 	}
 
 	const FWildBoundCraftingRecipe& Recipe = Recipes[SelectedRecipeIndex];
+
+	if (Recipe.bBuildRecipe)
+	{
+		if (!CanCraftRecipe(SelectedRecipeIndex))
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91021, 1.8f, FColor(220, 145, 110), TEXT("Missing construction materials."));
+			}
+			return;
+		}
+
+		TMap<FName, int32> Costs;
+		for (const FWildBoundCraftingIngredient& Requirement : Recipe.Ingredients)
+		{
+			Costs.FindOrAdd(Requirement.ItemId) += Requirement.Quantity;
+		}
+
+		UWorld* World = GetWorld();
+		UWildBoundBuildingSubsystem* Building = World
+			? World->GetSubsystem<UWildBoundBuildingSubsystem>()
+			: nullptr;
+		FString BuildName = Recipe.DisplayName;
+		BuildName.RemoveFromStart(TEXT("BUILD: "));
+
+		if (Building && Building->BeginPlacement(Recipe.BuildTypeId, BuildName, Costs))
+		{
+			SetCraftingOpen(false);
+		}
+		return;
+	}
+
 	if (IsUniqueGearItem(Recipe.OutputItemId) && Inventory->HasItem(Recipe.OutputItemId, 1))
 	{
 		if (GEngine)
