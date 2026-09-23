@@ -45,7 +45,12 @@ namespace
 		}
 
 		const UWildBoundInventoryComponent* Inventory = Crafting->GetInventoryComponent();
-		const FName OutputItemId = Crafting->GetRecipes()[RecipeIndex].OutputItemId;
+		const FWildBoundCraftingRecipe& Recipe = Crafting->GetRecipes()[RecipeIndex];
+		if (Recipe.bBuildRecipe)
+		{
+			return false;
+		}
+		const FName OutputItemId = Recipe.OutputItemId;
 		return Inventory && IsUniqueGearItem(OutputItemId) && Inventory->HasItem(OutputItemId, 1);
 	}
 
@@ -54,6 +59,7 @@ namespace
 		FString Result = DisplayName;
 		Result.RemoveFromStart(TEXT("HAND: "));
 		Result.RemoveFromStart(TEXT("BENCH: "));
+		Result.RemoveFromStart(TEXT("BUILD: "));
 		return Result;
 	}
 
@@ -175,7 +181,7 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 							{
 								const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 								return FText::FromString(Crafting && Crafting->IsWorkbenchMode()
-									? TEXT("WORKBENCH CRAFTING")
+									? (Crafting->IsBuildTabActive() ? TEXT("WORKBENCH / BUILD") : TEXT("WORKBENCH / CRAFT"))
 									: TEXT("FIELD CRAFTING"));
 							})
 							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 20))
@@ -194,7 +200,9 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 							{
 								const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 								return FText::FromString(Crafting && Crafting->IsWorkbenchMode()
-									? TEXT("ADVANCED ASSEMBLY  /  TOOLS  /  PASSIVE SURVIVAL GEAR")
+									? (Crafting->IsBuildTabActive()
+										? TEXT("CONSTRUCTION  /  SHELTER  /  STORAGE  /  SURVIVAL STATIONS")
+										: TEXT("ADVANCED ASSEMBLY  /  TOOLS  /  PASSIVE SURVIVAL GEAR"))
 									: TEXT("IMPROVISED FIELD ASSEMBLY  /  MEDICAL  /  EMERGENCY USE"));
 							})
 							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
@@ -211,7 +219,9 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 							{
 								const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 								const int32 Count = Crafting ? Crafting->GetRecipes().Num() : 0;
-								return FText::FromString(FString::Printf(TEXT("%d RECIPES"), Count));
+								return FText::FromString(FString::Printf(
+									Crafting && Crafting->IsBuildTabActive() ? TEXT("%d BUILDABLES") : TEXT("%d RECIPES"),
+									Count));
 							})
 							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
 							.ColorAndOpacity(FLinearColor(0.72f, 0.74f, 0.68f, 1.0f))
@@ -225,9 +235,70 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 						]
 					]
 				]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 9.0f, 0.0f, 12.0f)
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 9.0f, 0.0f, 8.0f)
 				[
 					SNew(SSeparator)
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 0.0f, 0.0f, 10.0f)
+				[
+					SNew(SHorizontalBox)
+					.Visibility_Lambda([this]()
+					{
+						const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+						return Crafting && Crafting->IsWorkbenchMode()
+							? EVisibility::Visible
+							: EVisibility::Collapsed;
+					})
+					+ SHorizontalBox::Slot().FillWidth(1.0f).Padding(0.0f, 0.0f, 4.0f, 0.0f)
+					[
+						SNew(SButton)
+						.ContentPadding(FMargin(12.0f, 7.0f))
+						.OnClicked_Lambda([this]()
+						{
+							if (UWildBoundCraftingComponent* Crafting = CraftingComponent.Get())
+							{
+								Crafting->ShowCraftTabFromMouse();
+							}
+							return FReply::Handled();
+						})
+						[
+							SNew(STextBlock)
+							.Text_Lambda([this]()
+							{
+								const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+								return FText::FromString(Crafting && !Crafting->IsBuildTabActive()
+									? TEXT("> CRAFT")
+									: TEXT("CRAFT"));
+							})
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+							.Justification(ETextJustify::Center)
+						]
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.0f).Padding(4.0f, 0.0f, 0.0f, 0.0f)
+					[
+						SNew(SButton)
+						.ContentPadding(FMargin(12.0f, 7.0f))
+						.OnClicked_Lambda([this]()
+						{
+							if (UWildBoundCraftingComponent* Crafting = CraftingComponent.Get())
+							{
+								Crafting->ShowBuildTabFromMouse();
+							}
+							return FReply::Handled();
+						})
+						[
+							SNew(STextBlock)
+							.Text_Lambda([this]()
+							{
+								const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
+								return FText::FromString(Crafting && Crafting->IsBuildTabActive()
+									? TEXT("> BUILD")
+									: TEXT("BUILD"));
+							})
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+							.Justification(ETextJustify::Center)
+						]
+					]
 				]
 				+ SVerticalBox::Slot().AutoHeight()
 				[
@@ -262,6 +333,8 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(3)]
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(4)]
 							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(5)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(6)]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(7)]
 						]
 					]
 					+ SHorizontalBox::Slot().FillWidth(0.55f)
@@ -295,7 +368,11 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 									const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 									const FWildBoundCraftingRecipe* Recipe = GetSelectedRecipe(Crafting);
 									const UWildBoundInventoryComponent* Inventory = Crafting ? Crafting->GetInventoryComponent() : nullptr;
-									return Recipe ? FSlateColor(GetRarityBackground(Inventory, Recipe->OutputItemId)) : FSlateColor(FLinearColor(0.05f, 0.06f, 0.055f, 1.0f));
+									return Recipe
+									? (Recipe->bBuildRecipe
+										? FSlateColor(FLinearColor(0.11f, 0.085f, 0.040f, 0.98f))
+										: FSlateColor(GetRarityBackground(Inventory, Recipe->OutputItemId)))
+									: FSlateColor(FLinearColor(0.05f, 0.06f, 0.055f, 1.0f));
 								})
 								[
 									SNew(STextBlock)
@@ -306,7 +383,11 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 										const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 										const FWildBoundCraftingRecipe* Recipe = GetSelectedRecipe(Crafting);
 										const UWildBoundInventoryComponent* Inventory = Crafting ? Crafting->GetInventoryComponent() : nullptr;
-										return Recipe ? FSlateColor(GetRarityColor(Inventory, Recipe->OutputItemId)) : FSlateColor(FLinearColor::White);
+										return Recipe
+									? (Recipe->bBuildRecipe
+										? FSlateColor(FLinearColor(0.92f, 0.72f, 0.38f, 1.0f))
+										: FSlateColor(GetRarityColor(Inventory, Recipe->OutputItemId)))
+									: FSlateColor(FLinearColor::White);
 									})
 								]
 							]
@@ -400,7 +481,9 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 										const UWildBoundCraftingComponent* Crafting = CraftingComponent.Get();
 										return FText::FromString(Crafting && Crafting->IsCraftInProgress()
 											? TEXT("ASSEMBLING...")
-											: TEXT("CRAFT ITEM"));
+											: (Crafting && Crafting->IsBuildTabActive()
+												? TEXT("ENTER BUILD MODE")
+												: TEXT("CRAFT ITEM")));
 									})
 									.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
 									.Justification(ETextJustify::Center)
