@@ -610,6 +610,11 @@ void UWildBoundOnboardingSubsystem::RemoveOnboardingWidget()
 
 void UWildBoundOnboardingSubsystem::SetIntroInputLock(bool bLocked)
 {
+	if (bIntroInputLocked == bLocked)
+	{
+		return;
+	}
+
 	UWorld* World = GetWorld();
 	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
 	if (!PlayerController)
@@ -637,6 +642,15 @@ void UWildBoundOnboardingSubsystem::SetIntroInputLock(bool bLocked)
 		return;
 	}
 
-	PlayerController->SetIgnoreMoveInput(bLocked);
-	PlayerController->SetIgnoreLookInput(bLocked);
+	bIntroInputLocked = bLocked;
+	if (bLocked)
+	{
+		PlayerController->SetIgnoreMoveInput(true);
+		PlayerController->SetIgnoreLookInput(true);
+	}
+	else
+	{
+		PlayerController->ResetIgnoreMoveInput();
+		PlayerController->ResetIgnoreLookInput();
+	}
 }
