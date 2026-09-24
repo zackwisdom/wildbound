@@ -413,6 +413,7 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 		return;
 	}
 
+	const int32 BuildId = bRelocatingBuild ? RelocatingBuildId : NextBuildId;
 	TArray<AActor*> SpawnedActors;
 	if (!SpawnPlacedBuild(
 		ActiveBuildTypeId,
@@ -442,11 +443,39 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 		return;
 	}
 
+	RegisterBuildActors(BuildId, SpawnedActors);
+
+	if (bRelocatingBuild)
+	{
+		if (FWildBoundPlacedBuildState* Existing = FindBuildState(BuildId))
+		{
+			Existing->Location = PreviewLocation;
+			Existing->Rotation = PreviewRotation;
+		}
+
+		const FString MovedName = ActiveDisplayName;
+		bRelocatingBuild = false;
+		RelocatingBuildId = 0;
+		CancelPlacement(false);
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91702,
+				2.0f,
+				FColor(150, 218, 140),
+				FString::Printf(TEXT("RELOCATED   |   %s"), *MovedName));
+		}
+		return;
+	}
+
 	FWildBoundPlacedBuildState State;
+	State.BuildId = BuildId;
 	State.BuildTypeId = ActiveBuildTypeId;
 	State.Location = PreviewLocation;
 	State.Rotation = PreviewRotation;
 	PlacedBuilds.Add(State);
+	NextBuildId = FMath::Max(NextBuildId, BuildId + 1);
 
 	if (GEngine)
 	{
@@ -457,7 +486,6 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 			FString::Printf(TEXT("PLACED   |   %s"), *ActiveDisplayName));
 	}
 
-	// Stay in build mode while materials remain, making repeated walls/floors practical.
 	if (!CanAffordActiveBuild())
 	{
 		CancelPlacement(false);
@@ -471,20 +499,42 @@ void UWildBoundBuildingSubsystem::CancelPlacement(bool bShowMessage)
 		return;
 	}
 
+	const bool bWasRelocating = bRelocatingBuild;
+	const FWildBoundPlacedBuildState OriginalState = RelocationOriginalState;
+	const FString CancelledName = ActiveDisplayName;
+
 	bPlacementActive = false;
 	bPlacementValid = false;
+	bPieceSnapped = false;
+	bRelocatingBuild = false;
+	RelocatingBuildId = 0;
 	ActiveBuildTypeId = NAME_None;
 	ActiveDisplayName.Reset();
 	ActiveMaterialCosts.Reset();
 	DestroyPreviewActor();
 
+	if (bWasRelocating && OriginalState.BuildId > 0 && !OriginalState.BuildTypeId.IsNone())
+	{
+		TArray<AActor*> RestoredActors;
+		if (SpawnPlacedBuild(
+			OriginalState.BuildTypeId,
+			OriginalState.Location,
+			OriginalState.Rotation,
+			&RestoredActors))
+		{
+			RegisterBuildActors(OriginalState.BuildId, RestoredActors);
+		}
+	}
+
 	if (bShowMessage && GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(
 			91700,
-			1.4f,
+			1.6f,
 			FColor(185, 190, 178),
-			TEXT("BUILD MODE CANCELLED   |   no materials consumed"));
+			bWasRelocating
+				? FString::Printf(TEXT("MOVE CANCELLED   |   %s restored"), *CancelledName)
+				: TEXT("BUILD MODE CANCELLED   |   no materials consumed"));
 	}
 }
 
