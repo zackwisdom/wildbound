@@ -3,9 +3,11 @@
 #include "../Inventory/WildBoundInventoryComponent.h"
 #include "../Player/WildBoundInteractionComponent.h"
 #include "CollisionQueryParams.h"
+#include "Components/PointLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/OverlapResult.h"
+#include "Engine/PointLight.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
@@ -28,6 +30,10 @@ namespace
 	const FName StorageTag(TEXT("WBSafehouseStash"));
 	const FName BedTag(TEXT("WBSafehouseBed"));
 	const FName WorkbenchTag(TEXT("WBWorkbench"));
+	const FName RainCollectorTag(TEXT("WBRainCollector"));
+	const FName PowerBankTag(TEXT("WBPowerBank"));
+	const FName PoweredLightTag(TEXT("WBPoweredLight"));
+	const FName ReinforcedBuildTag(TEXT("WBReinforcedBuild"));
 
 	const FName FloorType(TEXT("BuildFloor"));
 	const FName WallType(TEXT("BuildWall"));
@@ -37,10 +43,19 @@ namespace
 	const FName StorageType(TEXT("BuildStorage"));
 	const FName CotType(TEXT("BuildCot"));
 	const FName WorkbenchType(TEXT("BuildWorkbench"));
+	const FName RainCollectorType(TEXT("BuildRainCollector"));
+	const FName PowerBankType(TEXT("BuildPowerBank"));
+	const FName PoweredLightType(TEXT("BuildPoweredLight"));
+	const FName ReinforcedFloorType(TEXT("BuildReinforcedFloor"));
+	const FName ReinforcedWallType(TEXT("BuildReinforcedWall"));
 
 	constexpr float BuildManagementDistance = 475.0f;
 	constexpr float DismantleHoldDuration = 0.75f;
 	constexpr float PieceSnapDistance = 155.0f;
+	constexpr float UtilityPowerRadius = 1400.0f;
+	constexpr float ShelterUpgradeRadius = 1500.0f;
+	constexpr float RainWaterSecondsPerUnit = 90.0f;
+	constexpr int32 RainCollectorCapacity = 4;
 
 	UStaticMesh* GetCubeMesh()
 	{
@@ -138,7 +153,9 @@ namespace
 		return BuildTypeId == FloorType
 			|| BuildTypeId == WallType
 			|| BuildTypeId == DoorwayType
-			|| BuildTypeId == RoofType;
+			|| BuildTypeId == RoofType
+			|| BuildTypeId == ReinforcedFloorType
+			|| BuildTypeId == ReinforcedWallType;
 	}
 }
 
@@ -158,6 +175,14 @@ void UWildBoundBuildingSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		0.035f,
 		true,
 		0.20f);
+
+	InWorld.GetTimerManager().SetTimer(
+		UtilityUpdateTimer,
+		this,
+		&UWildBoundBuildingSubsystem::UpdateUtilities,
+		1.0f,
+		true,
+		1.0f);
 }
 
 void UWildBoundBuildingSubsystem::Deinitialize()
@@ -167,6 +192,7 @@ void UWildBoundBuildingSubsystem::Deinitialize()
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(BuildingUpdateTimer);
+		World->GetTimerManager().ClearTimer(UtilityUpdateTimer);
 	}
 
 	Super::Deinitialize();
