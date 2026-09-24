@@ -484,6 +484,7 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 		RelocatingBuildId = 0;
 		CancelPlacement(false);
 
+		RefreshPoweredLights();
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(
@@ -502,6 +503,7 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 	State.Rotation = PreviewRotation;
 	PlacedBuilds.Add(State);
 	NextBuildId = FMath::Max(NextBuildId, BuildId + 1);
+	RefreshPoweredLights();
 
 	if (GEngine)
 	{
@@ -1652,7 +1654,10 @@ void UWildBoundBuildingSubsystem::UpdateManagementMode()
 	const FString BuildName = GetBuildDisplayName(State->BuildTypeId);
 
 	FString UseHint;
-	if (State->BuildTypeId == StorageType || State->BuildTypeId == CotType)
+	if (State->BuildTypeId == StorageType
+		|| State->BuildTypeId == CotType
+		|| State->BuildTypeId == RainCollectorType
+		|| State->BuildTypeId == PowerBankType)
 	{
 		UseHint = TEXT("[E] USE   |   ");
 	}
@@ -1867,6 +1872,7 @@ void UWildBoundBuildingSubsystem::DismantleBuild(int32 BuildId)
 		{
 			return Existing.BuildId == BuildId;
 		});
+	RefreshPoweredLights();
 
 	if (GEngine)
 	{
@@ -1917,6 +1923,26 @@ TMap<FName, int32> UWildBoundBuildingSubsystem::GetMaterialCostsForBuild(
 	{
 		Add(TEXT("Wood"), 6); Add(TEXT("ScrapMetal"), 5); Add(TEXT("MechanicalParts"), 3);
 	}
+	else if (BuildTypeId == RainCollectorType)
+	{
+		Add(TEXT("ScrapMetal"), 4); Add(TEXT("Plastic"), 4); Add(TEXT("Cloth"), 2); Add(TEXT("Adhesive"), 2);
+	}
+	else if (BuildTypeId == PowerBankType)
+	{
+		Add(TEXT("ScrapMetal"), 6); Add(TEXT("Battery"), 4); Add(TEXT("Electronics"), 2); Add(TEXT("Wire"), 3); Add(TEXT("MechanicalParts"), 2);
+	}
+	else if (BuildTypeId == PoweredLightType)
+	{
+		Add(TEXT("ScrapMetal"), 3); Add(TEXT("Electronics"), 1); Add(TEXT("Wire"), 2); Add(TEXT("Plastic"), 1);
+	}
+	else if (BuildTypeId == ReinforcedFloorType)
+	{
+		Add(TEXT("Wood"), 8); Add(TEXT("ScrapMetal"), 5); Add(TEXT("MechanicalParts"), 1);
+	}
+	else if (BuildTypeId == ReinforcedWallType)
+	{
+		Add(TEXT("Wood"), 7); Add(TEXT("ScrapMetal"), 6); Add(TEXT("MechanicalParts"), 2);
+	}
 
 	return Costs;
 }
@@ -1931,6 +1957,11 @@ FString UWildBoundBuildingSubsystem::GetBuildDisplayName(FName BuildTypeId) cons
 	if (BuildTypeId == StorageType) return TEXT("STORAGE CRATE");
 	if (BuildTypeId == CotType) return TEXT("FIELD COT");
 	if (BuildTypeId == WorkbenchType) return TEXT("WORKBENCH");
+	if (BuildTypeId == RainCollectorType) return TEXT("RAIN COLLECTOR");
+	if (BuildTypeId == PowerBankType) return TEXT("BATTERY BANK");
+	if (BuildTypeId == PoweredLightType) return TEXT("POWERED LIGHT");
+	if (BuildTypeId == ReinforcedFloorType) return TEXT("REINFORCED FLOOR");
+	if (BuildTypeId == ReinforcedWallType) return TEXT("REINFORCED WALL");
 	return TEXT("STRUCTURE");
 }
 
@@ -1979,7 +2010,12 @@ bool UWildBoundBuildingSubsystem::TryApplyPieceSnap(
 		const FVector Forward = State.Rotation.RotateVector(FVector(1.0f, 0.0f, 0.0f));
 		const FVector Right = State.Rotation.RotateVector(FVector(0.0f, 1.0f, 0.0f));
 
-		if (ActiveBuildTypeId == FloorType && State.BuildTypeId == FloorType)
+		const bool bActiveFloorLike = ActiveBuildTypeId == FloorType || ActiveBuildTypeId == ReinforcedFloorType;
+		const bool bExistingFloorLike = State.BuildTypeId == FloorType || State.BuildTypeId == ReinforcedFloorType;
+		const bool bActiveWallLike = ActiveBuildTypeId == WallType || ActiveBuildTypeId == DoorwayType || ActiveBuildTypeId == ReinforcedWallType;
+		const bool bExistingWallLike = State.BuildTypeId == WallType || State.BuildTypeId == DoorwayType || State.BuildTypeId == ReinforcedWallType;
+
+		if (bActiveFloorLike && bExistingFloorLike)
 		{
 			Consider(State.Location + Forward * 400.0f, State.Rotation);
 			Consider(State.Location - Forward * 400.0f, State.Rotation);
@@ -1988,7 +2024,7 @@ bool UWildBoundBuildingSubsystem::TryApplyPieceSnap(
 		}
 		else if (ActiveBuildTypeId == RoofType)
 		{
-			if (State.BuildTypeId == FloorType)
+			if (bExistingFloorLike)
 			{
 				Consider(State.Location, State.Rotation);
 			}
@@ -2000,9 +2036,9 @@ bool UWildBoundBuildingSubsystem::TryApplyPieceSnap(
 				Consider(State.Location - Right * 400.0f, State.Rotation);
 			}
 		}
-		else if (ActiveBuildTypeId == WallType || ActiveBuildTypeId == DoorwayType)
+		else if (bActiveWallLike)
 		{
-			if (State.BuildTypeId == FloorType)
+			if (bExistingFloorLike)
 			{
 				Consider(
 					State.Location + Right * 200.0f,
@@ -2017,7 +2053,7 @@ bool UWildBoundBuildingSubsystem::TryApplyPieceSnap(
 					State.Location - Forward * 200.0f,
 					FRotator(0.0f, State.Rotation.Yaw + 90.0f, 0.0f));
 			}
-			else if (State.BuildTypeId == WallType || State.BuildTypeId == DoorwayType)
+			else if (bExistingWallLike)
 			{
 				Consider(State.Location + Forward * 400.0f, State.Rotation);
 				Consider(State.Location - Forward * 400.0f, State.Rotation);
@@ -2043,7 +2079,8 @@ bool UWildBoundBuildingSubsystem::IsDuplicatePlacement(
 	FName BuildTypeId,
 	int32 IgnoreBuildId) const
 {
-	const bool bNewWallLike = BuildTypeId == WallType || BuildTypeId == DoorwayType;
+	const bool bNewWallLike = BuildTypeId == WallType || BuildTypeId == DoorwayType || BuildTypeId == ReinforcedWallType;
+	const bool bNewFloorLike = BuildTypeId == FloorType || BuildTypeId == ReinforcedFloorType;
 
 	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
 	{
@@ -2059,8 +2096,12 @@ bool UWildBoundBuildingSubsystem::IsDuplicatePlacement(
 		}
 
 		const bool bExistingWallLike =
-			State.BuildTypeId == WallType || State.BuildTypeId == DoorwayType;
-		if (State.BuildTypeId == BuildTypeId || (bNewWallLike && bExistingWallLike))
+			State.BuildTypeId == WallType || State.BuildTypeId == DoorwayType || State.BuildTypeId == ReinforcedWallType;
+		const bool bExistingFloorLike =
+			State.BuildTypeId == FloorType || State.BuildTypeId == ReinforcedFloorType;
+		if (State.BuildTypeId == BuildTypeId
+			|| (bNewWallLike && bExistingWallLike)
+			|| (bNewFloorLike && bExistingFloorLike))
 		{
 			return true;
 		}
@@ -2086,6 +2127,11 @@ FVector UWildBoundBuildingSubsystem::GetBuildHalfExtents(FName BuildTypeId) cons
 	if (BuildTypeId == StorageType) return FVector(72.0f, 52.0f, 48.0f);
 	if (BuildTypeId == CotType) return FVector(112.0f, 45.0f, 34.0f);
 	if (BuildTypeId == WorkbenchType) return FVector(92.0f, 45.0f, 112.0f);
+	if (BuildTypeId == RainCollectorType) return FVector(92.0f, 78.0f, 180.0f);
+	if (BuildTypeId == PowerBankType) return FVector(65.0f, 48.0f, 70.0f);
+	if (BuildTypeId == PoweredLightType) return FVector(35.0f, 35.0f, 155.0f);
+	if (BuildTypeId == ReinforcedFloorType) return FVector(200.0f, 200.0f, 14.0f);
+	if (BuildTypeId == ReinforcedWallType) return FVector(200.0f, 20.0f, 125.0f);
 	return FVector(50.0f, 50.0f, 50.0f);
 }
 
