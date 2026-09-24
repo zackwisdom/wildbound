@@ -942,6 +942,216 @@ bool UWildBoundBuildingSubsystem::SpawnPlacedBuild(
 		return true;
 	}
 
+	if (BuildTypeId == ReinforcedFloorType)
+	{
+		AStaticMeshActor* Base = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 12.0f),
+			FVector(4.0f, 4.0f, 0.24f),
+			Rotation,
+			DarkWood,
+			TEXT("WB_PlayerBuild_ReinforcedFloor"),
+			OutSpawnedActors,
+			0.84f);
+		if (!Base)
+		{
+			return false;
+		}
+		Base->Tags.AddUnique(ReinforcedBuildTag);
+		const FVector Right = Rotation.RotateVector(FVector(0.0f, 1.0f, 0.0f));
+		for (float Offset : {-165.0f, 165.0f})
+		{
+			AStaticMeshActor* Brace = SpawnBuildPiece(
+				*World,
+				Location + Right * Offset + FVector(0.0f, 0.0f, 27.0f),
+				FVector(3.7f, 0.10f, 0.08f),
+				Rotation,
+				Scrap,
+				TEXT("WB_PlayerBuild_ReinforcedFloorBrace"),
+				OutSpawnedActors,
+				0.68f,
+				0.46f);
+			if (Brace)
+			{
+				Brace->Tags.AddUnique(ReinforcedBuildTag);
+			}
+		}
+		return true;
+	}
+
+	if (BuildTypeId == ReinforcedWallType)
+	{
+		AStaticMeshActor* Base = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 125.0f),
+			FVector(4.0f, 0.28f, 2.50f),
+			Rotation,
+			DarkWood,
+			TEXT("WB_PlayerBuild_ReinforcedWall"),
+			OutSpawnedActors,
+			0.82f);
+		if (!Base)
+		{
+			return false;
+		}
+		Base->Tags.AddUnique(ReinforcedBuildTag);
+		const FVector Right = Rotation.RotateVector(FVector(0.0f, 1.0f, 0.0f));
+		for (float Side : {-145.0f, 145.0f})
+		{
+			AStaticMeshActor* Brace = SpawnBuildPiece(
+				*World,
+				Location + Right * Side + FVector(0.0f, 0.0f, 125.0f),
+				FVector(0.12f, 0.36f, 2.35f),
+				Rotation,
+				Scrap,
+				TEXT("WB_PlayerBuild_ReinforcedWallBrace"),
+				OutSpawnedActors,
+				0.68f,
+				0.52f);
+			if (Brace)
+			{
+				Brace->Tags.AddUnique(ReinforcedBuildTag);
+			}
+		}
+		return true;
+	}
+
+	if (BuildTypeId == RainCollectorType)
+	{
+		const FVector Right = Rotation.RotateVector(FVector(0.0f, 1.0f, 0.0f));
+		AStaticMeshActor* Tank = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 70.0f),
+			FVector(1.10f, 0.90f, 1.35f),
+			Rotation,
+			FLinearColor(0.11f, 0.14f, 0.12f, 1.0f),
+			TEXT("WB_PlayerBuild_RainCollectorTank"),
+			OutSpawnedActors,
+			0.86f,
+			0.18f);
+		if (!Tank)
+		{
+			return false;
+		}
+		Tank->Tags.AddUnique(InteractableTag);
+		Tank->Tags.AddUnique(RainCollectorTag);
+
+		SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 175.0f),
+			FVector(1.75f, 1.45f, 0.08f),
+			FRotator(Rotation.Pitch + 7.0f, Rotation.Yaw, Rotation.Roll),
+			Scrap,
+			TEXT("WB_PlayerBuild_RainCollectorCatch"),
+			OutSpawnedActors,
+			0.74f,
+			0.36f);
+		for (float Side : {-78.0f, 78.0f})
+		{
+			SpawnBuildPiece(
+				*World,
+				Location + Right * Side + FVector(0.0f, 0.0f, 125.0f),
+				FVector(0.08f, 0.08f, 1.55f),
+				Rotation,
+				Rust,
+				TEXT("WB_PlayerBuild_RainCollectorPost"),
+				OutSpawnedActors,
+				0.72f,
+				0.40f);
+		}
+		return true;
+	}
+
+	if (BuildTypeId == PowerBankType)
+	{
+		AStaticMeshActor* Cabinet = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 70.0f),
+			FVector(1.20f, 0.78f, 1.35f),
+			Rotation,
+			FLinearColor(0.10f, 0.115f, 0.10f, 1.0f),
+			TEXT("WB_PlayerBuild_PowerBank"),
+			OutSpawnedActors,
+			0.70f,
+			0.48f);
+		if (!Cabinet)
+		{
+			return false;
+		}
+		Cabinet->Tags.AddUnique(InteractableTag);
+		Cabinet->Tags.AddUnique(PowerBankTag);
+
+		for (float Z : {42.0f, 82.0f, 122.0f})
+		{
+			SpawnBuildPiece(
+				*World,
+				Location + Rotation.RotateVector(FVector(0.0f, -42.0f, Z)),
+				FVector(0.82f, 0.16f, 0.25f),
+				Rotation,
+				FLinearColor(0.17f, 0.18f, 0.12f, 1.0f),
+				TEXT("WB_PlayerBuild_PowerCell"),
+				OutSpawnedActors,
+				0.72f,
+				0.26f);
+		}
+		return true;
+	}
+
+	if (BuildTypeId == PoweredLightType)
+	{
+		AStaticMeshActor* Pole = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 150.0f),
+			FVector(0.12f, 0.12f, 3.0f),
+			Rotation,
+			Scrap,
+			TEXT("WB_PlayerBuild_LightPole"),
+			OutSpawnedActors,
+			0.68f,
+			0.52f);
+		if (!Pole)
+		{
+			return false;
+		}
+		Pole->Tags.AddUnique(PoweredLightTag);
+
+		SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 302.0f),
+			FVector(0.42f, 0.30f, 0.18f),
+			Rotation,
+			FLinearColor(0.18f, 0.18f, 0.16f, 1.0f),
+			TEXT("WB_PlayerBuild_LightFixture"),
+			OutSpawnedActors,
+			0.68f,
+			0.48f);
+
+		APointLight* Light = World->SpawnActor<APointLight>(
+			Location + FVector(0.0f, 0.0f, 295.0f),
+			Rotation);
+		if (Light)
+		{
+			Light->Tags.AddUnique(PlayerBuildTag);
+			Light->Tags.AddUnique(PoweredLightTag);
+#if WITH_EDITOR
+			Light->SetActorLabel(TEXT("WB_PlayerBuild_PoweredLight"));
+#endif
+			if (UPointLightComponent* LightComponent = Light->GetPointLightComponent())
+			{
+				LightComponent->SetIntensity(3200.0f);
+				LightComponent->SetAttenuationRadius(1050.0f);
+				LightComponent->SetLightColor(FLinearColor(0.92f, 0.78f, 0.55f));
+				LightComponent->SetCastShadows(true);
+				LightComponent->SetVisibility(false);
+			}
+			if (OutSpawnedActors)
+			{
+				OutSpawnedActors->Add(Light);
+			}
+		}
+		return true;
+	}
+
 	if (BuildTypeId == WorkbenchType)
 	{
 		AStaticMeshActor* Top = SpawnBuildPiece(
