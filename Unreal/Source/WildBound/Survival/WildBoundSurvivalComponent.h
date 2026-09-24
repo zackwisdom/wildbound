@@ -110,7 +110,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="WildBound|Survival")
 	void Heal(float Amount);
 
-	bool RestAtSafehouse();
+	bool RestAtSafehouse(float HealthRecovery = 12.0f);
 
 	UFUNCTION(BlueprintPure, Category="WildBound|Survival")
 	bool IsAlive() const { return Health > 0.0f; }
