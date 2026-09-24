@@ -979,6 +979,8 @@ void UWildBoundBuildingSubsystem::RestorePlacedBuilds(
 	CancelPlacement(false);
 	DestroyAllPlacedBuildActors();
 	PlacedBuilds.Reset();
+	BuildIdByActor.Reset();
+	NextBuildId = 1;
 
 	for (const FWildBoundPlacedBuildState& Saved : SavedBuilds)
 	{
@@ -987,10 +989,78 @@ void UWildBoundBuildingSubsystem::RestorePlacedBuilds(
 			continue;
 		}
 
-		if (SpawnPlacedBuild(Saved.BuildTypeId, Saved.Location, Saved.Rotation, nullptr))
+		FWildBoundPlacedBuildState Restored = Saved;
+		if (Restored.BuildId <= 0)
 		{
-			PlacedBuilds.Add(Saved);
+			Restored.BuildId = NextBuildId;
 		}
+
+		TArray<AActor*> SpawnedActors;
+		if (SpawnPlacedBuild(
+			Restored.BuildTypeId,
+			Restored.Location,
+			Restored.Rotation,
+			&SpawnedActors))
+		{
+			RegisterBuildActors(Restored.BuildId, SpawnedActors);
+			PlacedBuilds.Add(Restored);
+			NextBuildId = FMath::Max(NextBuildId, Restored.BuildId + 1);
+		}
+	}
+}
+
+void UWildBoundBuildingSubsystem::RegisterBuildActors(
+	int32 BuildId,
+	const TArray<AActor*>& Actors)
+{
+	if (BuildId <= 0)
+	{
+		return;
+	}
+
+	for (AActor* Actor : Actors)
+	{
+		if (IsValid(Actor))
+		{
+			BuildIdByActor.Add(TWeakObjectPtr<AActor>(Actor), BuildId);
+		}
+	}
+}
+
+void UWildBoundBuildingSubsystem::DestroyBuildActors(int32 BuildId)
+{
+	if (BuildId <= 0)
+	{
+		return;
+	}
+
+	TArray<TWeakObjectPtr<AActor>> KeysToRemove;
+	TArray<AActor*> ActorsToDestroy;
+	for (const TPair<TWeakObjectPtr<AActor>, int32>& Pair : BuildIdByActor)
+	{
+		if (Pair.Value != BuildId)
+		{
+			continue;
+		}
+
+		KeysToRemove.Add(Pair.Key);
+		if (AActor* Actor = Pair.Key.Get())
+		{
+			ActorsToDestroy.AddUnique(Actor);
+		}
+	}
+
+	for (AActor* Actor : ActorsToDestroy)
+	{
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
+		}
+	}
+
+	for (const TWeakObjectPtr<AActor>& Key : KeysToRemove)
+	{
+		BuildIdByActor.Remove(Key);
 	}
 }
 
@@ -999,6 +1069,7 @@ void UWildBoundBuildingSubsystem::DestroyAllPlacedBuildActors()
 	UWorld* World = GetWorld();
 	if (!World)
 	{
+		BuildIdByActor.Reset();
 		return;
 	}
 
@@ -1019,6 +1090,499 @@ void UWildBoundBuildingSubsystem::DestroyAllPlacedBuildActors()
 			Actor->Destroy();
 		}
 	}
+
+	BuildIdByActor.Reset();
+}
+
+int32 UWildBoundBuildingSubsystem::FindBuildIdForActor(const AActor* Actor) const
+{
+	if (!Actor)
+	{
+		return 0;
+	}
+
+	if (const int32* BuildId = BuildIdByActor.Find(
+		TWeakObjectPtr<AActor>(const_cast<AActor*>(Actor))))
+	{
+		return *BuildId;
+	}
+
+	return 0;
+}
+
+FWildBoundPlacedBuildState* UWildBoundBuildingSubsystem::FindBuildState(int32 BuildId)
+{
+	return PlacedBuilds.FindByPredicate(
+		[BuildId](const FWildBoundPlacedBuildState& State)
+		{
+			return State.BuildId == BuildId;
+		});
+}
+
+const FWildBoundPlacedBuildState* UWildBoundBuildingSubsystem::FindBuildState(int32 BuildId) const
+{
+	return PlacedBuilds.FindByPredicate(
+		[BuildId](const FWildBoundPlacedBuildState& State)
+		{
+			return State.BuildId == BuildId;
+		});
+}
+
+void UWildBoundBuildingSubsystem::UpdateManagementMode()
+{
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (!World || !PlayerController || !Pawn || PlayerController->bShowMouseCursor)
+	{
+		PendingDismantleBuildId = 0;
+		DismantleHoldStartedAt = -1.0f;
+		return;
+	}
+
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(WildBoundBuildManageTrace), false, Pawn);
+	FHitResult Hit;
+	const bool bHit = World->LineTraceSingleByChannel(
+		Hit,
+		ViewLocation,
+		ViewLocation + ViewRotation.Vector() * BuildManagementDistance,
+		ECC_Visibility,
+		Params);
+
+	AActor* TargetActor = bHit ? Hit.GetActor() : nullptr;
+	const int32 BuildId = FindBuildIdForActor(TargetActor);
+	const FWildBoundPlacedBuildState* State = FindBuildState(BuildId);
+	if (!State)
+	{
+		PendingDismantleBuildId = 0;
+		DismantleHoldStartedAt = -1.0f;
+		return;
+	}
+
+	UWildBoundInteractionComponent* Interaction =
+		Pawn->FindComponentByClass<UWildBoundInteractionComponent>();
+	const FString BuildName = GetBuildDisplayName(State->BuildTypeId);
+
+	FString UseHint;
+	if (State->BuildTypeId == StorageType || State->BuildTypeId == CotType)
+	{
+		UseHint = TEXT("[E] USE   |   ");
+	}
+	else if (State->BuildTypeId == WorkbenchType)
+	{
+		UseHint = TEXT("[C] CRAFT/BUILD   |   ");
+	}
+
+	float HoldProgress = 0.0f;
+	if (PendingDismantleBuildId == BuildId
+		&& DismantleHoldStartedAt >= 0.0f
+		&& PlayerController->IsInputKeyDown(EKeys::X))
+	{
+		HoldProgress = FMath::Clamp(
+			(World->GetTimeSeconds() - DismantleHoldStartedAt) / DismantleHoldDuration,
+			0.0f,
+			1.0f);
+	}
+
+	if (Interaction)
+	{
+		const FString DismantleHint = HoldProgress > 0.0f
+			? FString::Printf(
+				TEXT("HOLD [X] DISMANTLE %d%%"),
+				FMath::RoundToInt(HoldProgress * 100.0f))
+			: TEXT("HOLD [X] DISMANTLE / 60% REFUND");
+		Interaction->SetContextPrompt(
+			FString::Printf(
+				TEXT("%s%s   |   [R] RELOCATE   |   %s"),
+				*UseHint,
+				*BuildName,
+				*DismantleHint),
+			35);
+	}
+
+	if (PlayerController->WasInputKeyJustPressed(EKeys::R))
+	{
+		PendingDismantleBuildId = 0;
+		DismantleHoldStartedAt = -1.0f;
+		BeginRelocation(BuildId);
+		return;
+	}
+
+	if (PlayerController->WasInputKeyJustPressed(EKeys::X))
+	{
+		PendingDismantleBuildId = BuildId;
+		DismantleHoldStartedAt = World->GetTimeSeconds();
+	}
+
+	if (PendingDismantleBuildId == BuildId)
+	{
+		if (!PlayerController->IsInputKeyDown(EKeys::X))
+		{
+			PendingDismantleBuildId = 0;
+			DismantleHoldStartedAt = -1.0f;
+		}
+		else if (DismantleHoldStartedAt >= 0.0f
+			&& World->GetTimeSeconds() - DismantleHoldStartedAt >= DismantleHoldDuration)
+		{
+			PendingDismantleBuildId = 0;
+			DismantleHoldStartedAt = -1.0f;
+			DismantleBuild(BuildId);
+		}
+	}
+	else if (PendingDismantleBuildId != 0)
+	{
+		PendingDismantleBuildId = 0;
+		DismantleHoldStartedAt = -1.0f;
+	}
+}
+
+bool UWildBoundBuildingSubsystem::CanManageBuild(
+	int32 BuildId,
+	bool bShowMessage) const
+{
+	const FWildBoundPlacedBuildState* State = FindBuildState(BuildId);
+	if (!State)
+	{
+		return false;
+	}
+
+	if (State->BuildTypeId != StorageType)
+	{
+		return true;
+	}
+
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	const UWildBoundInteractionComponent* Interaction =
+		Pawn ? Pawn->FindComponentByClass<UWildBoundInteractionComponent>() : nullptr;
+	if (!Interaction)
+	{
+		return false;
+	}
+
+	for (const TPair<TWeakObjectPtr<AActor>, int32>& Pair : BuildIdByActor)
+	{
+		AActor* Actor = Pair.Key.Get();
+		if (Pair.Value == BuildId
+			&& Actor
+			&& Actor->ActorHasTag(StorageTag)
+			&& Interaction->HasStoredItemsForActor(Actor))
+		{
+			if (bShowMessage && GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91706,
+					2.3f,
+					FColor(225, 155, 105),
+					TEXT("Empty this storage crate before moving or dismantling it."));
+			}
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void UWildBoundBuildingSubsystem::BeginRelocation(int32 BuildId)
+{
+	if (bPlacementActive || !CanManageBuild(BuildId, true))
+	{
+		return;
+	}
+
+	FWildBoundPlacedBuildState* State = FindBuildState(BuildId);
+	if (!State)
+	{
+		return;
+	}
+
+	RelocationOriginalState = *State;
+	RelocatingBuildId = BuildId;
+	bRelocatingBuild = true;
+	ActiveBuildTypeId = State->BuildTypeId;
+	ActiveDisplayName = GetBuildDisplayName(State->BuildTypeId);
+	ActiveMaterialCosts = GetMaterialCostsForBuild(State->BuildTypeId);
+	CurrentYaw = State->Rotation.Yaw;
+	bGridSnapEnabled = true;
+	bPieceSnapped = false;
+	bPlacementActive = true;
+	bPlacementValid = false;
+	PlacementStartedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+
+	DestroyBuildActors(BuildId);
+	EnsurePreviewActor();
+	UpdatePreviewTransform();
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91706,
+			2.0f,
+			FColor(180, 205, 160),
+			TEXT("RELOCATE MODE   |   cancel restores the original structure"));
+	}
+}
+
+void UWildBoundBuildingSubsystem::DismantleBuild(int32 BuildId)
+{
+	if (bPlacementActive || !CanManageBuild(BuildId, true))
+	{
+		return;
+	}
+
+	const FWildBoundPlacedBuildState* State = FindBuildState(BuildId);
+	UWildBoundInventoryComponent* Inventory = GetPlayerInventory();
+	if (!State || !Inventory)
+	{
+		return;
+	}
+
+	const FName BuildTypeId = State->BuildTypeId;
+	const FString BuildName = GetBuildDisplayName(BuildTypeId);
+	const TMap<FName, int32> FullCosts = GetMaterialCostsForBuild(BuildTypeId);
+
+	TArray<TPair<FName, int32>> Refunds;
+	for (const TPair<FName, int32>& Cost : FullCosts)
+	{
+		const int32 RefundQuantity = FMath::Max(
+			1,
+			FMath::FloorToInt(static_cast<float>(Cost.Value) * 0.60f));
+		Refunds.Emplace(Cost.Key, RefundQuantity);
+	}
+
+	TArray<TPair<FName, int32>> Granted;
+	for (const TPair<FName, int32>& Refund : Refunds)
+	{
+		if (!Inventory->AddItem(Refund.Key, Refund.Value))
+		{
+			for (const TPair<FName, int32>& Rollback : Granted)
+			{
+				Inventory->RemoveItem(Rollback.Key, Rollback.Value);
+			}
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91706,
+					2.2f,
+					FColor(225, 155, 105),
+					TEXT("Not enough backpack space for the dismantle refund."));
+			}
+			return;
+		}
+		Granted.Add(Refund);
+	}
+
+	DestroyBuildActors(BuildId);
+	PlacedBuilds.RemoveAll(
+		[BuildId](const FWildBoundPlacedBuildState& Existing)
+		{
+			return Existing.BuildId == BuildId;
+		});
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91706,
+			2.3f,
+			FColor(190, 205, 150),
+			FString::Printf(
+				TEXT("DISMANTLED   |   %s   |   60%% MATERIALS RECOVERED"),
+				*BuildName));
+	}
+}
+
+TMap<FName, int32> UWildBoundBuildingSubsystem::GetMaterialCostsForBuild(
+	FName BuildTypeId) const
+{
+	TMap<FName, int32> Costs;
+	auto Add = [&Costs](const TCHAR* ItemId, int32 Quantity)
+	{
+		Costs.Add(FName(ItemId), Quantity);
+	};
+
+	if (BuildTypeId == FloorType)
+	{
+		Add(TEXT("Wood"), 6); Add(TEXT("ScrapMetal"), 1);
+	}
+	else if (BuildTypeId == WallType || BuildTypeId == DoorwayType)
+	{
+		Add(TEXT("Wood"), 5); Add(TEXT("ScrapMetal"), 2);
+	}
+	else if (BuildTypeId == RoofType)
+	{
+		Add(TEXT("Wood"), 4); Add(TEXT("Cloth"), 4); Add(TEXT("ScrapMetal"), 1);
+	}
+	else if (BuildTypeId == BarricadeType)
+	{
+		Add(TEXT("Wood"), 4); Add(TEXT("ScrapMetal"), 3);
+	}
+	else if (BuildTypeId == StorageType)
+	{
+		Add(TEXT("Wood"), 4); Add(TEXT("ScrapMetal"), 2); Add(TEXT("MechanicalParts"), 1);
+	}
+	else if (BuildTypeId == CotType)
+	{
+		Add(TEXT("Wood"), 3); Add(TEXT("Cloth"), 5); Add(TEXT("ScrapMetal"), 1);
+	}
+	else if (BuildTypeId == WorkbenchType)
+	{
+		Add(TEXT("Wood"), 6); Add(TEXT("ScrapMetal"), 5); Add(TEXT("MechanicalParts"), 3);
+	}
+
+	return Costs;
+}
+
+FString UWildBoundBuildingSubsystem::GetBuildDisplayName(FName BuildTypeId) const
+{
+	if (BuildTypeId == FloorType) return TEXT("WOOD FLOOR");
+	if (BuildTypeId == WallType) return TEXT("WOOD WALL");
+	if (BuildTypeId == DoorwayType) return TEXT("DOORWAY FRAME");
+	if (BuildTypeId == RoofType) return TEXT("SHELTER ROOF");
+	if (BuildTypeId == BarricadeType) return TEXT("BARRICADE");
+	if (BuildTypeId == StorageType) return TEXT("STORAGE CRATE");
+	if (BuildTypeId == CotType) return TEXT("FIELD COT");
+	if (BuildTypeId == WorkbenchType) return TEXT("WORKBENCH");
+	return TEXT("STRUCTURE");
+}
+
+bool UWildBoundBuildingSubsystem::TryApplyPieceSnap(
+	FVector& InOutLocation,
+	FRotator& InOutRotation) const
+{
+	if (!bGridSnapEnabled)
+	{
+		return false;
+	}
+
+	bool bFound = false;
+	float BestDistanceSq = FMath::Square(PieceSnapDistance);
+	FVector BestLocation = InOutLocation;
+	FRotator BestRotation = InOutRotation;
+
+	auto Consider = [&](
+		const FVector& CandidateLocation,
+		const FRotator& CandidateRotation)
+	{
+		if (FMath::Abs(CandidateLocation.Z - InOutLocation.Z) > 140.0f)
+		{
+			return;
+		}
+
+		const float DistanceSq = FVector::DistSquared2D(
+			CandidateLocation,
+			InOutLocation);
+		if (DistanceSq <= BestDistanceSq)
+		{
+			BestDistanceSq = DistanceSq;
+			BestLocation = CandidateLocation;
+			BestRotation = CandidateRotation;
+			bFound = true;
+		}
+	};
+
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildId == RelocatingBuildId)
+		{
+			continue;
+		}
+
+		const FVector Forward = State.Rotation.RotateVector(FVector(1.0f, 0.0f, 0.0f));
+		const FVector Right = State.Rotation.RotateVector(FVector(0.0f, 1.0f, 0.0f));
+
+		if (ActiveBuildTypeId == FloorType && State.BuildTypeId == FloorType)
+		{
+			Consider(State.Location + Forward * 400.0f, State.Rotation);
+			Consider(State.Location - Forward * 400.0f, State.Rotation);
+			Consider(State.Location + Right * 400.0f, State.Rotation);
+			Consider(State.Location - Right * 400.0f, State.Rotation);
+		}
+		else if (ActiveBuildTypeId == RoofType)
+		{
+			if (State.BuildTypeId == FloorType)
+			{
+				Consider(State.Location, State.Rotation);
+			}
+			else if (State.BuildTypeId == RoofType)
+			{
+				Consider(State.Location + Forward * 400.0f, State.Rotation);
+				Consider(State.Location - Forward * 400.0f, State.Rotation);
+				Consider(State.Location + Right * 400.0f, State.Rotation);
+				Consider(State.Location - Right * 400.0f, State.Rotation);
+			}
+		}
+		else if (ActiveBuildTypeId == WallType || ActiveBuildTypeId == DoorwayType)
+		{
+			if (State.BuildTypeId == FloorType)
+			{
+				Consider(
+					State.Location + Right * 200.0f,
+					State.Rotation);
+				Consider(
+					State.Location - Right * 200.0f,
+					State.Rotation);
+				Consider(
+					State.Location + Forward * 200.0f,
+					FRotator(0.0f, State.Rotation.Yaw + 90.0f, 0.0f));
+				Consider(
+					State.Location - Forward * 200.0f,
+					FRotator(0.0f, State.Rotation.Yaw + 90.0f, 0.0f));
+			}
+			else if (State.BuildTypeId == WallType || State.BuildTypeId == DoorwayType)
+			{
+				Consider(State.Location + Forward * 400.0f, State.Rotation);
+				Consider(State.Location - Forward * 400.0f, State.Rotation);
+			}
+		}
+		else if (ActiveBuildTypeId == BarricadeType && State.BuildTypeId == BarricadeType)
+		{
+			Consider(State.Location + Forward * 300.0f, State.Rotation);
+			Consider(State.Location - Forward * 300.0f, State.Rotation);
+		}
+	}
+
+	if (bFound)
+	{
+		InOutLocation = BestLocation;
+		InOutRotation = BestRotation;
+	}
+	return bFound;
+}
+
+bool UWildBoundBuildingSubsystem::IsDuplicatePlacement(
+	const FVector& Location,
+	FName BuildTypeId,
+	int32 IgnoreBuildId) const
+{
+	const bool bNewWallLike = BuildTypeId == WallType || BuildTypeId == DoorwayType;
+
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildId == IgnoreBuildId)
+		{
+			continue;
+		}
+
+		if (FMath::Abs(State.Location.Z - Location.Z) > 90.0f
+			|| FVector::DistSquared2D(State.Location, Location) > FMath::Square(70.0f))
+		{
+			continue;
+		}
+
+		const bool bExistingWallLike =
+			State.BuildTypeId == WallType || State.BuildTypeId == DoorwayType;
+		if (State.BuildTypeId == BuildTypeId || (bNewWallLike && bExistingWallLike))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 UWildBoundInventoryComponent* UWildBoundBuildingSubsystem::GetPlayerInventory() const
