@@ -27,6 +27,15 @@ struct FWildBoundPlacedBuildState
 
 	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
 	FRotator Rotation = FRotator::ZeroRotator;
+
+	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
+	bool bUtilityEnabled = true;
+
+	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
+	int32 StoredUtilityUnits = 0;
+
+	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
+	float UtilityProgress = 0.0f;
 };
 
 UCLASS()
@@ -46,11 +55,17 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Building")
 	bool IsPlacementActive() const { return bPlacementActive; }
 
+	FString GetUtilityInteractionPrompt(const AActor* Actor) const;
+	bool TryUseUtility(AActor* Actor);
+	float GetRestHealthRecoveryAt(const FVector& Location) const;
+	FString GetShelterProgressionNameAt(const FVector& Location) const;
+
 	const TArray<FWildBoundPlacedBuildState>& GetPlacedBuildStates() const { return PlacedBuilds; }
 	void RestorePlacedBuilds(const TArray<FWildBoundPlacedBuildState>& SavedBuilds);
 
 private:
 	FTimerHandle BuildingUpdateTimer;
+	FTimerHandle UtilityUpdateTimer;
 	TWeakObjectPtr<AStaticMeshActor> PreviewActor;
 	TWeakObjectPtr<UMaterialInstanceDynamic> PreviewMaterial;
 	TArray<FWildBoundPlacedBuildState> PlacedBuilds;
@@ -76,6 +91,8 @@ private:
 
 	void UpdateBuildingMode();
 	void UpdateManagementMode();
+	void UpdateUtilities();
+	void RefreshPoweredLights();
 	void UpdatePreviewTransform();
 	void TryPlaceActiveBuild();
 	void BeginRelocation(int32 BuildId);
@@ -106,6 +123,8 @@ private:
 	FString GetBuildDisplayName(FName BuildTypeId) const;
 	bool TryApplyPieceSnap(FVector& InOutLocation, FRotator& InOutRotation) const;
 	bool IsDuplicatePlacement(const FVector& Location, FName IgnoreBuildType = NAME_None, int32 IgnoreBuildId = 0) const;
+	bool IsPowerAvailableAt(const FVector& Location) const;
+	int32 GetShelterProgressionTierAt(const FVector& Location) const;
 
 	UWildBoundInventoryComponent* GetPlayerInventory() const;
 	FVector GetBuildHalfExtents(FName BuildTypeId) const;
