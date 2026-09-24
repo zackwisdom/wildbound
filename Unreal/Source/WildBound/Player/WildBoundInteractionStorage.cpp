@@ -125,3 +125,29 @@ bool UWildBoundInteractionComponent::StoreInventoryStackInOpenContainer(
 
 	return true;
 }
+
+
+bool UWildBoundInteractionComponent::HasStoredItemsForActor(const AActor* ContainerActor) const
+{
+	if (!ContainerActor)
+	{
+		return false;
+	}
+
+	const TArray<FWildBoundContainerLootEntry>* Loot =
+		ContainerLootByActor.Find(TWeakObjectPtr<AActor>(const_cast<AActor*>(ContainerActor)));
+	if (!Loot)
+	{
+		return false;
+	}
+
+	for (const FWildBoundContainerLootEntry& Entry : *Loot)
+	{
+		if (!Entry.ItemId.IsNone() && Entry.Quantity > 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
