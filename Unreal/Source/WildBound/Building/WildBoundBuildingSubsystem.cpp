@@ -1654,10 +1654,12 @@ void UWildBoundBuildingSubsystem::UpdateManagementMode()
 	const FString BuildName = GetBuildDisplayName(State->BuildTypeId);
 
 	FString UseHint;
-	if (State->BuildTypeId == StorageType
-		|| State->BuildTypeId == CotType
-		|| State->BuildTypeId == RainCollectorType
-		|| State->BuildTypeId == PowerBankType)
+	const FString UtilityPrompt = GetUtilityInteractionPrompt(TargetActor);
+	if (!UtilityPrompt.IsEmpty())
+	{
+		UseHint = FString::Printf(TEXT("[E] %s   |   "), *UtilityPrompt);
+	}
+	else if (State->BuildTypeId == StorageType || State->BuildTypeId == CotType)
 	{
 		UseHint = TEXT("[E] USE   |   ");
 	}
