@@ -7,6 +7,7 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -327,14 +328,27 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 									.ColorAndOpacity(FLinearColor(0.50f, 0.54f, 0.50f, 1.0f))
 								]
 							]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(0)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(1)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(2)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(3)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(4)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(5)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(6)]
-							+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f)[MakeRecipeButton(7)]
+							+ SVerticalBox::Slot().FillHeight(1.0f)
+							[
+								SNew(SBox)
+								.HeightOverride(410.0f)
+								[
+									SNew(SScrollBox)
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(0)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(1)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(2)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(3)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(4)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(5)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(6)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(7)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(8)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(9)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(10)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(11)]
+									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(12)]
+								]
+							]
 						]
 					]
 					+ SHorizontalBox::Slot().FillWidth(0.55f)
