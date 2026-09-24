@@ -359,13 +359,6 @@ void UWildBoundBuildingSubsystem::UpdatePreviewTransform()
 		}
 	}
 
-	if (IsDuplicatePlacement(
-		Location,
-		ActiveBuildTypeId,
-		bRelocatingBuild ? RelocatingBuildId : 0))
-	{
-		return false;
-	}
 
 	const FVector HalfExtents = GetBuildHalfExtents(ActiveBuildTypeId);
 	const float VerticalOffset = GetBuildVerticalOffset(ActiveBuildTypeId);
@@ -632,6 +625,14 @@ bool UWildBoundBuildingSubsystem::ValidatePlacement(
 	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
 	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
 	if (!World || !Pawn || FVector::DistSquared2D(Pawn->GetActorLocation(), Location) > FMath::Square(850.0f))
+	{
+		return false;
+	}
+
+	if (IsDuplicatePlacement(
+		Location,
+		ActiveBuildTypeId,
+		bRelocatingBuild ? RelocatingBuildId : 0))
 	{
 		return false;
 	}
