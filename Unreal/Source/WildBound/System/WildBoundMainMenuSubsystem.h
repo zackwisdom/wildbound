@@ -52,6 +52,7 @@ private:
 	bool bSettingsPageOpen = false;
 	bool bLoadPageOpen = false;
 	bool bNewGameConfirmationOpen = false;
+	bool bStartupInputLocked = false;
 
 	void TryOpenMainMenu();
 	void OpenMainMenu();
@@ -59,4 +60,5 @@ private:
 	void EnsureMainMenuWidget();
 	void RemoveMainMenuWidget();
 	void ApplyMenuState(bool bOpen);
+	void SetStartupInputLock(bool bLocked);
 };
