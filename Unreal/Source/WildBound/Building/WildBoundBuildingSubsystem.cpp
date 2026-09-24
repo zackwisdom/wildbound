@@ -1243,6 +1243,7 @@ void UWildBoundBuildingSubsystem::RestorePlacedBuilds(
 			NextBuildId = FMath::Max(NextBuildId, Restored.BuildId + 1);
 		}
 	}
+	RefreshPoweredLights();
 }
 
 void UWildBoundBuildingSubsystem::RegisterBuildActors(
@@ -1362,6 +1363,253 @@ const FWildBoundPlacedBuildState* UWildBoundBuildingSubsystem::FindBuildState(in
 		{
 			return State.BuildId == BuildId;
 		});
+}
+
+void UWildBoundBuildingSubsystem::UpdateUtilities()
+{
+	bool bUtilityStateChanged = false;
+
+	for (FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildTypeId != RainCollectorType
+			|| !State.bUtilityEnabled
+			|| State.StoredUtilityUnits >= RainCollectorCapacity)
+		{
+			continue;
+		}
+
+		State.UtilityProgress += 1.0f / RainWaterSecondsPerUnit;
+		while (State.UtilityProgress >= 1.0f
+			&& State.StoredUtilityUnits < RainCollectorCapacity)
+		{
+			State.UtilityProgress -= 1.0f;
+			++State.StoredUtilityUnits;
+			bUtilityStateChanged = true;
+		}
+
+		if (State.StoredUtilityUnits >= RainCollectorCapacity)
+		{
+			State.UtilityProgress = 0.0f;
+		}
+	}
+
+	RefreshPoweredLights();
+
+	if (bUtilityStateChanged && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			91708,
+			1.4f,
+			FColor(125, 175, 205),
+			TEXT("RAIN COLLECTOR   |   water captured"));
+	}
+}
+
+void UWildBoundBuildingSubsystem::RefreshPoweredLights()
+{
+	for (const TPair<TWeakObjectPtr<AActor>, int32>& Pair : BuildIdByActor)
+	{
+		APointLight* Light = Cast<APointLight>(Pair.Key.Get());
+		if (!Light || !Light->ActorHasTag(PoweredLightTag))
+		{
+			continue;
+		}
+
+		const FWildBoundPlacedBuildState* State = FindBuildState(Pair.Value);
+		const bool bPowered = State && IsPowerAvailableAt(State->Location);
+		if (UPointLightComponent* LightComponent = Light->GetPointLightComponent())
+		{
+			LightComponent->SetVisibility(bPowered);
+		}
+	}
+}
+
+bool UWildBoundBuildingSubsystem::IsPowerAvailableAt(const FVector& Location) const
+{
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildTypeId == PowerBankType
+			&& State.bUtilityEnabled
+			&& FVector::DistSquared2D(State.Location, Location) <= FMath::Square(UtilityPowerRadius))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+FString UWildBoundBuildingSubsystem::GetUtilityInteractionPrompt(const AActor* Actor) const
+{
+	const int32 BuildId = FindBuildIdForActor(Actor);
+	const FWildBoundPlacedBuildState* State = FindBuildState(BuildId);
+	if (!State)
+	{
+		return FString();
+	}
+
+	if (State->BuildTypeId == RainCollectorType)
+	{
+		if (State->StoredUtilityUnits > 0)
+		{
+			return FString::Printf(
+				TEXT("Collect rainwater x%d"),
+				State->StoredUtilityUnits);
+		}
+
+		return FString::Printf(
+			TEXT("Rain collector - %d%%"),
+			FMath::RoundToInt(FMath::Clamp(State->UtilityProgress, 0.0f, 1.0f) * 100.0f));
+	}
+
+	if (State->BuildTypeId == PowerBankType)
+	{
+		return State->bUtilityEnabled
+			? TEXT("Switch battery bank off")
+			: TEXT("Switch battery bank on");
+	}
+
+	return FString();
+}
+
+bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
+{
+	const int32 BuildId = FindBuildIdForActor(Actor);
+	FWildBoundPlacedBuildState* State = FindBuildState(BuildId);
+	if (!State)
+	{
+		return false;
+	}
+
+	if (State->BuildTypeId == RainCollectorType)
+	{
+		UWildBoundInventoryComponent* Inventory = GetPlayerInventory();
+		if (!Inventory)
+		{
+			return true;
+		}
+
+		if (State->StoredUtilityUnits <= 0)
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91709,
+					1.8f,
+					FColor(135, 175, 200),
+					TEXT("Rain collector is still filling."));
+			}
+			return true;
+		}
+
+		int32 Collected = 0;
+		while (State->StoredUtilityUnits > 0)
+		{
+			if (!Inventory->AddItem(FName(TEXT("Water")), 1))
+			{
+				break;
+			}
+
+			--State->StoredUtilityUnits;
+			++Collected;
+		}
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91709,
+				2.0f,
+				Collected > 0 ? FColor(135, 190, 220) : FColor(220, 155, 105),
+				Collected > 0
+					? FString::Printf(TEXT("COLLECTED WATER x%d"), Collected)
+					: TEXT("Not enough backpack capacity for collected water."));
+		}
+		return true;
+	}
+
+	if (State->BuildTypeId == PowerBankType)
+	{
+		State->bUtilityEnabled = !State->bUtilityEnabled;
+		RefreshPoweredLights();
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91709,
+				2.0f,
+				State->bUtilityEnabled ? FColor(170, 205, 140) : FColor(180, 180, 165),
+				State->bUtilityEnabled
+					? TEXT("BATTERY BANK ONLINE")
+					: TEXT("BATTERY BANK OFFLINE"));
+		}
+		return true;
+	}
+
+	return false;
+}
+
+int32 UWildBoundBuildingSubsystem::GetShelterProgressionTierAt(const FVector& Location) const
+{
+	bool bHasWater = false;
+	bool bHasPower = false;
+	bool bHasPoweredLight = false;
+	int32 ReinforcedPieces = 0;
+
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (FVector::DistSquared2D(State.Location, Location) > FMath::Square(ShelterUpgradeRadius))
+		{
+			continue;
+		}
+
+		if (State.BuildTypeId == RainCollectorType)
+		{
+			bHasWater = true;
+		}
+		else if (State.BuildTypeId == PowerBankType && State.bUtilityEnabled)
+		{
+			bHasPower = true;
+		}
+		else if (State.BuildTypeId == PoweredLightType && IsPowerAvailableAt(State.Location))
+		{
+			bHasPoweredLight = true;
+		}
+		else if (State.BuildTypeId == ReinforcedFloorType || State.BuildTypeId == ReinforcedWallType)
+		{
+			++ReinforcedPieces;
+		}
+	}
+
+	int32 Tier = 0;
+	if (bHasWater)
+	{
+		Tier = 1;
+	}
+	if (Tier >= 1 && bHasPower && bHasPoweredLight)
+	{
+		Tier = 2;
+	}
+	if (Tier >= 2 && ReinforcedPieces >= 2)
+	{
+		Tier = 3;
+	}
+	return Tier;
+}
+
+float UWildBoundBuildingSubsystem::GetRestHealthRecoveryAt(const FVector& Location) const
+{
+	return 12.0f + static_cast<float>(GetShelterProgressionTierAt(Location)) * 4.0f;
+}
+
+FString UWildBoundBuildingSubsystem::GetShelterProgressionNameAt(const FVector& Location) const
+{
+	switch (GetShelterProgressionTierAt(Location))
+	{
+	case 3: return TEXT("REINFORCED SAFEHOUSE");
+	case 2: return TEXT("POWERED SHELTER");
+	case 1: return TEXT("WATER-SECURED SHELTER");
+	default: return TEXT("FIELD SHELTER");
+	}
 }
 
 void UWildBoundBuildingSubsystem::UpdateManagementMode()
