@@ -1833,6 +1833,20 @@ void UWildBoundBuildingSubsystem::DismantleBuild(int32 BuildId)
 
 	const FName BuildTypeId = State->BuildTypeId;
 	const FString BuildName = GetBuildDisplayName(BuildTypeId);
+
+	if (BuildTypeId == RainCollectorType && State->StoredUtilityUnits > 0)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91706,
+				2.2f,
+				FColor(135, 180, 205),
+				TEXT("Collect the stored rainwater before dismantling this collector."));
+		}
+		return;
+	}
+
 	const TMap<FName, int32> FullCosts = GetMaterialCostsForBuild(BuildTypeId);
 
 	TArray<TPair<FName, int32>> Refunds;
