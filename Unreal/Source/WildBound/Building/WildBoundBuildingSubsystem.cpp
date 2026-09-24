@@ -1,6 +1,7 @@
 #include "WildBoundBuildingSubsystem.h"
 
 #include "../Inventory/WildBoundInventoryComponent.h"
+#include "../Player/WildBoundInteractionComponent.h"
 #include "CollisionQueryParams.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
@@ -36,6 +37,10 @@ namespace
 	const FName StorageType(TEXT("BuildStorage"));
 	const FName CotType(TEXT("BuildCot"));
 	const FName WorkbenchType(TEXT("BuildWorkbench"));
+
+	constexpr float BuildManagementDistance = 475.0f;
+	constexpr float DismantleHoldDuration = 0.75f;
+	constexpr float PieceSnapDistance = 155.0f;
 
 	UStaticMesh* GetCubeMesh()
 	{
@@ -224,6 +229,7 @@ void UWildBoundBuildingSubsystem::UpdateBuildingMode()
 {
 	if (!bPlacementActive)
 	{
+		UpdateManagementMode();
 		return;
 	}
 
@@ -274,7 +280,10 @@ void UWildBoundBuildingSubsystem::UpdateBuildingMode()
 		: FColor(230, 118, 92);
 	const FString Status = !bAffordable
 		? TEXT("MATERIALS CHANGED")
-		: (bPlacementValid ? TEXT("VALID") : TEXT("OBSTRUCTED"));
+		: (bPlacementValid
+			? (bPieceSnapped ? TEXT("SNAPPED") : TEXT("VALID"))
+			: TEXT("OBSTRUCTED"));
+	const FString ModeLabel = bRelocatingBuild ? TEXT("MOVE") : TEXT("BUILD");
 
 	if (GEngine)
 	{
@@ -283,7 +292,8 @@ void UWildBoundBuildingSubsystem::UpdateBuildingMode()
 			0.12f,
 			StatusColor,
 			FString::Printf(
-				TEXT("BUILD  %s   |   %s   |   LMB PLACE   R ROTATE   SHIFT+R 90 DEG   G GRID %s   RMB/ESC CANCEL"),
+				TEXT("%s  %s   |   %s   |   LMB PLACE   R ROTATE   SHIFT+R 90 DEG   G SNAP %s   RMB/ESC CANCEL"),
+				*ModeLabel,
 				*ActiveDisplayName,
 				*Status,
 				bGridSnapEnabled ? TEXT("ON") : TEXT("OFF")));
@@ -315,17 +325,11 @@ void UWildBoundBuildingSubsystem::UpdatePreviewTransform()
 	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
 
 	const FVector AimPoint = ViewLocation + ViewRotation.Vector() * 650.0f;
-	FVector ProbePoint = AimPoint;
-	if (bGridSnapEnabled)
-	{
-		ProbePoint = SnapLocation(ProbePoint);
-	}
-
 	FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(WildBoundBuildGround), false, Pawn);
 	GroundParams.AddIgnoredActor(Preview);
 	FHitResult GroundHit;
-	const FVector GroundStart(ProbePoint.X, ProbePoint.Y, ProbePoint.Z + 550.0f);
-	const FVector GroundEnd(ProbePoint.X, ProbePoint.Y, ProbePoint.Z - 1600.0f);
+	const FVector GroundStart(AimPoint.X, AimPoint.Y, AimPoint.Z + 550.0f);
+	const FVector GroundEnd(AimPoint.X, AimPoint.Y, AimPoint.Z - 1600.0f);
 	const bool bFoundGround = World->LineTraceSingleByChannel(
 		GroundHit,
 		GroundStart,
@@ -335,18 +339,33 @@ void UWildBoundBuildingSubsystem::UpdatePreviewTransform()
 
 	if (!bFoundGround)
 	{
+		bPieceSnapped = false;
 		bPlacementValid = false;
 		UpdatePreviewMaterial();
 		return;
 	}
 
 	PreviewLocation = GroundHit.ImpactPoint;
+	PreviewRotation = FRotator(0.0f, CurrentYaw, 0.0f);
+	bPieceSnapped = false;
+
 	if (bGridSnapEnabled)
 	{
-		PreviewLocation = SnapLocation(PreviewLocation);
-		PreviewLocation.Z = GroundHit.ImpactPoint.Z;
+		bPieceSnapped = TryApplyPieceSnap(PreviewLocation, PreviewRotation);
+		if (!bPieceSnapped)
+		{
+			PreviewLocation = SnapLocation(PreviewLocation);
+			PreviewLocation.Z = GroundHit.ImpactPoint.Z;
+		}
 	}
-	PreviewRotation = FRotator(0.0f, CurrentYaw, 0.0f);
+
+	if (IsDuplicatePlacement(
+		Location,
+		ActiveBuildTypeId,
+		bRelocatingBuild ? RelocatingBuildId : 0))
+	{
+		return false;
+	}
 
 	const FVector HalfExtents = GetBuildHalfExtents(ActiveBuildTypeId);
 	const float VerticalOffset = GetBuildVerticalOffset(ActiveBuildTypeId);
@@ -554,6 +573,11 @@ void UWildBoundBuildingSubsystem::UpdatePreviewMaterial()
 
 bool UWildBoundBuildingSubsystem::CanAffordActiveBuild() const
 {
+	if (bRelocatingBuild)
+	{
+		return true;
+	}
+
 	const UWildBoundInventoryComponent* Inventory = GetPlayerInventory();
 	if (!Inventory || ActiveMaterialCosts.IsEmpty())
 	{
@@ -572,6 +596,11 @@ bool UWildBoundBuildingSubsystem::CanAffordActiveBuild() const
 
 bool UWildBoundBuildingSubsystem::ConsumeActiveBuildMaterials()
 {
+	if (bRelocatingBuild)
+	{
+		return true;
+	}
+
 	UWildBoundInventoryComponent* Inventory = GetPlayerInventory();
 	if (!Inventory || !CanAffordActiveBuild())
 	{
