@@ -74,6 +74,7 @@ public:
 	bool TakeLootEntry(int32 EntryIndex, bool bTakeWholeStack = true);
 	void TakeAllContainerLoot();
 	bool StoreInventoryStackInOpenContainer(int32 StackIndex, bool bStoreWholeStack = true);
+	bool HasStoredItemsForActor(const AActor* ContainerActor) const;
 	void CloseLootWindow();
 
 	void BuildPersistentContainerStates(TArray<FWildBoundPersistentContainerState>& OutStates) const;
