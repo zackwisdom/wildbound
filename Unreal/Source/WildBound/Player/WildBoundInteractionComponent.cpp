@@ -657,6 +657,18 @@ FString UWildBoundInteractionComponent::GetInteractionPrompt(const AActor* Targe
 	if (!TargetActor) return TEXT("Interact");
 	const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>())
+		{
+			const FString UtilityPrompt = Building->GetUtilityInteractionPrompt(TargetActor);
+			if (!UtilityPrompt.IsEmpty())
+			{
+				return UtilityPrompt;
+			}
+		}
+	}
+
 	if (TargetActor->ActorHasTag(DroppedItemTag))
 	{
 		FName ItemId; int32 Quantity = 0;
@@ -701,13 +713,33 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 {
 	if (!TargetActor) return;
 
+	if (UWorld* World = GetWorld())
+	{
+		if (UWildBoundBuildingSubsystem* Building = World->GetSubsystem<UWildBoundBuildingSubsystem>();
+			Building && Building->TryUseUtility(TargetActor))
+		{
+			return;
+		}
+	}
+
 	if (TargetActor->ActorHasTag(SafehouseBedTag))
 	{
 		AActor* Owner = GetOwner();
 		UWildBoundSurvivalComponent* Survival = Owner ? Owner->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
 		if (!Survival) return;
 
-		if (!Survival->RestAtSafehouse())
+		UWorld* World = GetWorld();
+		const UWildBoundBuildingSubsystem* Building = World
+			? World->GetSubsystem<UWildBoundBuildingSubsystem>()
+			: nullptr;
+		const float RestHealthRecovery = Building
+			? Building->GetRestHealthRecoveryAt(TargetActor->GetActorLocation())
+			: 12.0f;
+		const FString ShelterName = Building
+			? Building->GetShelterProgressionNameAt(TargetActor->GetActorLocation())
+			: TEXT("FIELD SHELTER");
+
+		if (!Survival->RestAtSafehouse(RestHealthRecovery))
 		{
 			if (GEngine)
 			{
@@ -731,7 +763,10 @@ void UWildBoundInteractionComponent::TryInteract(AActor* TargetActor)
 				91070,
 				3.0f,
 				FColor(175, 205, 165),
-				TEXT("RESTED   |   STAMINA RESTORED   |   +12 HEALTH   |   PAIN EASED   |   -6 HUNGER   |   -8 THIRST"));
+				FString::Printf(
+					TEXT("RESTED   |   %s   |   +%.0f HEALTH   |   PAIN EASED   |   -6 HUNGER   |   -8 THIRST"),
+					*ShelterName,
+					RestHealthRecovery));
 		}
 		return;
 	}
