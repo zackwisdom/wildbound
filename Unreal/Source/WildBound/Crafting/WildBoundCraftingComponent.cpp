@@ -466,6 +466,41 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		TEXT("BUILD: WORKBENCH"),
 		TEXT("A functional crafting station that unlocks advanced crafting and construction wherever you establish a base."),
 		{ Ingredient(TEXT("Wood"), 6), Ingredient(TEXT("ScrapMetal"), 5), Ingredient(TEXT("MechanicalParts"), 3) });
+
+	AddBuildRecipe(
+		TEXT("BuildRainCollector"),
+		TEXT("BuildRainCollector"),
+		TEXT("BUILD: RAIN COLLECTOR"),
+		TEXT("Captures drinkable water over time. Stores up to four water units for later collection."),
+		{ Ingredient(TEXT("ScrapMetal"), 4), Ingredient(TEXT("Plastic"), 4), Ingredient(TEXT("Cloth"), 2), Ingredient(TEXT("Adhesive"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildPowerBank"),
+		TEXT("BuildPowerBank"),
+		TEXT("BUILD: BATTERY BANK"),
+		TEXT("A toggleable local power source for nearby electrical utilities and shelter lighting."),
+		{ Ingredient(TEXT("ScrapMetal"), 6), Ingredient(TEXT("Battery"), 4), Ingredient(TEXT("Electronics"), 2), Ingredient(TEXT("Wire"), 3), Ingredient(TEXT("MechanicalParts"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildPoweredLight"),
+		TEXT("BuildPoweredLight"),
+		TEXT("BUILD: POWERED LIGHT"),
+		TEXT("A warm utility light that automatically activates when placed within range of an online battery bank."),
+		{ Ingredient(TEXT("ScrapMetal"), 3), Ingredient(TEXT("Electronics"), 1), Ingredient(TEXT("Wire"), 2), Ingredient(TEXT("Plastic"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildReinforcedFloor"),
+		TEXT("BuildReinforcedFloor"),
+		TEXT("BUILD: REINFORCED FLOOR"),
+		TEXT("A heavier timber platform with scrap bracing. Counts toward advanced shelter reinforcement."),
+		{ Ingredient(TEXT("Wood"), 8), Ingredient(TEXT("ScrapMetal"), 5), Ingredient(TEXT("MechanicalParts"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildReinforcedWall"),
+		TEXT("BuildReinforcedWall"),
+		TEXT("BUILD: REINFORCED WALL"),
+		TEXT("A braced defensive wall section. Two reinforced pieces near a powered shelter complete the first safehouse upgrade chain."),
+		{ Ingredient(TEXT("Wood"), 7), Ingredient(TEXT("ScrapMetal"), 6), Ingredient(TEXT("MechanicalParts"), 2) });
 }
 
 void UWildBoundCraftingComponent::SetWorkbenchTab(bool bBuildTab)
