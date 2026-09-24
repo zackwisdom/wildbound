@@ -544,6 +544,8 @@ void UWildBoundMainMenuSubsystem::Deinitialize()
 		World->GetTimerManager().ClearTimer(StartupTimer);
 	}
 
+	SetStartupInputLock(false);
+
 	if (bMainMenuOpen)
 	{
 		ApplyMenuState(false);
@@ -573,14 +575,11 @@ void UWildBoundMainMenuSubsystem::TryOpenMainMenu()
 
 	if (!SaveSubsystem || !SaveSubsystem->IsPersistenceReady())
 	{
-		PlayerController->SetIgnoreMoveInput(true);
-		PlayerController->SetIgnoreLookInput(true);
-		PlayerController->bShowMouseCursor = false;
-		FInputModeUIOnly InputMode;
-		PlayerController->SetInputMode(InputMode);
+		SetStartupInputLock(true);
 		return;
 	}
 
+	SetStartupInputLock(false);
 	OpenMainMenu();
 	World->GetTimerManager().ClearTimer(StartupTimer);
 }
@@ -850,6 +849,36 @@ bool UWildBoundMainMenuSubsystem::HasSaveGame() const
 	return SaveSubsystem && SaveSubsystem->HasSaveGame();
 }
 
+void UWildBoundMainMenuSubsystem::SetStartupInputLock(bool bLocked)
+{
+	if (bStartupInputLocked == bLocked)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	bStartupInputLocked = bLocked;
+	if (bLocked)
+	{
+		PlayerController->SetIgnoreMoveInput(true);
+		PlayerController->SetIgnoreLookInput(true);
+		PlayerController->bShowMouseCursor = false;
+		FInputModeUIOnly InputMode;
+		PlayerController->SetInputMode(InputMode);
+	}
+	else
+	{
+		PlayerController->ResetIgnoreMoveInput();
+		PlayerController->ResetIgnoreLookInput();
+	}
+}
+
 void UWildBoundMainMenuSubsystem::ApplyMenuState(bool bOpen)
 {
 	UWorld* World = GetWorld();
@@ -878,6 +907,8 @@ void UWildBoundMainMenuSubsystem::ApplyMenuState(bool bOpen)
 	else
 	{
 		UGameplayStatics::SetGamePaused(World, false);
+		PlayerController->ResetIgnoreMoveInput();
+		PlayerController->ResetIgnoreLookInput();
 		FInputModeGameOnly InputMode;
 		PlayerController->SetInputMode(InputMode);
 	}
