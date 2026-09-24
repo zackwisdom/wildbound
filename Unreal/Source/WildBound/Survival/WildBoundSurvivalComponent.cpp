@@ -158,14 +158,14 @@ void UWildBoundSurvivalComponent::Heal(float Amount)
 	BroadcastStatsChanged();
 }
 
-bool UWildBoundSurvivalComponent::RestAtSafehouse()
+bool UWildBoundSurvivalComponent::RestAtSafehouse(float HealthRecovery)
 {
 	if (!IsAlive() || Hunger < 15.0f || Thirst < 15.0f)
 	{
 		return false;
 	}
 
-	Health = FMath::Clamp(Health + 12.0f, 0.0f, MaxHealth);
+	Health = FMath::Clamp(Health + FMath::Max(0.0f, HealthRecovery), 0.0f, MaxHealth);
 	Stamina = MaxStamina;
 	Hunger = FMath::Clamp(Hunger - 6.0f, 0.0f, MaxHunger);
 	Thirst = FMath::Clamp(Thirst - 8.0f, 0.0f, MaxThirst);
