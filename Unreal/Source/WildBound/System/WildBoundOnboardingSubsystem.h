@@ -39,6 +39,7 @@ private:
 	FVector RunStartLocation = FVector::ZeroVector;
 	bool bRunStartCaptured = false;
 	bool bIntroActive = false;
+	bool bIntroInputLocked = false;
 	float IntroStartedAt = 0.0f;
 	float IntroDuration = 4.25f;
 	float IntroInputLockDuration = 1.15f;
