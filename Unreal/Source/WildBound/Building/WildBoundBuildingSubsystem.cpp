@@ -1679,6 +1679,44 @@ void UWildBoundBuildingSubsystem::UpdateUtilities()
 
 	for (FWildBoundPlacedBuildState& State : PlacedBuilds)
 	{
+		if (State.BuildTypeId != PurifierType
+			|| !State.bUtilityEnabled
+			|| State.StoredUtilityUnits >= PurifierCapacity
+			|| !IsBuildPowered(State.BuildId))
+		{
+			continue;
+		}
+
+		FWildBoundPlacedBuildState* SourceCollector = nullptr;
+		for (FWildBoundPlacedBuildState& Candidate : PlacedBuilds)
+		{
+			if (Candidate.BuildTypeId == RainCollectorType
+				&& Candidate.StoredUtilityUnits > 0
+				&& FVector::DistSquared2D(Candidate.Location, State.Location) <= FMath::Square(ShelterUpgradeRadius))
+			{
+				SourceCollector = &Candidate;
+				break;
+			}
+		}
+
+		if (!SourceCollector)
+		{
+			State.UtilityProgress = 0.0f;
+			continue;
+		}
+
+		State.UtilityProgress += 1.0f / PurifierSecondsPerUnit;
+		if (State.UtilityProgress >= 1.0f)
+		{
+			State.UtilityProgress = 0.0f;
+			--SourceCollector->StoredUtilityUnits;
+			++State.StoredUtilityUnits;
+			bUtilityStateChanged = true;
+		}
+	}
+
+	for (FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
 		if (State.BuildTypeId != PowerBankType
 			|| !State.bUtilityEnabled
 			|| State.StoredPower <= 0.0f)
@@ -1776,7 +1814,10 @@ bool UWildBoundBuildingSubsystem::IsElectricalBuild(FName BuildTypeId) const
 {
 	return BuildTypeId == GeneratorType
 		|| BuildTypeId == PowerBankType
-		|| BuildTypeId == PoweredLightType;
+		|| BuildTypeId == PoweredLightType
+		|| BuildTypeId == PurifierType
+		|| BuildTypeId == HeaterType
+		|| BuildTypeId == ToolStationType;
 }
 
 bool UWildBoundBuildingSubsystem::CanLinkPowerBuilds(int32 SourceBuildId, int32 TargetBuildId) const
@@ -1793,8 +1834,14 @@ bool UWildBoundBuildingSubsystem::CanLinkPowerBuilds(int32 SourceBuildId, int32 
 		return false;
 	}
 
+	const bool bBatteryLoad =
+		Target->BuildTypeId == PoweredLightType
+		|| Target->BuildTypeId == PurifierType
+		|| Target->BuildTypeId == HeaterType
+		|| Target->BuildTypeId == ToolStationType;
+
 	return (Source->BuildTypeId == GeneratorType && Target->BuildTypeId == PowerBankType)
-		|| (Source->BuildTypeId == PowerBankType && Target->BuildTypeId == PoweredLightType);
+		|| (Source->BuildTypeId == PowerBankType && bBatteryLoad);
 }
 
 void UWildBoundBuildingSubsystem::TogglePowerLink(int32 SourceBuildId, int32 TargetBuildId)
@@ -1808,7 +1855,7 @@ void UWildBoundBuildingSubsystem::TogglePowerLink(int32 SourceBuildId, int32 Tar
 				91712,
 				2.0f,
 				FColor(225, 145, 105),
-				TEXT("Invalid power link. Generator -> Battery Bank -> Powered Light."));
+				TEXT("Invalid power link. Generator -> Battery Bank -> powered utility."));
 		}
 		return;
 	}
@@ -1838,34 +1885,67 @@ float UWildBoundBuildingSubsystem::GetConnectedLoadForBattery(int32 BatteryBuild
 	for (int32 LinkedId : Battery->LinkedBuildIds)
 	{
 		const FWildBoundPlacedBuildState* Target = FindBuildState(LinkedId);
-		if (Target && Target->BuildTypeId == PoweredLightType)
+		if (!Target || !Target->bUtilityEnabled)
+		{
+			continue;
+		}
+
+		if (Target->BuildTypeId == PoweredLightType)
 		{
 			Load += PoweredLightLoadPerSecond;
+		}
+		else if (Target->BuildTypeId == PurifierType)
+		{
+			Load += PurifierLoadPerSecond;
+		}
+		else if (Target->BuildTypeId == HeaterType)
+		{
+			Load += HeaterLoadPerSecond;
+		}
+		else if (Target->BuildTypeId == ToolStationType)
+		{
+			Load += ToolStationLoadPerSecond;
 		}
 	}
 	return Load;
 }
 
-bool UWildBoundBuildingSubsystem::IsPowerAvailableAt(const FVector& Location) const
+bool UWildBoundBuildingSubsystem::IsBuildPowered(int32 BuildId) const
 {
+	const FWildBoundPlacedBuildState* Target = FindBuildState(BuildId);
+	if (!Target || !Target->bUtilityEnabled)
+	{
+		return false;
+	}
+
 	for (const FWildBoundPlacedBuildState& Battery : PlacedBuilds)
 	{
-		if (Battery.BuildTypeId != PowerBankType
-			|| !Battery.bUtilityEnabled
-			|| Battery.StoredPower <= 0.0f)
+		if (Battery.BuildTypeId == PowerBankType
+			&& Battery.bUtilityEnabled
+			&& Battery.StoredPower > 0.0f
+			&& Battery.LinkedBuildIds.Contains(BuildId))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UWildBoundBuildingSubsystem::IsPowerAvailableAt(const FVector& Location) const
+{
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (!IsElectricalBuild(State.BuildTypeId)
+			|| State.BuildTypeId == GeneratorType
+			|| State.BuildTypeId == PowerBankType)
 		{
 			continue;
 		}
 
-		for (int32 LinkedId : Battery.LinkedBuildIds)
+		if (FVector::DistSquared2D(State.Location, Location) <= FMath::Square(80.0f)
+			&& IsBuildPowered(State.BuildId))
 		{
-			const FWildBoundPlacedBuildState* Target = FindBuildState(LinkedId);
-			if (Target
-				&& Target->BuildTypeId == PoweredLightType
-				&& FVector::DistSquared2D(Target->Location, Location) <= FMath::Square(80.0f))
-			{
-				return true;
-			}
+			return true;
 		}
 	}
 	return false;
