@@ -1138,7 +1138,7 @@ bool UWildBoundBuildingSubsystem::SpawnPlacedBuild(
 #if WITH_EDITOR
 			Light->SetActorLabel(TEXT("WB_PlayerBuild_PoweredLight"));
 #endif
-			if (UPointLightComponent* LightComponent = Light->GetPointLightComponent())
+			if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Light->GetLightComponent()))
 			{
 				LightComponent->SetIntensity(3200.0f);
 				LightComponent->SetAttenuationRadius(1050.0f);
@@ -1419,7 +1419,7 @@ void UWildBoundBuildingSubsystem::RefreshPoweredLights()
 
 		const FWildBoundPlacedBuildState* State = FindBuildState(Pair.Value);
 		const bool bPowered = State && IsPowerAvailableAt(State->Location);
-		if (UPointLightComponent* LightComponent = Light->GetPointLightComponent())
+		if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Light->GetLightComponent()))
 		{
 			LightComponent->SetVisibility(bPowered);
 		}
