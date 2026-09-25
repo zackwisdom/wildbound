@@ -15,7 +15,7 @@ class WILDBOUND_API UWildBoundSaveGame : public USaveGame
 
 public:
 	UPROPERTY(SaveGame)
-	int32 SaveVersion = 5;
+	int32 SaveVersion = 6;
 
 	UPROPERTY(SaveGame)
 	FVector PlayerLocation = FVector::ZeroVector;
