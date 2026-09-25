@@ -555,6 +555,16 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 	State.BuildTypeId = ActiveBuildTypeId;
 	State.Location = PreviewLocation;
 	State.Rotation = PreviewRotation;
+	if (State.BuildTypeId == GeneratorType)
+	{
+		State.bUtilityEnabled = false;
+		State.FuelSecondsRemaining = 0.0f;
+	}
+	else if (State.BuildTypeId == PowerBankType)
+	{
+		State.bUtilityEnabled = true;
+		State.StoredPower = 0.0f;
+	}
 	PlacedBuilds.Add(State);
 	NextBuildId = FMath::Max(NextBuildId, BuildId + 1);
 	RefreshPoweredLights();
@@ -1205,6 +1215,49 @@ bool UWildBoundBuildingSubsystem::SpawnPlacedBuild(
 				OutSpawnedActors->Add(Light);
 			}
 		}
+		return true;
+	}
+
+	if (BuildTypeId == GeneratorType)
+	{
+		AStaticMeshActor* Body = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 62.0f),
+			FVector(1.35f, 0.85f, 1.15f),
+			Rotation,
+			FLinearColor(0.12f, 0.13f, 0.105f, 1.0f),
+			TEXT("WB_PlayerBuild_Generator"),
+			OutSpawnedActors,
+			0.74f,
+			0.46f);
+		if (!Body)
+		{
+			return false;
+		}
+		Body->Tags.AddUnique(InteractableTag);
+		Body->Tags.AddUnique(GeneratorTag);
+
+		SpawnBuildPiece(
+			*World,
+			Location + Rotation.RotateVector(FVector(-72.0f, 0.0f, 64.0f)),
+			FVector(0.42f, 0.66f, 0.74f),
+			Rotation,
+			Rust,
+			TEXT("WB_PlayerBuild_GeneratorFuelTank"),
+			OutSpawnedActors,
+			0.76f,
+			0.36f);
+
+		SpawnBuildPiece(
+			*World,
+			Location + Rotation.RotateVector(FVector(48.0f, 0.0f, 126.0f)),
+			FVector(0.12f, 0.12f, 0.88f),
+			Rotation,
+			Scrap,
+			TEXT("WB_PlayerBuild_GeneratorExhaust"),
+			OutSpawnedActors,
+			0.70f,
+			0.52f);
 		return true;
 	}
 
