@@ -2238,7 +2238,32 @@ int32 UWildBoundBuildingSubsystem::GetShelterProgressionTierAt(const FVector& Lo
 
 float UWildBoundBuildingSubsystem::GetRestHealthRecoveryAt(const FVector& Location) const
 {
-	return 12.0f + static_cast<float>(GetShelterProgressionTierAt(Location)) * 4.0f;
+	float Recovery = 12.0f + static_cast<float>(GetShelterProgressionTierAt(Location)) * 4.0f;
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildTypeId == HeaterType
+			&& FVector::DistSquared2D(State.Location, Location) <= FMath::Square(ShelterUpgradeRadius)
+			&& IsBuildPowered(State.BuildId))
+		{
+			Recovery += 4.0f;
+			break;
+		}
+	}
+	return Recovery;
+}
+
+float UWildBoundBuildingSubsystem::GetCraftSpeedMultiplierAt(const FVector& Location) const
+{
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildTypeId == ToolStationType
+			&& FVector::DistSquared2D(State.Location, Location) <= FMath::Square(650.0f)
+			&& IsBuildPowered(State.BuildId))
+		{
+			return 0.55f;
+		}
+	}
+	return 1.0f;
 }
 
 FString UWildBoundBuildingSubsystem::GetShelterProgressionNameAt(const FVector& Location) const
