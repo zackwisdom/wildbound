@@ -1,5 +1,6 @@
 #include "WildBoundSafehouseSubsystem.h"
 
+#include "../Building/WildBoundBuildingSubsystem.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
@@ -24,6 +25,7 @@ namespace
 	const FName SafehouseSaveTag(TEXT("WBSafehouseSavePoint"));
 	const FName SafehouseSpawnAnchorTag(TEXT("WBSafehouseSpawnAnchor"));
 	const FName WorkbenchTag(TEXT("WBWorkbench"));
+	const FName SafehouseStatusTextTag(TEXT("WBSafehouseStatusText"));
 
 	UStaticMesh* GetCube()
 	{
@@ -163,6 +165,46 @@ namespace
 		}
 	}
 
+	void SpawnStatusDisplay(
+		UWorld& World,
+		const FVector& Base,
+		const FLinearColor& BoardColor)
+	{
+		SpawnPiece(
+			World,
+			GetCube(),
+			Base + FVector(190.0f, -238.0f, 250.0f),
+			FVector(1.30f, 0.08f, 0.92f),
+			FRotator::ZeroRotator,
+			BoardColor,
+			TEXT("WB_Safehouse_StatusBoard"),
+			true,
+			0.86f,
+			0.18f);
+
+		ATextRenderActor* TextActor = World.SpawnActor<ATextRenderActor>(
+			Base + FVector(190.0f, -248.0f, 304.0f),
+			FRotator(0.0f, 0.0f, 0.0f));
+		if (!TextActor)
+		{
+			return;
+		}
+
+		TextActor->Tags.AddUnique(SafehouseSetTag);
+		TextActor->Tags.AddUnique(SafehouseStatusTextTag);
+#if WITH_EDITOR
+		TextActor->SetActorLabel(TEXT("WB_Safehouse_StatusText"));
+#endif
+		if (UTextRenderComponent* Text = TextActor->GetTextRender())
+		{
+			Text->SetText(FText::FromString(TEXT("SHELTER STATUS\nFIELD SHELTER")));
+			Text->SetTextRenderColor(FColor(184, 190, 155));
+			Text->SetWorldSize(10.5f);
+			Text->SetHorizontalAlignment(EHTA_Center);
+			Text->SetCastShadow(false);
+		}
+	}
+
 	void SpawnSafehouse(UWorld& World, const FVector& TownOrigin)
 	{
 		const FVector Base = TownOrigin + FVector(0.0f, -3375.0f, 0.0f);
@@ -244,6 +286,7 @@ namespace
 		SpawnPiece(World, GetCube(), Base + FVector(-35.0f, 110.0f, 92.0f), FVector(0.60f, 0.60f, 0.06f), FRotator(0.0f, 9.0f, 0.0f), Charcoal, TEXT("WB_Safehouse_BrazierGrate"), false, 0.86f, 0.32f);
 
 		SpawnSign(World, Base + FVector(0.0f, -275.0f, 325.0f));
+		SpawnStatusDisplay(World, Base, Charcoal);
 	}
 }
 
@@ -264,6 +307,14 @@ void UWildBoundSafehouseSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		0.5f,
 		true,
 		0.15f);
+
+	InWorld.GetTimerManager().SetTimer(
+		SafehouseStatusTimer,
+		this,
+		&UWildBoundSafehouseSubsystem::UpdateSafehouseStatus,
+		0.50f,
+		true,
+		0.75f);
 }
 
 void UWildBoundSafehouseSubsystem::Deinitialize()
@@ -271,6 +322,7 @@ void UWildBoundSafehouseSubsystem::Deinitialize()
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(SafehouseSpawnTimer);
+		World->GetTimerManager().ClearTimer(SafehouseStatusTimer);
 	}
 
 	Super::Deinitialize();
@@ -309,4 +361,35 @@ void UWildBoundSafehouseSubsystem::TrySpawnSafehouse()
 	bSafehouseSpawned = true;
 	World->GetTimerManager().ClearTimer(SafehouseSpawnTimer);
 	UE_LOG(LogTemp, Log, TEXT("WildBound safehouse: south field shelter spawned with stash, cot, workbench, and field log."));
+}
+
+
+void UWildBoundSafehouseSubsystem::UpdateSafehouseStatus()
+{
+	UWorld* World = GetWorld();
+	const UWildBoundBuildingSubsystem* Building = World
+		? World->GetSubsystem<UWildBoundBuildingSubsystem>()
+		: nullptr;
+	if (!World || !Building)
+	{
+		return;
+	}
+
+	for (TActorIterator<ATextRenderActor> It(World); It; ++It)
+	{
+		ATextRenderActor* TextActor = *It;
+		if (!TextActor || !TextActor->ActorHasTag(SafehouseStatusTextTag))
+		{
+			continue;
+		}
+
+		if (UTextRenderComponent* Text = TextActor->GetTextRender())
+		{
+			Text->SetText(FText::FromString(
+				FString::Printf(
+					TEXT("SHELTER STATUS\n%s"),
+					*Building->GetSafehouseStatusText())));
+		}
+		break;
+	}
 }
