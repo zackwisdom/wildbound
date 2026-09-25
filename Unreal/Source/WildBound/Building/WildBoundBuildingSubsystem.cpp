@@ -37,6 +37,9 @@ namespace
 	const FName GeneratorTag(TEXT("WBGenerator"));
 	const FName PowerLinkVisualTag(TEXT("WildBoundPowerLinkVisual"));
 	const FName SafehouseSpawnAnchorTag(TEXT("WBSafehouseSpawnAnchor"));
+	const FName PurifierTag(TEXT("WBWaterPurifier"));
+	const FName HeaterTag(TEXT("WBHeater"));
+	const FName ToolStationTag(TEXT("WBPoweredToolStation"));
 
 	const FName FloorType(TEXT("BuildFloor"));
 	const FName WallType(TEXT("BuildWall"));
@@ -52,6 +55,9 @@ namespace
 	const FName ReinforcedFloorType(TEXT("BuildReinforcedFloor"));
 	const FName ReinforcedWallType(TEXT("BuildReinforcedWall"));
 	const FName GeneratorType(TEXT("BuildGenerator"));
+	const FName PurifierType(TEXT("BuildWaterPurifier"));
+	const FName HeaterType(TEXT("BuildHeater"));
+	const FName ToolStationType(TEXT("BuildPoweredToolStation"));
 
 	constexpr float BuildManagementDistance = 475.0f;
 	constexpr float DismantleHoldDuration = 0.75f;
@@ -64,6 +70,11 @@ namespace
 	constexpr float GeneratorChargePerSecond = 2.2f;
 	constexpr float BatteryCapacity = 100.0f;
 	constexpr float PoweredLightLoadPerSecond = 0.18f;
+	constexpr float PurifierLoadPerSecond = 0.55f;
+	constexpr float HeaterLoadPerSecond = 0.75f;
+	constexpr float ToolStationLoadPerSecond = 0.65f;
+	constexpr float PurifierSecondsPerUnit = 45.0f;
+	constexpr int32 PurifierCapacity = 4;
 
 	UStaticMesh* GetCubeMesh()
 	{
