@@ -1754,7 +1754,7 @@ void UWildBoundBuildingSubsystem::RefreshPoweredLights()
 		}
 
 		const FWildBoundPlacedBuildState* State = FindBuildState(Pair.Value);
-		const bool bPowered = State && IsPowerAvailableAt(State->Location);
+		const bool bPowered = State && IsBuildPowered(State->BuildId);
 		if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Light->GetLightComponent()))
 		{
 			LightComponent->SetVisibility(bPowered);
@@ -2210,7 +2210,7 @@ int32 UWildBoundBuildingSubsystem::GetShelterProgressionTierAt(const FVector& Lo
 		{
 			bHasPower = true;
 		}
-		else if (State.BuildTypeId == PoweredLightType && IsPowerAvailableAt(State.Location))
+		else if (State.BuildTypeId == PoweredLightType && IsBuildPowered(State.BuildId))
 		{
 			bHasPoweredLight = true;
 		}
@@ -2792,6 +2792,18 @@ TMap<FName, int32> UWildBoundBuildingSubsystem::GetMaterialCostsForBuild(
 	{
 		Add(TEXT("ScrapMetal"), 8); Add(TEXT("MechanicalParts"), 5); Add(TEXT("Electronics"), 3); Add(TEXT("Wire"), 4);
 	}
+	else if (BuildTypeId == PurifierType)
+	{
+		Add(TEXT("ScrapMetal"), 5); Add(TEXT("Plastic"), 4); Add(TEXT("Electronics"), 3); Add(TEXT("Chemicals"), 2); Add(TEXT("Wire"), 2);
+	}
+	else if (BuildTypeId == HeaterType)
+	{
+		Add(TEXT("ScrapMetal"), 5); Add(TEXT("Electronics"), 2); Add(TEXT("Wire"), 3); Add(TEXT("MechanicalParts"), 1);
+	}
+	else if (BuildTypeId == ToolStationType)
+	{
+		Add(TEXT("ScrapMetal"), 7); Add(TEXT("MechanicalParts"), 4); Add(TEXT("Electronics"), 3); Add(TEXT("Wire"), 4);
+	}
 
 	return Costs;
 }
@@ -2812,6 +2824,9 @@ FString UWildBoundBuildingSubsystem::GetBuildDisplayName(FName BuildTypeId) cons
 	if (BuildTypeId == ReinforcedFloorType) return TEXT("REINFORCED FLOOR");
 	if (BuildTypeId == ReinforcedWallType) return TEXT("REINFORCED WALL");
 	if (BuildTypeId == GeneratorType) return TEXT("FUEL GENERATOR");
+	if (BuildTypeId == PurifierType) return TEXT("ELECTRIC WATER PURIFIER");
+	if (BuildTypeId == HeaterType) return TEXT("ELECTRIC HEATER");
+	if (BuildTypeId == ToolStationType) return TEXT("POWERED TOOL STATION");
 	return TEXT("STRUCTURE");
 }
 
@@ -2983,6 +2998,9 @@ FVector UWildBoundBuildingSubsystem::GetBuildHalfExtents(FName BuildTypeId) cons
 	if (BuildTypeId == ReinforcedFloorType) return FVector(200.0f, 200.0f, 14.0f);
 	if (BuildTypeId == ReinforcedWallType) return FVector(200.0f, 20.0f, 125.0f);
 	if (BuildTypeId == GeneratorType) return FVector(78.0f, 52.0f, 135.0f);
+	if (BuildTypeId == PurifierType) return FVector(58.0f, 48.0f, 150.0f);
+	if (BuildTypeId == HeaterType) return FVector(52.0f, 38.0f, 100.0f);
+	if (BuildTypeId == ToolStationType) return FVector(92.0f, 48.0f, 125.0f);
 	return FVector(50.0f, 50.0f, 50.0f);
 }
 
