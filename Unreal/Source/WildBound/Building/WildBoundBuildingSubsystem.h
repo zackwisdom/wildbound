@@ -36,6 +36,15 @@ struct FWildBoundPlacedBuildState
 
 	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
 	float UtilityProgress = 0.0f;
+
+	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
+	float StoredPower = 0.0f;
+
+	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
+	float FuelSecondsRemaining = 0.0f;
+
+	UPROPERTY(SaveGame, BlueprintReadOnly, Category="WildBound|Building")
+	TArray<int32> LinkedBuildIds;
 };
 
 UCLASS()
@@ -59,6 +68,8 @@ public:
 	bool TryUseUtility(AActor* Actor);
 	float GetRestHealthRecoveryAt(const FVector& Location) const;
 	FString GetShelterProgressionNameAt(const FVector& Location) const;
+	FString GetSafehouseStatusText() const;
+	bool IsPlayerNearSafehouseStatus() const;
 
 	const TArray<FWildBoundPlacedBuildState>& GetPlacedBuildStates() const { return PlacedBuilds; }
 	void RestorePlacedBuilds(const TArray<FWildBoundPlacedBuildState>& SavedBuilds);
@@ -85,6 +96,7 @@ private:
 	FWildBoundPlacedBuildState RelocationOriginalState;
 	int32 NextBuildId = 1;
 	int32 PendingDismantleBuildId = 0;
+	int32 PendingPowerLinkSourceBuildId = 0;
 	float DismantleHoldStartedAt = -1.0f;
 	float PlacementStartedAt = 0.0f;
 	float CurrentYaw = 0.0f;
@@ -93,6 +105,7 @@ private:
 	void UpdateManagementMode();
 	void UpdateUtilities();
 	void RefreshPoweredLights();
+	void RefreshPowerLinkVisuals();
 	void UpdatePreviewTransform();
 	void TryPlaceActiveBuild();
 	void BeginRelocation(int32 BuildId);
@@ -124,6 +137,11 @@ private:
 	bool TryApplyPieceSnap(FVector& InOutLocation, FRotator& InOutRotation) const;
 	bool IsDuplicatePlacement(const FVector& Location, FName IgnoreBuildType = NAME_None, int32 IgnoreBuildId = 0) const;
 	bool IsPowerAvailableAt(const FVector& Location) const;
+	bool IsElectricalBuild(FName BuildTypeId) const;
+	bool CanLinkPowerBuilds(int32 SourceBuildId, int32 TargetBuildId) const;
+	void TogglePowerLink(int32 SourceBuildId, int32 TargetBuildId);
+	float GetConnectedLoadForBattery(int32 BatteryBuildId) const;
+	FVector GetSafehouseAnchorLocation() const;
 	int32 GetShelterProgressionTierAt(const FVector& Location) const;
 
 	UWildBoundInventoryComponent* GetPlayerInventory() const;
