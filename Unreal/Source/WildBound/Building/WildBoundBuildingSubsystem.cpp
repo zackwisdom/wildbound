@@ -1897,7 +1897,7 @@ int32 UWildBoundBuildingSubsystem::GetShelterProgressionTierAt(const FVector& Lo
 		{
 			bHasWater = true;
 		}
-		else if (State.BuildTypeId == PowerBankType && State.bUtilityEnabled)
+		else if (State.BuildTypeId == PowerBankType && State.bUtilityEnabled && State.StoredPower > 0.0f)
 		{
 			bHasPower = true;
 		}
@@ -1941,6 +1941,91 @@ FString UWildBoundBuildingSubsystem::GetShelterProgressionNameAt(const FVector& 
 	case 1: return TEXT("WATER-SECURED SHELTER");
 	default: return TEXT("FIELD SHELTER");
 	}
+}
+
+FVector UWildBoundBuildingSubsystem::GetSafehouseAnchorLocation() const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return FVector::ZeroVector;
+	}
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (Actor && Actor->ActorHasTag(SafehouseSpawnAnchorTag))
+		{
+			return Actor->GetActorLocation();
+		}
+	}
+	return FVector::ZeroVector;
+}
+
+bool UWildBoundBuildingSubsystem::IsPlayerNearSafehouseStatus() const
+{
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	const FVector Anchor = GetSafehouseAnchorLocation();
+	return Pawn
+		&& !Anchor.IsNearlyZero()
+		&& FVector::DistSquared2D(Pawn->GetActorLocation(), Anchor) <= FMath::Square(1200.0f);
+}
+
+FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
+{
+	const FVector Anchor = GetSafehouseAnchorLocation();
+	int32 StoredWater = 0;
+	int32 ReinforcedPieces = 0;
+	float BatteryCharge = 0.0f;
+	float TotalLoad = 0.0f;
+	float GeneratorFuel = 0.0f;
+	bool bGeneratorRunning = false;
+	int32 PoweredLights = 0;
+
+	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (!Anchor.IsNearlyZero()
+			&& FVector::DistSquared2D(State.Location, Anchor) > FMath::Square(ShelterUpgradeRadius))
+		{
+			continue;
+		}
+
+		if (State.BuildTypeId == RainCollectorType)
+		{
+			StoredWater += State.StoredUtilityUnits;
+		}
+		else if (State.BuildTypeId == ReinforcedFloorType || State.BuildTypeId == ReinforcedWallType)
+		{
+			++ReinforcedPieces;
+		}
+		else if (State.BuildTypeId == PowerBankType)
+		{
+			BatteryCharge += State.StoredPower;
+			TotalLoad += State.bUtilityEnabled ? GetConnectedLoadForBattery(State.BuildId) : 0.0f;
+		}
+		else if (State.BuildTypeId == GeneratorType)
+		{
+			GeneratorFuel += State.FuelSecondsRemaining;
+			bGeneratorRunning |= State.bUtilityEnabled && State.FuelSecondsRemaining > 0.0f;
+		}
+		else if (State.BuildTypeId == PoweredLightType && IsPowerAvailableAt(State.Location))
+		{
+			++PoweredLights;
+		}
+	}
+
+	return FString::Printf(
+		TEXT("%s\nWATER  %d STORED\nPOWER  %.0f%%  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS  %d ONLINE\nREINFORCEMENT  %d PIECES"),
+		*GetShelterProgressionNameAt(Anchor),
+		StoredWater,
+		BatteryCharge,
+		TotalLoad,
+		bGeneratorRunning ? TEXT("RUNNING") : TEXT("OFF"),
+		GeneratorFuel,
+		PoweredLights,
+		ReinforcedPieces);
 }
 
 void UWildBoundBuildingSubsystem::UpdateManagementMode()
@@ -2366,6 +2451,10 @@ TMap<FName, int32> UWildBoundBuildingSubsystem::GetMaterialCostsForBuild(
 	{
 		Add(TEXT("Wood"), 7); Add(TEXT("ScrapMetal"), 6); Add(TEXT("MechanicalParts"), 2);
 	}
+	else if (BuildTypeId == GeneratorType)
+	{
+		Add(TEXT("ScrapMetal"), 8); Add(TEXT("MechanicalParts"), 5); Add(TEXT("Electronics"), 3); Add(TEXT("Wire"), 4);
+	}
 
 	return Costs;
 }
@@ -2385,6 +2474,7 @@ FString UWildBoundBuildingSubsystem::GetBuildDisplayName(FName BuildTypeId) cons
 	if (BuildTypeId == PoweredLightType) return TEXT("POWERED LIGHT");
 	if (BuildTypeId == ReinforcedFloorType) return TEXT("REINFORCED FLOOR");
 	if (BuildTypeId == ReinforcedWallType) return TEXT("REINFORCED WALL");
+	if (BuildTypeId == GeneratorType) return TEXT("FUEL GENERATOR");
 	return TEXT("STRUCTURE");
 }
 
@@ -2555,6 +2645,7 @@ FVector UWildBoundBuildingSubsystem::GetBuildHalfExtents(FName BuildTypeId) cons
 	if (BuildTypeId == PoweredLightType) return FVector(35.0f, 35.0f, 155.0f);
 	if (BuildTypeId == ReinforcedFloorType) return FVector(200.0f, 200.0f, 14.0f);
 	if (BuildTypeId == ReinforcedWallType) return FVector(200.0f, 20.0f, 125.0f);
+	if (BuildTypeId == GeneratorType) return FVector(78.0f, 52.0f, 135.0f);
 	return FVector(50.0f, 50.0f, 50.0f);
 }
 
