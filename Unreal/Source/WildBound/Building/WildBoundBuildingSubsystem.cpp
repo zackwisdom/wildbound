@@ -2108,6 +2108,76 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 		return true;
 	}
 
+	if (State->BuildTypeId == PurifierType)
+	{
+		UWildBoundInventoryComponent* Inventory = GetPlayerInventory();
+		APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		const bool bToggle = PlayerController
+			&& (PlayerController->IsInputKeyDown(EKeys::LeftShift)
+				|| PlayerController->IsInputKeyDown(EKeys::RightShift));
+
+		if (bToggle)
+		{
+			State->bUtilityEnabled = !State->bUtilityEnabled;
+			return true;
+		}
+
+		if (!Inventory || State->StoredUtilityUnits <= 0)
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91709,
+					1.8f,
+					FColor(135, 180, 200),
+					IsBuildPowered(State->BuildId)
+						? TEXT("Purifier has no finished water yet.")
+						: TEXT("Purifier needs a powered battery link."));
+			}
+			return true;
+		}
+
+		int32 Collected = 0;
+		while (State->StoredUtilityUnits > 0)
+		{
+			if (!Inventory->AddItem(FName(TEXT("Water")), 1))
+			{
+				break;
+			}
+			--State->StoredUtilityUnits;
+			++Collected;
+		}
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91709,
+				2.0f,
+				Collected > 0 ? FColor(135, 195, 220) : FColor(220, 155, 105),
+				Collected > 0
+					? FString::Printf(TEXT("PURIFIED WATER x%d COLLECTED"), Collected)
+					: TEXT("Not enough backpack capacity."));
+		}
+		return true;
+	}
+
+	if (State->BuildTypeId == HeaterType || State->BuildTypeId == ToolStationType)
+	{
+		State->bUtilityEnabled = !State->bUtilityEnabled;
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91709,
+				1.8f,
+				State->bUtilityEnabled ? FColor(185, 195, 145) : FColor(180, 180, 165),
+				FString::Printf(
+					TEXT("%s %s"),
+					*GetBuildDisplayName(State->BuildTypeId),
+					State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF")));
+		}
+		return true;
+	}
+
 	if (State->BuildTypeId == PowerBankType)
 	{
 		State->bUtilityEnabled = !State->bUtilityEnabled;
