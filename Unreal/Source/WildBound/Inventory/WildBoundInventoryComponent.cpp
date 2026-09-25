@@ -15,6 +15,7 @@ namespace
 	const FName WireItem(TEXT("Wire"));
 	const FName BatteryItem(TEXT("Battery"));
 	const FName MechanicalPartsItem(TEXT("MechanicalParts"));
+	const FName FuelItem(TEXT("Fuel"));
 	const FName FlashlightItem(TEXT("Flashlight"));
 	const FName CrowbarItem(TEXT("Crowbar"));
 	const FName ReinforcedBackpackItem(TEXT("ReinforcedBackpack"));
@@ -253,6 +254,7 @@ float UWildBoundInventoryComponent::GetItemUnitWeight(FName ItemId) const
 	if (ItemId == WireItem) return 0.25f;
 	if (ItemId == BatteryItem) return 0.45f;
 	if (ItemId == MechanicalPartsItem) return 0.85f;
+	if (ItemId == FuelItem) return 2.50f;
 	if (ItemId == FlashlightItem) return 0.70f;
 	if (ItemId == CrowbarItem) return 2.00f;
 	if (ItemId == ReinforcedBackpackItem) return 3.20f;
@@ -303,6 +305,7 @@ FString UWildBoundInventoryComponent::GetItemDisplayName(FName ItemId) const
 	if (ItemId == WireItem) return TEXT("Wire");
 	if (ItemId == BatteryItem) return TEXT("Battery");
 	if (ItemId == MechanicalPartsItem) return TEXT("Mechanical Parts");
+	if (ItemId == FuelItem) return TEXT("Fuel Can");
 	if (ItemId == FlashlightItem) return TEXT("Flashlight");
 	if (ItemId == CrowbarItem) return TEXT("Crowbar");
 	if (ItemId == ReinforcedBackpackItem) return TEXT("Reinforced Backpack");
@@ -354,6 +357,7 @@ FString UWildBoundInventoryComponent::GetItemDescription(FName ItemId) const
 	if (ItemId == WireItem) return TEXT("Electrical wire useful for powered devices and workbench assembly.");
 	if (ItemId == BatteryItem) return TEXT("Portable power cell used by flashlights and other electrical equipment.");
 	if (ItemId == MechanicalPartsItem) return TEXT("Gears, fasteners, springs, and hardware used in durable workbench crafting.");
+	if (ItemId == FuelItem) return TEXT("Sealed salvaged fuel. Hold Shift and press E at a generator to add four minutes of runtime.");
 	return TEXT("Scavenged item recovered from the exclusion zone.");
 }
 
@@ -380,7 +384,8 @@ int32 UWildBoundInventoryComponent::GetItemRarityTier(FName ItemId) const
 		|| ItemId == ChemicalsItem
 		|| ItemId == AdhesiveItem
 		|| ItemId == BatteryItem
-		|| ItemId == MechanicalPartsItem)
+		|| ItemId == MechanicalPartsItem
+		|| ItemId == FuelItem)
 	{
 		return 1;
 	}
