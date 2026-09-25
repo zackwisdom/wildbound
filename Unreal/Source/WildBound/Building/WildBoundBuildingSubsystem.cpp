@@ -1988,6 +1988,34 @@ FString UWildBoundBuildingSubsystem::GetUtilityInteractionPrompt(const AActor* A
 			GetConnectedLoadForBattery(State->BuildId));
 	}
 
+	if (State->BuildTypeId == PurifierType)
+	{
+		if (State->StoredUtilityUnits > 0)
+		{
+			return FString::Printf(TEXT("Collect purified water x%d | Shift+E toggle"), State->StoredUtilityUnits);
+		}
+		return FString::Printf(
+			TEXT("Purifier %s - %d%% | Shift+E toggle"),
+			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			FMath::RoundToInt(FMath::Clamp(State->UtilityProgress, 0.0f, 1.0f) * 100.0f));
+	}
+
+	if (State->BuildTypeId == HeaterType)
+	{
+		return FString::Printf(
+			TEXT("Heater %s - %s"),
+			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			IsBuildPowered(State->BuildId) ? TEXT("POWERED") : TEXT("NO POWER"));
+	}
+
+	if (State->BuildTypeId == ToolStationType)
+	{
+		return FString::Printf(
+			TEXT("Powered tools %s - %s"),
+			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			IsBuildPowered(State->BuildId) ? TEXT("POWERED") : TEXT("NO POWER"));
+	}
+
 	return FString();
 }
 
