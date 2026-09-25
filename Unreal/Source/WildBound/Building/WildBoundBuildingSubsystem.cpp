@@ -1979,6 +1979,7 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 	int32 StoredWater = 0;
 	int32 ReinforcedPieces = 0;
 	float BatteryCharge = 0.0f;
+	int32 BatteryCount = 0;
 	float TotalLoad = 0.0f;
 	float GeneratorFuel = 0.0f;
 	bool bGeneratorRunning = false;
@@ -2003,6 +2004,7 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 		else if (State.BuildTypeId == PowerBankType)
 		{
 			BatteryCharge += State.StoredPower;
+			++BatteryCount;
 			TotalLoad += State.bUtilityEnabled ? GetConnectedLoadForBattery(State.BuildId) : 0.0f;
 		}
 		else if (State.BuildTypeId == GeneratorType)
@@ -2017,10 +2019,11 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 	}
 
 	return FString::Printf(
-		TEXT("%s\nWATER  %d STORED\nPOWER  %.0f%%  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS  %d ONLINE\nREINFORCEMENT  %d PIECES"),
+		TEXT("%s\nWATER  %d STORED\nPOWER  %.0f / %.0f  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS  %d ONLINE\nREINFORCEMENT  %d PIECES"),
 		*GetShelterProgressionNameAt(Anchor),
 		StoredWater,
 		BatteryCharge,
+		static_cast<float>(BatteryCount) * BatteryCapacity,
 		TotalLoad,
 		bGeneratorRunning ? TEXT("RUNNING") : TEXT("OFF"),
 		GeneratorFuel,
@@ -2089,7 +2092,7 @@ void UWildBoundBuildingSubsystem::UpdateManagementMode()
 		{
 			if (State->BuildTypeId == GeneratorType || State->BuildTypeId == PowerBankType)
 			{
-				LinkHint = TEXT("[L] START POWER LINK   |   ");
+				LinkHint = TEXT("[L] START LINK  [SHIFT+L] CLEAR LINKS   |   ");
 			}
 		}
 		else
