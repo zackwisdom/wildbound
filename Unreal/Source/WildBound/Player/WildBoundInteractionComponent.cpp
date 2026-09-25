@@ -69,6 +69,7 @@ namespace
 	const FName WireItemId(TEXT("Wire"));
 	const FName BatteryItemId(TEXT("Battery"));
 	const FName MechanicalPartsItemId(TEXT("MechanicalParts"));
+	const FName FuelItemId(TEXT("Fuel"));
 	const FName FlashlightItemId(TEXT("Flashlight"));
 	const FName CrowbarItemId(TEXT("Crowbar"));
 	const FName ReinforcedBackpackItemId(TEXT("ReinforcedBackpack"));
@@ -186,8 +187,8 @@ namespace
 		}
 		if (Container.ActorHasTag(IndustrialPoolTag))
 		{
-			if (Roll < 29) return ScrapItemId; if (Roll < 49) return MechanicalPartsItemId; if (Roll < 64) return WireItemId; if (Roll < 75) return ElectronicsItemId;
-			if (Roll < 85) return AdhesiveItemId; if (Roll < 92) return BatteryItemId; if (Roll < 97) return PlasticItemId; return CrowbarItemId;
+			if (Roll < 24) return ScrapItemId; if (Roll < 42) return MechanicalPartsItemId; if (Roll < 56) return WireItemId; if (Roll < 68) return ElectronicsItemId;
+			if (Roll < 77) return AdhesiveItemId; if (Roll < 85) return BatteryItemId; if (Roll < 92) return PlasticItemId; if (Roll < 98) return FuelItemId; return CrowbarItemId;
 		}
 		if (Container.ActorHasTag(CivicPoolTag))
 		{
@@ -206,6 +207,7 @@ namespace
 		if (ItemId == PlasticItemId) return Random.RandRange(1, 4);
 		if (ItemId == ElectronicsItemId || ItemId == ChemicalsItemId || ItemId == AdhesiveItemId || ItemId == BatteryItemId) return Random.RandRange(1, 2);
 		if (ItemId == WireItemId || ItemId == MechanicalPartsItemId) return Random.RandRange(1, 3);
+		if (ItemId == FuelItemId) return 1;
 		if (ItemId == WaterItemId) return Random.RandRange(1, 2);
 		if (ItemId == FoodItemId) return Random.RandRange(1, 3);
 		return 1;
@@ -215,6 +217,7 @@ namespace
 	{
 		const float TierBonus = static_cast<float>(QualityTier) * 0.07f;
 		if (Container.ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.10f + TierBonus) Grants.FindOrAdd(CrowbarItemId) += 1;
+		if (Container.ActorHasTag(IndustrialPoolTag) && Random.FRand() < 0.12f + TierBonus) Grants.FindOrAdd(FuelItemId) += 1;
 		else if (Container.ActorHasTag(ResidentialPoolTag) && Random.FRand() < 0.08f + TierBonus) Grants.FindOrAdd(FlashlightItemId) += 1;
 		if (Container.ActorHasTag(MedicalPoolTag) && Random.FRand() < 0.05f + TierBonus) Grants.FindOrAdd(RadTreatmentItemId) += 1;
 		if (Container.ActorHasTag(MedicalPoolTag) && Random.FRand() < 0.025f + TierBonus * 0.55f) Grants.FindOrAdd(TraumaKitItemId) += 1;
