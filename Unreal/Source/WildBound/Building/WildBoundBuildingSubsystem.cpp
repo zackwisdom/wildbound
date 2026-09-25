@@ -34,6 +34,9 @@ namespace
 	const FName PowerBankTag(TEXT("WBPowerBank"));
 	const FName PoweredLightTag(TEXT("WBPoweredLight"));
 	const FName ReinforcedBuildTag(TEXT("WBReinforcedBuild"));
+	const FName GeneratorTag(TEXT("WBGenerator"));
+	const FName PowerLinkVisualTag(TEXT("WildBoundPowerLinkVisual"));
+	const FName SafehouseSpawnAnchorTag(TEXT("WBSafehouseSpawnAnchor"));
 
 	const FName FloorType(TEXT("BuildFloor"));
 	const FName WallType(TEXT("BuildWall"));
@@ -48,6 +51,7 @@ namespace
 	const FName PoweredLightType(TEXT("BuildPoweredLight"));
 	const FName ReinforcedFloorType(TEXT("BuildReinforcedFloor"));
 	const FName ReinforcedWallType(TEXT("BuildReinforcedWall"));
+	const FName GeneratorType(TEXT("BuildGenerator"));
 
 	constexpr float BuildManagementDistance = 475.0f;
 	constexpr float DismantleHoldDuration = 0.75f;
@@ -56,6 +60,10 @@ namespace
 	constexpr float ShelterUpgradeRadius = 1500.0f;
 	constexpr float RainWaterSecondsPerUnit = 90.0f;
 	constexpr int32 RainCollectorCapacity = 4;
+	constexpr float GeneratorFuelSecondsPerCan = 240.0f;
+	constexpr float GeneratorChargePerSecond = 2.2f;
+	constexpr float BatteryCapacity = 100.0f;
+	constexpr float PoweredLightLoadPerSecond = 0.18f;
 
 	UStaticMesh* GetCubeMesh()
 	{
@@ -145,6 +153,52 @@ namespace
 		{
 			OutSpawnedActors->Add(Actor);
 		}
+		return Actor;
+	}
+
+
+	AStaticMeshActor* SpawnPowerLinkVisual(
+		UWorld& World,
+		const FVector& Start,
+		const FVector& End)
+	{
+		UStaticMesh* Cube = GetCubeMesh();
+		if (!Cube)
+		{
+			return nullptr;
+		}
+
+		const FVector Delta = End - Start;
+		const float Distance = Delta.Size();
+		if (Distance < KINDA_SMALL_NUMBER)
+		{
+			return nullptr;
+		}
+
+		AStaticMeshActor* Actor = World.SpawnActor<AStaticMeshActor>(
+			(Start + End) * 0.5f,
+			Delta.Rotation());
+		if (!Actor)
+		{
+			return nullptr;
+		}
+
+		Actor->Tags.AddUnique(PowerLinkVisualTag);
+#if WITH_EDITOR
+		Actor->SetActorLabel(TEXT("WB_Power_Link"));
+#endif
+
+		UStaticMeshComponent* Mesh = Actor->GetStaticMeshComponent();
+		Mesh->SetMobility(EComponentMobility::Movable);
+		Mesh->SetStaticMesh(Cube);
+		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Mesh->SetCastShadow(false);
+		ApplyPieceMaterial(
+			*Mesh,
+			FLinearColor(0.055f, 0.060f, 0.050f, 1.0f),
+			0.70f,
+			0.42f);
+		Actor->SetActorScale3D(FVector(Distance / 100.0f, 0.035f, 0.035f));
 		return Actor;
 	}
 
