@@ -822,7 +822,7 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 	float CraftDuration = bWorkbenchMode ? 1.15f : 0.82f;
 	if (bWorkbenchMode)
 	{
-		const UWorld* World = GetWorld();
+		UWorld* World = GetWorld();
 		const UWildBoundBuildingSubsystem* Building = World
 			? World->GetSubsystem<UWildBoundBuildingSubsystem>()
 			: nullptr;
