@@ -7,6 +7,7 @@
 class AActor;
 class SWidget;
 class SWildBoundLootWidget;
+class UStaticMeshComponent;
 class UWildBoundInventoryComponent;
 
 USTRUCT()
@@ -77,6 +78,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
 	FString GetConsumableResultText() const { return ConsumableResultText; }
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	bool IsQuickUseCommitted() const { return bQuickUseInProgress && bQuickUseCommitted; }
+
 	FLinearColor GetConsumableFeedbackColor() const;
 
 	void SetContextPrompt(const FString& Prompt, int32 Priority = 0);
@@ -117,11 +121,20 @@ private:
 	FString TreatmentActionLabel;
 
 	bool bQuickUseInProgress = false;
+	bool bQuickUseCommitted = false;
 	FName PendingQuickUseItemId = NAME_None;
 	float QuickUseElapsedSeconds = 0.0f;
 	float QuickUseDurationSeconds = 0.0f;
+	float QuickUseCommitProgress = 1.0f;
 	FString QuickUseActionLabel;
+	FString QuickUseCompletionMessage;
 	FLinearColor QuickUseActionColor = FLinearColor(0.70f, 0.75f, 0.68f, 1.0f);
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> QuickUsePrimaryVisual = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> QuickUseSecondaryVisual = nullptr;
 
 	FString ConsumableResultText;
 	FLinearColor ConsumableResultColor = FLinearColor(0.70f, 0.75f, 0.68f, 1.0f);
@@ -142,8 +155,13 @@ private:
 	void TryUseInventoryItem(FName ItemId);
 	void StartQuickUse(FName ItemId);
 	void UpdateQuickUse(float DeltaTime, class APlayerController& PlayerController);
+	void CommitQuickUse();
 	void CompleteQuickUse();
 	void CancelQuickUse(bool bShowMessage = true);
+	void EnsureQuickUsePresentation();
+	void ShowQuickUsePresentation(FName ItemId);
+	void UpdateQuickUsePresentation(float Progress);
+	void HideQuickUsePresentation();
 	void SetConsumableResult(const FString& Message, const FLinearColor& Color, float DurationSeconds = 2.6f);
 	void StartTreatment(FName ItemId);
 	void UpdateTreatment(float DeltaTime, class APlayerController& PlayerController);

@@ -14,7 +14,10 @@
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
+#include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
+#include "Components/CameraComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
@@ -95,8 +98,10 @@ namespace
 	const FString DroppedItemPrefix(TEXT("WBDropItem_"));
 	const FString DroppedQuantityPrefix(TEXT("WBDropQty_"));
 	constexpr int32 HotbarSlotCount = 3;
-	constexpr float WaterUseDuration = 0.95f;
-	constexpr float FoodUseDuration = 1.35f;
+	constexpr float WaterUseDuration = 1.55f;
+	constexpr float FoodUseDuration = 2.10f;
+	constexpr float WaterCommitProgress = 0.60f;
+	constexpr float FoodCommitProgress = 0.68f;
 	constexpr float BasicMedicalTreatmentDuration = 2.40f;
 	constexpr float TraumaTreatmentDuration = 4.20f;
 	constexpr float RadiationTreatmentDuration = 2.80f;
@@ -536,12 +541,14 @@ void UWildBoundInteractionComponent::StartQuickUse(FName ItemId)
 	if (ItemId == WaterItemId)
 	{
 		QuickUseDurationSeconds = WaterUseDuration;
+		QuickUseCommitProgress = WaterCommitProgress;
 		QuickUseActionLabel = TEXT("DRINKING WATER");
 		QuickUseActionColor = FLinearColor(0.36f, 0.68f, 0.92f, 1.0f);
 	}
 	else if (ItemId == FoodItemId)
 	{
 		QuickUseDurationSeconds = FoodUseDuration;
+		QuickUseCommitProgress = FoodCommitProgress;
 		QuickUseActionLabel = TEXT("EATING EMERGENCY RATION");
 		QuickUseActionColor = FLinearColor(0.88f, 0.66f, 0.28f, 1.0f);
 	}
@@ -552,9 +559,14 @@ void UWildBoundInteractionComponent::StartQuickUse(FName ItemId)
 
 	PendingQuickUseItemId = ItemId;
 	QuickUseElapsedSeconds = 0.0f;
+	bQuickUseCommitted = false;
 	bQuickUseInProgress = true;
+	QuickUseCompletionMessage.Reset();
 	ConsumableResultText.Reset();
 	ConsumableResultExpiresAt = -1.0f;
+
+	ShowQuickUsePresentation(ItemId);
+	UpdateQuickUsePresentation(0.0f);
 }
 
 void UWildBoundInteractionComponent::UpdateQuickUse(float DeltaTime, APlayerController& PlayerController)
@@ -564,7 +576,7 @@ void UWildBoundInteractionComponent::UpdateQuickUse(float DeltaTime, APlayerCont
 		return;
 	}
 
-	if (PlayerController.WasInputKeyJustPressed(EKeys::Escape))
+	if (!bQuickUseCommitted && PlayerController.WasInputKeyJustPressed(EKeys::Escape))
 	{
 		CancelQuickUse(true);
 		return;
@@ -572,7 +584,8 @@ void UWildBoundInteractionComponent::UpdateQuickUse(float DeltaTime, APlayerCont
 
 	const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 	const UWildBoundSurvivalComponent* Survival = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
-	if (!Inventory || !Inventory->HasItem(PendingQuickUseItemId, 1) || !Survival || !Survival->IsAlive())
+	if (!Inventory || !Survival || !Survival->IsAlive()
+		|| (!bQuickUseCommitted && !Inventory->HasItem(PendingQuickUseItemId, 1)))
 	{
 		CancelQuickUse(false);
 		return;
@@ -582,15 +595,27 @@ void UWildBoundInteractionComponent::UpdateQuickUse(float DeltaTime, APlayerCont
 		QuickUseElapsedSeconds + FMath::Max(0.0f, DeltaTime),
 		QuickUseDurationSeconds);
 
+	const float Progress = GetConsumableActionProgress();
+	UpdateQuickUsePresentation(Progress);
+
+	if (!bQuickUseCommitted && Progress >= QuickUseCommitProgress)
+	{
+		CommitQuickUse();
+		if (!bQuickUseInProgress)
+		{
+			return;
+		}
+	}
+
 	if (QuickUseElapsedSeconds >= QuickUseDurationSeconds - KINDA_SMALL_NUMBER)
 	{
 		CompleteQuickUse();
 	}
 }
 
-void UWildBoundInteractionComponent::CompleteQuickUse()
+void UWildBoundInteractionComponent::CommitQuickUse()
 {
-	if (!bQuickUseInProgress)
+	if (!bQuickUseInProgress || bQuickUseCommitted)
 	{
 		return;
 	}
@@ -604,9 +629,6 @@ void UWildBoundInteractionComponent::CompleteQuickUse()
 		return;
 	}
 
-	FString ResultMessage;
-	FLinearColor ResultColor = QuickUseActionColor;
-
 	if (CompletedItem == WaterItemId)
 	{
 		const float Before = Survival->Thirst;
@@ -616,9 +638,10 @@ void UWildBoundInteractionComponent::CompleteQuickUse()
 			CancelQuickUse(false);
 			return;
 		}
+
 		Survival->AddThirst(Restore);
 		const int32 Gained = FMath::RoundToInt(Survival->Thirst - Before);
-		ResultMessage = FString::Printf(
+		QuickUseCompletionMessage = FString::Printf(
 			TEXT("WATER CONSUMED   |   +%d THIRST   |   x%d REMAINING"),
 			Gained,
 			Inventory->GetItemCount(CompletedItem));
@@ -631,9 +654,10 @@ void UWildBoundInteractionComponent::CompleteQuickUse()
 			CancelQuickUse(false);
 			return;
 		}
+
 		Survival->AddHunger(30.0f);
 		const int32 Gained = FMath::RoundToInt(Survival->Hunger - Before);
-		ResultMessage = FString::Printf(
+		QuickUseCompletionMessage = FString::Printf(
 			TEXT("RATION CONSUMED   |   +%d HUNGER   |   x%d REMAINING"),
 			Gained,
 			Inventory->GetItemCount(CompletedItem));
@@ -644,11 +668,37 @@ void UWildBoundInteractionComponent::CompleteQuickUse()
 		return;
 	}
 
+	bQuickUseCommitted = true;
+}
+
+void UWildBoundInteractionComponent::CompleteQuickUse()
+{
+	if (!bQuickUseInProgress)
+	{
+		return;
+	}
+
+	if (!bQuickUseCommitted)
+	{
+		CommitQuickUse();
+		if (!bQuickUseInProgress || !bQuickUseCommitted)
+		{
+			return;
+		}
+	}
+
+	const FString ResultMessage = QuickUseCompletionMessage;
+	const FLinearColor ResultColor = QuickUseActionColor;
+
+	HideQuickUsePresentation();
 	bQuickUseInProgress = false;
+	bQuickUseCommitted = false;
 	PendingQuickUseItemId = NAME_None;
 	QuickUseElapsedSeconds = 0.0f;
 	QuickUseDurationSeconds = 0.0f;
+	QuickUseCommitProgress = 1.0f;
 	QuickUseActionLabel.Reset();
+	QuickUseCompletionMessage.Reset();
 
 	SetConsumableResult(ResultMessage, ResultColor, 2.8f);
 }
@@ -660,15 +710,232 @@ void UWildBoundInteractionComponent::CancelQuickUse(bool bShowMessage)
 		return;
 	}
 
+	const bool bWasCommitted = bQuickUseCommitted;
+	HideQuickUsePresentation();
+
 	bQuickUseInProgress = false;
+	bQuickUseCommitted = false;
 	PendingQuickUseItemId = NAME_None;
 	QuickUseElapsedSeconds = 0.0f;
 	QuickUseDurationSeconds = 0.0f;
+	QuickUseCommitProgress = 1.0f;
 	QuickUseActionLabel.Reset();
+	QuickUseCompletionMessage.Reset();
 
-	if (bShowMessage)
+	if (bShowMessage && !bWasCommitted)
 	{
 		SetConsumableResult(TEXT("USE CANCELLED   |   ITEM NOT CONSUMED"), FLinearColor(0.78f, 0.58f, 0.34f, 1.0f), 1.8f);
+	}
+}
+
+void UWildBoundInteractionComponent::EnsureQuickUsePresentation()
+{
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+
+	UCameraComponent* Camera = Owner->FindComponentByClass<UCameraComponent>();
+	USceneComponent* Parent = Camera ? Cast<USceneComponent>(Camera) : Owner->GetRootComponent();
+	if (!Parent)
+	{
+		return;
+	}
+
+	auto CreateVisual = [Owner, Parent](const FName& Name) -> UStaticMeshComponent*
+	{
+		UStaticMeshComponent* Visual = NewObject<UStaticMeshComponent>(Owner, Name);
+		if (!Visual)
+		{
+			return nullptr;
+		}
+
+		Owner->AddInstanceComponent(Visual);
+		Visual->SetupAttachment(Parent);
+		Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Visual->SetGenerateOverlapEvents(false);
+		Visual->SetCastShadow(false);
+		Visual->SetVisibility(false);
+		Visual->SetHiddenInGame(true);
+		Visual->RegisterComponent();
+		return Visual;
+	};
+
+	if (!QuickUsePrimaryVisual)
+	{
+		QuickUsePrimaryVisual = CreateVisual(TEXT("WildBound_ConsumablePrimary"));
+	}
+	if (!QuickUseSecondaryVisual)
+	{
+		QuickUseSecondaryVisual = CreateVisual(TEXT("WildBound_ConsumableSecondary"));
+	}
+}
+
+void UWildBoundInteractionComponent::ShowQuickUsePresentation(FName ItemId)
+{
+	EnsureQuickUsePresentation();
+	if (!QuickUsePrimaryVisual)
+	{
+		return;
+	}
+
+	UStaticMesh* CylinderMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+
+	if (ItemId == WaterItemId && CylinderMesh)
+	{
+		QuickUsePrimaryVisual->SetStaticMesh(CylinderMesh);
+		QuickUsePrimaryVisual->SetRelativeScale3D(FVector(0.055f, 0.055f, 0.17f));
+		QuickUsePrimaryVisual->SetHiddenInGame(false);
+		QuickUsePrimaryVisual->SetVisibility(true);
+
+		if (QuickUseSecondaryVisual)
+		{
+			QuickUseSecondaryVisual->SetStaticMesh(CylinderMesh);
+			QuickUseSecondaryVisual->SetRelativeScale3D(FVector(0.032f, 0.032f, 0.038f));
+			QuickUseSecondaryVisual->SetHiddenInGame(false);
+			QuickUseSecondaryVisual->SetVisibility(true);
+		}
+	}
+	else if (ItemId == FoodItemId && CubeMesh)
+	{
+		QuickUsePrimaryVisual->SetStaticMesh(CubeMesh);
+		QuickUsePrimaryVisual->SetRelativeScale3D(FVector(0.13f, 0.028f, 0.16f));
+		QuickUsePrimaryVisual->SetHiddenInGame(false);
+		QuickUsePrimaryVisual->SetVisibility(true);
+
+		if (QuickUseSecondaryVisual)
+		{
+			QuickUseSecondaryVisual->SetStaticMesh(CubeMesh);
+			QuickUseSecondaryVisual->SetRelativeScale3D(FVector(0.065f, 0.032f, 0.035f));
+			QuickUseSecondaryVisual->SetHiddenInGame(false);
+			QuickUseSecondaryVisual->SetVisibility(true);
+		}
+	}
+}
+
+void UWildBoundInteractionComponent::UpdateQuickUsePresentation(float Progress)
+{
+	if (!QuickUsePrimaryVisual || PendingQuickUseItemId.IsNone())
+	{
+		return;
+	}
+
+	Progress = FMath::Clamp(Progress, 0.0f, 1.0f);
+
+	auto SmoothStep = [](float Alpha)
+	{
+		Alpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
+		return Alpha * Alpha * (3.0f - 2.0f * Alpha);
+	};
+
+	auto BlendRotation = [](const FRotator& A, const FRotator& B, float Alpha)
+	{
+		return FQuat::Slerp(A.Quaternion(), B.Quaternion(), Alpha).Rotator();
+	};
+
+	FVector Location;
+	FRotator Rotation;
+
+	if (PendingQuickUseItemId == WaterItemId)
+	{
+		const FVector StartLocation(43.0f, 20.0f, -31.0f);
+		const FVector RaisedLocation(27.0f, 12.0f, -11.0f);
+		const FVector SipLocation(15.0f, 6.5f, -2.5f);
+		const FVector FinishLocation(40.0f, 19.0f, -30.0f);
+
+		const FRotator StartRotation(4.0f, -7.0f, 10.0f);
+		const FRotator RaisedRotation(-18.0f, -5.0f, 7.0f);
+		const FRotator SipRotation(-72.0f, -2.0f, 3.0f);
+		const FRotator FinishRotation(7.0f, -9.0f, 12.0f);
+
+		if (Progress < 0.28f)
+		{
+			const float Alpha = SmoothStep(Progress / 0.28f);
+			Location = FMath::Lerp(StartLocation, RaisedLocation, Alpha);
+			Rotation = BlendRotation(StartRotation, RaisedRotation, Alpha);
+		}
+		else if (Progress < 0.72f)
+		{
+			const float Alpha = SmoothStep((Progress - 0.28f) / 0.44f);
+			Location = FMath::Lerp(RaisedLocation, SipLocation, Alpha);
+			Rotation = BlendRotation(RaisedRotation, SipRotation, Alpha);
+			Location.Z += FMath::Sin(Alpha * UE_TWO_PI * 1.5f) * 0.45f;
+		}
+		else
+		{
+			const float Alpha = SmoothStep((Progress - 0.72f) / 0.28f);
+			Location = FMath::Lerp(SipLocation, FinishLocation, Alpha);
+			Rotation = BlendRotation(SipRotation, FinishRotation, Alpha);
+		}
+
+		QuickUsePrimaryVisual->SetRelativeLocationAndRotation(Location, Rotation);
+
+		if (QuickUseSecondaryVisual)
+		{
+			const FVector NeckOffset = Rotation.RotateVector(FVector(0.0f, 0.0f, 10.4f));
+			QuickUseSecondaryVisual->SetRelativeLocationAndRotation(Location + NeckOffset, Rotation);
+		}
+	}
+	else if (PendingQuickUseItemId == FoodItemId)
+	{
+		const FVector StartLocation(42.0f, 20.0f, -29.0f);
+		const FVector RaisedLocation(27.0f, 11.0f, -12.0f);
+		const FVector BiteLocation(18.0f, 7.0f, -5.0f);
+		const FVector FinishLocation(41.0f, 20.0f, -30.0f);
+
+		const FRotator StartRotation(-5.0f, -8.0f, 8.0f);
+		const FRotator RaisedRotation(5.0f, -3.0f, -4.0f);
+		const FRotator BiteRotation(12.0f, 2.0f, -8.0f);
+		const FRotator FinishRotation(-6.0f, -9.0f, 7.0f);
+
+		if (Progress < 0.30f)
+		{
+			const float Alpha = SmoothStep(Progress / 0.30f);
+			Location = FMath::Lerp(StartLocation, RaisedLocation, Alpha);
+			Rotation = BlendRotation(StartRotation, RaisedRotation, Alpha);
+		}
+		else if (Progress < 0.80f)
+		{
+			const float Alpha = SmoothStep((Progress - 0.30f) / 0.50f);
+			Location = FMath::Lerp(RaisedLocation, BiteLocation, Alpha);
+			Location.X += FMath::Sin(Alpha * UE_TWO_PI * 2.0f) * 1.1f;
+			Location.Z += FMath::Sin(Alpha * UE_TWO_PI * 2.0f) * 0.7f;
+			Rotation = BlendRotation(RaisedRotation, BiteRotation, Alpha);
+		}
+		else
+		{
+			const float Alpha = SmoothStep((Progress - 0.80f) / 0.20f);
+			Location = FMath::Lerp(BiteLocation, FinishLocation, Alpha);
+			Rotation = BlendRotation(BiteRotation, FinishRotation, Alpha);
+		}
+
+		QuickUsePrimaryVisual->SetRelativeLocationAndRotation(Location, Rotation);
+		const float ConsumedScale = bQuickUseCommitted ? 0.78f : 1.0f;
+		QuickUsePrimaryVisual->SetRelativeScale3D(FVector(0.13f, 0.028f, 0.16f) * ConsumedScale);
+
+		if (QuickUseSecondaryVisual)
+		{
+			const FVector WrapperOffset = Rotation.RotateVector(FVector(0.0f, 0.0f, 9.0f));
+			QuickUseSecondaryVisual->SetRelativeLocationAndRotation(
+				Location + WrapperOffset + FVector(0.0f, 0.0f, 1.0f),
+				Rotation + FRotator(0.0f, 0.0f, 22.0f));
+		}
+	}
+}
+
+void UWildBoundInteractionComponent::HideQuickUsePresentation()
+{
+	if (QuickUsePrimaryVisual)
+	{
+		QuickUsePrimaryVisual->SetVisibility(false);
+		QuickUsePrimaryVisual->SetHiddenInGame(true);
+	}
+	if (QuickUseSecondaryVisual)
+	{
+		QuickUseSecondaryVisual->SetVisibility(false);
+		QuickUseSecondaryVisual->SetHiddenInGame(true);
 	}
 }
 

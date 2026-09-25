@@ -638,6 +638,10 @@ FText SWildBoundHUDWidget::GetConsumableFeedbackDetail() const
 	if (Interaction->IsConsumableActionInProgress())
 	{
 		const int32 Percent = FMath::RoundToInt(Interaction->GetConsumableActionProgress() * 100.0f);
+		if (Interaction->IsQuickUseCommitted())
+		{
+			return FText::FromString(FString::Printf(TEXT("%d%% COMPLETE   |   CONSUMED"), Percent));
+		}
 		return FText::FromString(FString::Printf(TEXT("%d%% COMPLETE   |   ESC CANCEL"), Percent));
 	}
 
