@@ -16,7 +16,9 @@ public:
 
 private:
 	FTimerHandle SafehouseSpawnTimer;
+	FTimerHandle SafehouseStatusTimer;
 	bool bSafehouseSpawned = false;
 
 	void TrySpawnSafehouse();
+	void UpdateSafehouseStatus();
 };
