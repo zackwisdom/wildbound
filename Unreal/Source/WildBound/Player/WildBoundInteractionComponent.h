@@ -62,6 +62,23 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Treatment")
 	FString GetTreatmentLabel() const { return TreatmentActionLabel; }
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	bool IsConsumableActionInProgress() const { return bTreatmentInProgress || bQuickUseInProgress; }
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	float GetConsumableActionProgress() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	FString GetConsumableActionLabel() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	bool IsConsumableFeedbackVisible() const;
+
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	FString GetConsumableResultText() const { return ConsumableResultText; }
+
+	FLinearColor GetConsumableFeedbackColor() const;
+
 	void SetContextPrompt(const FString& Prompt, int32 Priority = 0);
 	FString GetContextPrompt() const;
 
@@ -99,6 +116,17 @@ private:
 	float TreatmentDurationSeconds = 0.0f;
 	FString TreatmentActionLabel;
 
+	bool bQuickUseInProgress = false;
+	FName PendingQuickUseItemId = NAME_None;
+	float QuickUseElapsedSeconds = 0.0f;
+	float QuickUseDurationSeconds = 0.0f;
+	FString QuickUseActionLabel;
+	FLinearColor QuickUseActionColor = FLinearColor(0.70f, 0.75f, 0.68f, 1.0f);
+
+	FString ConsumableResultText;
+	FLinearColor ConsumableResultColor = FLinearColor(0.70f, 0.75f, 0.68f, 1.0f);
+	float ConsumableResultExpiresAt = -1.0f;
+
 	void TryInteract(AActor* TargetActor);
 	void TryPryTarget(AActor* TargetActor);
 	void SearchLootContainer(AActor* TargetActor);
@@ -112,6 +140,11 @@ private:
 	void HandleHotbarSelection(class APlayerController& PlayerController);
 	void TryUseSelectedHotbarItem();
 	void TryUseInventoryItem(FName ItemId);
+	void StartQuickUse(FName ItemId);
+	void UpdateQuickUse(float DeltaTime, class APlayerController& PlayerController);
+	void CompleteQuickUse();
+	void CancelQuickUse(bool bShowMessage = true);
+	void SetConsumableResult(const FString& Message, const FLinearColor& Color, float DurationSeconds = 2.6f);
 	void StartTreatment(FName ItemId);
 	void UpdateTreatment(float DeltaTime, class APlayerController& PlayerController);
 	void CompleteTreatment();

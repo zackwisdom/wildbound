@@ -45,6 +45,15 @@ private:
 	FSlateColor GetSurvivalWarningColor() const;
 	FSlateColor GetSurvivalWarningBackground() const;
 
+	const class UWildBoundInteractionComponent* GetInteractionComponent() const;
+	EVisibility GetConsumableFeedbackVisibility() const;
+	EVisibility GetConsumableProgressVisibility() const;
+	FText GetConsumableFeedbackTitle() const;
+	FText GetConsumableFeedbackDetail() const;
+	TOptional<float> GetConsumableFeedbackProgress() const;
+	FSlateColor GetConsumableFeedbackColor() const;
+	FSlateColor GetConsumableFeedbackBackground() const;
+
 	int32 GetSelectedHotbarSlot() const;
 	FSlateColor GetHotbarSlotOneBackground() const;
 	FSlateColor GetHotbarSlotTwoBackground() const;

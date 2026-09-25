@@ -95,6 +95,8 @@ namespace
 	const FString DroppedItemPrefix(TEXT("WBDropItem_"));
 	const FString DroppedQuantityPrefix(TEXT("WBDropQty_"));
 	constexpr int32 HotbarSlotCount = 3;
+	constexpr float WaterUseDuration = 0.95f;
+	constexpr float FoodUseDuration = 1.35f;
 	constexpr float BasicMedicalTreatmentDuration = 2.40f;
 	constexpr float TraumaTreatmentDuration = 4.20f;
 	constexpr float RadiationTreatmentDuration = 2.80f;
@@ -244,6 +246,7 @@ UWildBoundInteractionComponent::UWildBoundInteractionComponent()
 
 void UWildBoundInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	CancelQuickUse(false);
 	CancelTreatment(false);
 	CloseLootWindow();
 	RemoveLootWidget();
@@ -275,6 +278,70 @@ float UWildBoundInteractionComponent::GetTreatmentProgress() const
 	return TreatmentDurationSeconds > KINDA_SMALL_NUMBER
 		? FMath::Clamp(TreatmentElapsedSeconds / TreatmentDurationSeconds, 0.0f, 1.0f)
 		: 0.0f;
+}
+
+float UWildBoundInteractionComponent::GetConsumableActionProgress() const
+{
+	if (bTreatmentInProgress)
+	{
+		return GetTreatmentProgress();
+	}
+
+	return QuickUseDurationSeconds > KINDA_SMALL_NUMBER
+		? FMath::Clamp(QuickUseElapsedSeconds / QuickUseDurationSeconds, 0.0f, 1.0f)
+		: 0.0f;
+}
+
+FString UWildBoundInteractionComponent::GetConsumableActionLabel() const
+{
+	if (bTreatmentInProgress)
+	{
+		return TreatmentActionLabel;
+	}
+	return bQuickUseInProgress ? QuickUseActionLabel : FString();
+}
+
+bool UWildBoundInteractionComponent::IsConsumableFeedbackVisible() const
+{
+	if (IsConsumableActionInProgress())
+	{
+		return true;
+	}
+
+	const UWorld* World = GetWorld();
+	return World
+		&& !ConsumableResultText.IsEmpty()
+		&& World->GetTimeSeconds() <= ConsumableResultExpiresAt;
+}
+
+FLinearColor UWildBoundInteractionComponent::GetConsumableFeedbackColor() const
+{
+	if (bQuickUseInProgress)
+	{
+		return QuickUseActionColor;
+	}
+
+	if (bTreatmentInProgress)
+	{
+		return PendingTreatmentItemId == RadTreatmentItemId
+			? FLinearColor(0.80f, 0.70f, 0.38f, 1.0f)
+			: FLinearColor(0.40f, 0.78f, 0.48f, 1.0f);
+	}
+
+	return ConsumableResultColor;
+}
+
+void UWildBoundInteractionComponent::SetConsumableResult(
+	const FString& Message,
+	const FLinearColor& Color,
+	float DurationSeconds)
+{
+	ConsumableResultText = Message;
+	ConsumableResultColor = Color;
+	const UWorld* World = GetWorld();
+	ConsumableResultExpiresAt = World
+		? World->GetTimeSeconds() + FMath::Max(0.1f, DurationSeconds)
+		: -1.0f;
 }
 
 UWildBoundInventoryComponent* UWildBoundInteractionComponent::GetInventoryComponent() const
@@ -326,6 +393,12 @@ void UWildBoundInteractionComponent::TickComponent(float DeltaTime, ELevelTick T
 	if (bTreatmentInProgress)
 	{
 		UpdateTreatment(DeltaTime, *PlayerController);
+		return;
+	}
+
+	if (bQuickUseInProgress)
+	{
+		UpdateQuickUse(DeltaTime, *PlayerController);
 		return;
 	}
 
@@ -394,19 +467,25 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 	UWildBoundInjuryComponent* Injury = Owner ? Owner->FindComponentByClass<UWildBoundInjuryComponent>() : nullptr;
 	if (!Inventory || !Survival || !Inventory->HasItem(ItemId, 1)) return;
 
-	FString UseMessage;
-	FColor MessageColor(205,220,190);
 	if (ItemId == WaterItemId)
 	{
-		if (Survival->Thirst >= Survival->MaxThirst - KINDA_SMALL_NUMBER) { if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(170,200,220),TEXT("Thirst is already full.")); return; }
-		if (!Inventory->RemoveItem(ItemId, 1)) return;
-		const float Restore = Inventory->HasItem(CanteenItemId, 1) ? 45.0f : 35.0f;
-		Survival->AddThirst(Restore); UseMessage = FString::Printf(TEXT("Drank water  +%.0f THIRST"), Restore); MessageColor = FColor(145,195,225);
+		if (Survival->Thirst >= Survival->MaxThirst - KINDA_SMALL_NUMBER)
+		{
+			SetConsumableResult(TEXT("THIRST ALREADY FULL   |   WATER NOT CONSUMED"), FLinearColor(0.42f, 0.70f, 0.90f, 1.0f), 2.0f);
+			return;
+		}
+		StartQuickUse(ItemId);
+		return;
 	}
 	else if (ItemId == FoodItemId)
 	{
-		if (Survival->Hunger >= Survival->MaxHunger - KINDA_SMALL_NUMBER) { if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(215,185,120),TEXT("Hunger is already full.")); return; }
-		if (!Inventory->RemoveItem(ItemId,1)) return; Survival->AddHunger(30.0f); UseMessage = TEXT("Ate preserved ration  +30 HUNGER"); MessageColor = FColor(215,185,120);
+		if (Survival->Hunger >= Survival->MaxHunger - KINDA_SMALL_NUMBER)
+		{
+			SetConsumableResult(TEXT("HUNGER ALREADY FULL   |   FOOD NOT CONSUMED"), FLinearColor(0.88f, 0.69f, 0.34f, 1.0f), 2.0f);
+			return;
+		}
+		StartQuickUse(ItemId);
+		return;
 	}
 	else if (ItemId == MedicalItemId || ItemId == TraumaKitItemId)
 	{
@@ -415,7 +494,7 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 		const bool bHasTreatableInjury = Injury && (bTraumaKit ? Injury->CanUseTraumaKit() : Injury->CanUseBasicMedicalTreatment());
 		if (!bNeedsHealth && !bHasTreatableInjury)
 		{
-			if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(220,155,145),TEXT("No medical treatment is currently needed."));
+			SetConsumableResult(TEXT("NO MEDICAL TREATMENT NEEDED   |   ITEM NOT CONSUMED"), FLinearColor(0.88f, 0.50f, 0.42f, 1.0f), 2.0f);
 			return;
 		}
 		StartTreatment(ItemId);
@@ -423,7 +502,11 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 	}
 	else if (ItemId == RadTreatmentItemId)
 	{
-		if (!Radiation || Radiation->AccumulatedDose <= KINDA_SMALL_NUMBER) { if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(205,190,145),TEXT("Radiation dose is already clear.")); return; }
+		if (!Radiation || Radiation->AccumulatedDose <= KINDA_SMALL_NUMBER)
+		{
+			SetConsumableResult(TEXT("RADIATION DOSE CLEAR   |   TREATMENT NOT CONSUMED"), FLinearColor(0.80f, 0.70f, 0.38f, 1.0f), 2.0f);
+			return;
+		}
 		StartTreatment(ItemId);
 		return;
 	}
@@ -433,15 +516,165 @@ void UWildBoundInteractionComponent::TryUseInventoryItem(FName ItemId)
 		if (ItemId == FlashlightItemId) Message = TEXT("Flashlight: press F to toggle.");
 		else if (ItemId == CrowbarItemId) Message = TEXT("Crowbar: use it on sealed targets.");
 		else if (ItemId == ReinforcedBackpackItemId || ItemId == FilterMaskItemId || ItemId == CanteenItemId || ItemId == UtilityBeltItemId) Message = TEXT("Passive gear is active while carried.");
-		if (GEngine) GEngine->AddOnScreenDebugMessage(91003,1.8f,FColor(185,185,175),Message);
+		if (GEngine) GEngine->AddOnScreenDebugMessage(91003, 1.8f, FColor(185,185,175), Message);
+	}
+}
+
+void UWildBoundInteractionComponent::StartQuickUse(FName ItemId)
+{
+	if (bQuickUseInProgress || bTreatmentInProgress || ItemId.IsNone())
+	{
 		return;
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(91003,2.2f,MessageColor,UseMessage);
+
+	UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory || !Inventory->HasItem(ItemId, 1))
+	{
+		return;
+	}
+
+	if (ItemId == WaterItemId)
+	{
+		QuickUseDurationSeconds = WaterUseDuration;
+		QuickUseActionLabel = TEXT("DRINKING WATER");
+		QuickUseActionColor = FLinearColor(0.36f, 0.68f, 0.92f, 1.0f);
+	}
+	else if (ItemId == FoodItemId)
+	{
+		QuickUseDurationSeconds = FoodUseDuration;
+		QuickUseActionLabel = TEXT("EATING EMERGENCY RATION");
+		QuickUseActionColor = FLinearColor(0.88f, 0.66f, 0.28f, 1.0f);
+	}
+	else
+	{
+		return;
+	}
+
+	PendingQuickUseItemId = ItemId;
+	QuickUseElapsedSeconds = 0.0f;
+	bQuickUseInProgress = true;
+	ConsumableResultText.Reset();
+	ConsumableResultExpiresAt = -1.0f;
+}
+
+void UWildBoundInteractionComponent::UpdateQuickUse(float DeltaTime, APlayerController& PlayerController)
+{
+	if (!bQuickUseInProgress)
+	{
+		return;
+	}
+
+	if (PlayerController.WasInputKeyJustPressed(EKeys::Escape))
+	{
+		CancelQuickUse(true);
+		return;
+	}
+
+	const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+	const UWildBoundSurvivalComponent* Survival = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
+	if (!Inventory || !Inventory->HasItem(PendingQuickUseItemId, 1) || !Survival || !Survival->IsAlive())
+	{
+		CancelQuickUse(false);
+		return;
+	}
+
+	QuickUseElapsedSeconds = FMath::Min(
+		QuickUseElapsedSeconds + FMath::Max(0.0f, DeltaTime),
+		QuickUseDurationSeconds);
+
+	if (QuickUseElapsedSeconds >= QuickUseDurationSeconds - KINDA_SMALL_NUMBER)
+	{
+		CompleteQuickUse();
+	}
+}
+
+void UWildBoundInteractionComponent::CompleteQuickUse()
+{
+	if (!bQuickUseInProgress)
+	{
+		return;
+	}
+
+	UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
+	UWildBoundSurvivalComponent* Survival = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
+	const FName CompletedItem = PendingQuickUseItemId;
+	if (!Inventory || !Survival || !Inventory->HasItem(CompletedItem, 1))
+	{
+		CancelQuickUse(false);
+		return;
+	}
+
+	FString ResultMessage;
+	FLinearColor ResultColor = QuickUseActionColor;
+
+	if (CompletedItem == WaterItemId)
+	{
+		const float Before = Survival->Thirst;
+		const float Restore = Inventory->HasItem(CanteenItemId, 1) ? 45.0f : 35.0f;
+		if (!Inventory->RemoveItem(CompletedItem, 1))
+		{
+			CancelQuickUse(false);
+			return;
+		}
+		Survival->AddThirst(Restore);
+		const int32 Gained = FMath::RoundToInt(Survival->Thirst - Before);
+		ResultMessage = FString::Printf(
+			TEXT("WATER CONSUMED   |   +%d THIRST   |   x%d REMAINING"),
+			Gained,
+			Inventory->GetItemCount(CompletedItem));
+	}
+	else if (CompletedItem == FoodItemId)
+	{
+		const float Before = Survival->Hunger;
+		if (!Inventory->RemoveItem(CompletedItem, 1))
+		{
+			CancelQuickUse(false);
+			return;
+		}
+		Survival->AddHunger(30.0f);
+		const int32 Gained = FMath::RoundToInt(Survival->Hunger - Before);
+		ResultMessage = FString::Printf(
+			TEXT("RATION CONSUMED   |   +%d HUNGER   |   x%d REMAINING"),
+			Gained,
+			Inventory->GetItemCount(CompletedItem));
+	}
+	else
+	{
+		CancelQuickUse(false);
+		return;
+	}
+
+	bQuickUseInProgress = false;
+	PendingQuickUseItemId = NAME_None;
+	QuickUseElapsedSeconds = 0.0f;
+	QuickUseDurationSeconds = 0.0f;
+	QuickUseActionLabel.Reset();
+
+	SetConsumableResult(ResultMessage, ResultColor, 2.8f);
+}
+
+void UWildBoundInteractionComponent::CancelQuickUse(bool bShowMessage)
+{
+	if (!bQuickUseInProgress)
+	{
+		return;
+	}
+
+	bQuickUseInProgress = false;
+	PendingQuickUseItemId = NAME_None;
+	QuickUseElapsedSeconds = 0.0f;
+	QuickUseDurationSeconds = 0.0f;
+	QuickUseActionLabel.Reset();
+
+	if (bShowMessage)
+	{
+		SetConsumableResult(TEXT("USE CANCELLED   |   ITEM NOT CONSUMED"), FLinearColor(0.78f, 0.58f, 0.34f, 1.0f), 1.8f);
+	}
 }
 
 void UWildBoundInteractionComponent::StartTreatment(FName ItemId)
 {
-	if (bTreatmentInProgress || ItemId.IsNone())
+	if (bTreatmentInProgress || bQuickUseInProgress || ItemId.IsNone())
 	{
 		return;
 	}
@@ -605,6 +838,10 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 		return;
 	}
 
+	SuccessMessage += FString::Printf(
+		TEXT("   |   x%d REMAINING"),
+		Inventory->GetItemCount(CompletedItem));
+
 	bTreatmentInProgress = false;
 	PendingTreatmentItemId = NAME_None;
 	TreatmentElapsedSeconds = 0.0f;
@@ -614,10 +851,10 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 	ContextPromptPriority = MIN_int32;
 	SetTreatmentInputLock(false);
 
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(91360, 3.0f, SuccessColor, SuccessMessage);
-	}
+	SetConsumableResult(
+		SuccessMessage,
+		FLinearColor::FromSRGBColor(SuccessColor),
+		3.0f);
 }
 
 void UWildBoundInteractionComponent::CancelTreatment(bool bShowMessage)
@@ -636,9 +873,12 @@ void UWildBoundInteractionComponent::CancelTreatment(bool bShowMessage)
 	ContextPromptPriority = MIN_int32;
 	SetTreatmentInputLock(false);
 
-	if (bShowMessage && GEngine)
+	if (bShowMessage)
 	{
-		GEngine->AddOnScreenDebugMessage(91360, 2.0f, FColor(205, 165, 120), TEXT("Treatment interrupted. Medical item was not consumed."));
+		SetConsumableResult(
+			TEXT("TREATMENT INTERRUPTED   |   ITEM NOT CONSUMED"),
+			FLinearColor(0.80f, 0.58f, 0.34f, 1.0f),
+			2.0f);
 	}
 }
 

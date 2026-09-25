@@ -139,6 +139,48 @@ void SWildBoundHUDWidget::Construct(const FArguments& InArgs)
 		+ SOverlay::Slot()
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Bottom)
+		.Padding(FMargin(0.0f, 0.0f, 0.0f, 222.0f))
+		[
+			SNew(SBox)
+			.WidthOverride(430.0f)
+			[
+				SNew(SBorder)
+				.Visibility(this, &SWildBoundHUDWidget::GetConsumableFeedbackVisibility)
+				.Padding(FMargin(15.0f, 11.0f))
+				.BorderBackgroundColor(this, &SWildBoundHUDWidget::GetConsumableFeedbackBackground)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(this, &SWildBoundHUDWidget::GetConsumableFeedbackTitle)
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+						.ColorAndOpacity(this, &SWildBoundHUDWidget::GetConsumableFeedbackColor)
+						.Justification(ETextJustify::Center)
+					]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					[
+						SNew(STextBlock)
+						.Text(this, &SWildBoundHUDWidget::GetConsumableFeedbackDetail)
+						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+						.ColorAndOpacity(FLinearColor(0.82f, 0.84f, 0.79f, 0.96f))
+						.Justification(ETextJustify::Center)
+						.AutoWrapText(true)
+					]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 8.0f, 0.0f, 0.0f)
+					[
+						SNew(SProgressBar)
+						.Visibility(this, &SWildBoundHUDWidget::GetConsumableProgressVisibility)
+						.Percent(this, &SWildBoundHUDWidget::GetConsumableFeedbackProgress)
+						.FillColorAndOpacity(this, &SWildBoundHUDWidget::GetConsumableFeedbackColor)
+					]
+				]
+			]
+		]
+
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Bottom)
 		.Padding(FMargin(0.0f, 0.0f, 0.0f, 142.0f))
 		[
 			SNew(SBorder)
@@ -544,6 +586,93 @@ FSlateColor SWildBoundHUDWidget::GetSurvivalWarningBackground() const
 		return FSlateColor(FLinearColor(0.23f, 0.10f, 0.025f, 0.93f));
 	}
 	return FSlateColor(FLinearColor(0.16f, 0.12f, 0.025f, 0.91f));
+}
+
+const UWildBoundInteractionComponent* SWildBoundHUDWidget::GetInteractionComponent() const
+{
+	const UWildBoundSurvivalComponent* Survival = SurvivalComponent.Get();
+	const AActor* Owner = Survival ? Survival->GetOwner() : nullptr;
+	return Owner ? Owner->FindComponentByClass<UWildBoundInteractionComponent>() : nullptr;
+}
+
+EVisibility SWildBoundHUDWidget::GetConsumableFeedbackVisibility() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	return Interaction && Interaction->IsConsumableFeedbackVisible()
+		? EVisibility::HitTestInvisible
+		: EVisibility::Collapsed;
+}
+
+EVisibility SWildBoundHUDWidget::GetConsumableProgressVisibility() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	return Interaction && Interaction->IsConsumableActionInProgress()
+		? EVisibility::HitTestInvisible
+		: EVisibility::Collapsed;
+}
+
+FText SWildBoundHUDWidget::GetConsumableFeedbackTitle() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	if (!Interaction)
+	{
+		return FText::GetEmpty();
+	}
+
+	if (Interaction->IsConsumableActionInProgress())
+	{
+		return FText::FromString(Interaction->GetConsumableActionLabel());
+	}
+
+	return FText::FromString(Interaction->GetConsumableResultText());
+}
+
+FText SWildBoundHUDWidget::GetConsumableFeedbackDetail() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	if (!Interaction)
+	{
+		return FText::GetEmpty();
+	}
+
+	if (Interaction->IsConsumableActionInProgress())
+	{
+		const int32 Percent = FMath::RoundToInt(Interaction->GetConsumableActionProgress() * 100.0f);
+		return FText::FromString(FString::Printf(TEXT("%d%% COMPLETE   |   ESC CANCEL"), Percent));
+	}
+
+	return FText::FromString(TEXT("VITALS AND INVENTORY UPDATED"));
+}
+
+TOptional<float> SWildBoundHUDWidget::GetConsumableFeedbackProgress() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	return Interaction
+		? TOptional<float>(Interaction->GetConsumableActionProgress())
+		: TOptional<float>(0.0f);
+}
+
+FSlateColor SWildBoundHUDWidget::GetConsumableFeedbackColor() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	return FSlateColor(
+		Interaction
+			? Interaction->GetConsumableFeedbackColor()
+			: FLinearColor(0.72f, 0.75f, 0.68f, 1.0f));
+}
+
+FSlateColor SWildBoundHUDWidget::GetConsumableFeedbackBackground() const
+{
+	const UWildBoundInteractionComponent* Interaction = GetInteractionComponent();
+	const FLinearColor Accent = Interaction
+		? Interaction->GetConsumableFeedbackColor()
+		: FLinearColor(0.72f, 0.75f, 0.68f, 1.0f);
+
+	return FSlateColor(FLinearColor(
+		0.018f + Accent.R * 0.055f,
+		0.022f + Accent.G * 0.045f,
+		0.020f + Accent.B * 0.045f,
+		0.94f));
 }
 
 int32 SWildBoundHUDWidget::GetSelectedHotbarSlot() const
