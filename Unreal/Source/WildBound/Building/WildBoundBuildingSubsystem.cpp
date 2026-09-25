@@ -2656,7 +2656,8 @@ void UWildBoundBuildingSubsystem::DismantleBuild(int32 BuildId)
 	const FName BuildTypeId = State->BuildTypeId;
 	const FString BuildName = GetBuildDisplayName(BuildTypeId);
 
-	if (BuildTypeId == RainCollectorType && State->StoredUtilityUnits > 0)
+	if ((BuildTypeId == RainCollectorType || BuildTypeId == PurifierType)
+		&& State->StoredUtilityUnits > 0)
 	{
 		if (GEngine)
 		{
@@ -2664,7 +2665,22 @@ void UWildBoundBuildingSubsystem::DismantleBuild(int32 BuildId)
 				91706,
 				2.2f,
 				FColor(135, 180, 205),
-				TEXT("Collect the stored rainwater before dismantling this collector."));
+				BuildTypeId == PurifierType
+					? TEXT("Collect the purified water before dismantling this unit.")
+					: TEXT("Collect the stored rainwater before dismantling this collector."));
+		}
+		return;
+	}
+
+	if (BuildTypeId == GeneratorType && State->FuelSecondsRemaining > 0.0f)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91706,
+				2.2f,
+				FColor(205, 175, 110),
+				TEXT("Run the generator fuel dry before dismantling it."));
 		}
 		return;
 	}
