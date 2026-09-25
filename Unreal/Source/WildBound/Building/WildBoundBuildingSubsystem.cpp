@@ -2318,6 +2318,9 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 	float GeneratorFuel = 0.0f;
 	bool bGeneratorRunning = false;
 	int32 PoweredLights = 0;
+	int32 PurifiedWater = 0;
+	bool bHeaterOnline = false;
+	bool bToolsOnline = false;
 
 	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
 	{
@@ -2353,15 +2356,18 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 	}
 
 	return FString::Printf(
-		TEXT("%s\nWATER  %d STORED\nPOWER  %.0f / %.0f  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS  %d ONLINE\nREINFORCEMENT  %d PIECES"),
+		TEXT("%s\nWATER  RAW %d  CLEAN %d\nPOWER  %.0f / %.0f  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS %d  HEAT %s  TOOLS %s\nREINFORCEMENT  %d PIECES"),
 		*GetShelterProgressionNameAt(Anchor),
 		StoredWater,
+		PurifiedWater,
 		BatteryCharge,
 		static_cast<float>(BatteryCount) * BatteryCapacity,
 		TotalLoad,
 		bGeneratorRunning ? TEXT("RUNNING") : TEXT("OFF"),
 		GeneratorFuel,
 		PoweredLights,
+		bHeaterOnline ? TEXT("ON") : TEXT("OFF"),
+		bToolsOnline ? TEXT("ON") : TEXT("OFF"),
 		ReinforcedPieces);
 }
 
