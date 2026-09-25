@@ -798,7 +798,20 @@ void UWildBoundCraftingComponent::CraftSelectedRecipe()
 
 	PendingRecipeIndex = SelectedRecipeIndex;
 	CraftElapsedSeconds = 0.0f;
-	ActiveCraftDurationSeconds = bWorkbenchMode ? 1.15f : 0.82f;
+	float CraftDuration = bWorkbenchMode ? 1.15f : 0.82f;
+	if (bWorkbenchMode)
+	{
+		const UWorld* World = GetWorld();
+		const UWildBoundBuildingSubsystem* Building = World
+			? World->GetSubsystem<UWildBoundBuildingSubsystem>()
+			: nullptr;
+		const AActor* Owner = GetOwner();
+		if (Building && Owner)
+		{
+			CraftDuration *= Building->GetCraftSpeedMultiplierAt(Owner->GetActorLocation());
+		}
+	}
+	ActiveCraftDurationSeconds = CraftDuration;
 	bCraftInProgress = true;
 	LastCraftSuccessWorldTime = -1000.0f;
 }
