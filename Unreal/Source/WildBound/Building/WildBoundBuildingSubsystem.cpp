@@ -1233,6 +1233,126 @@ bool UWildBoundBuildingSubsystem::SpawnPlacedBuild(
 		return true;
 	}
 
+	if (BuildTypeId == PurifierType)
+	{
+		AStaticMeshActor* Body = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 74.0f),
+			FVector(1.05f, 0.78f, 1.38f),
+			Rotation,
+			FLinearColor(0.12f, 0.145f, 0.14f, 1.0f),
+			TEXT("WB_PlayerBuild_WaterPurifier"),
+			OutSpawnedActors,
+			0.76f,
+			0.30f);
+		if (!Body)
+		{
+			return false;
+		}
+		Body->Tags.AddUnique(InteractableTag);
+		Body->Tags.AddUnique(PurifierTag);
+
+		SpawnBuildPiece(
+			*World,
+			Location + Rotation.RotateVector(FVector(0.0f, -48.0f, 94.0f)),
+			FVector(0.68f, 0.18f, 0.86f),
+			Rotation,
+			FLinearColor(0.18f, 0.20f, 0.16f, 1.0f),
+			TEXT("WB_PlayerBuild_PurifierFilter"),
+			OutSpawnedActors,
+			0.82f,
+			0.16f);
+		SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 151.0f),
+			FVector(0.88f, 0.62f, 0.12f),
+			Rotation,
+			Scrap,
+			TEXT("WB_PlayerBuild_PurifierTop"),
+			OutSpawnedActors,
+			0.72f,
+			0.42f);
+		return true;
+	}
+
+	if (BuildTypeId == HeaterType)
+	{
+		AStaticMeshActor* Body = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 52.0f),
+			FVector(0.90f, 0.58f, 1.00f),
+			Rotation,
+			FLinearColor(0.135f, 0.12f, 0.095f, 1.0f),
+			TEXT("WB_PlayerBuild_Heater"),
+			OutSpawnedActors,
+			0.70f,
+			0.50f);
+		if (!Body)
+		{
+			return false;
+		}
+		Body->Tags.AddUnique(InteractableTag);
+		Body->Tags.AddUnique(HeaterTag);
+
+		for (float Z : {26.0f, 52.0f, 78.0f})
+		{
+			SpawnBuildPiece(
+				*World,
+				Location + Rotation.RotateVector(FVector(0.0f, -34.0f, Z)),
+				FVector(0.62f, 0.08f, 0.08f),
+				Rotation,
+				Rust,
+				TEXT("WB_PlayerBuild_HeaterElement"),
+				OutSpawnedActors,
+				0.64f,
+				0.48f);
+		}
+		return true;
+	}
+
+	if (BuildTypeId == ToolStationType)
+	{
+		AStaticMeshActor* Bench = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 78.0f),
+			FVector(1.55f, 0.72f, 0.14f),
+			Rotation,
+			DarkWood,
+			TEXT("WB_PlayerBuild_PoweredToolStation"),
+			OutSpawnedActors,
+			0.80f,
+			0.22f);
+		if (!Bench)
+		{
+			return false;
+		}
+		Bench->Tags.AddUnique(InteractableTag);
+		Bench->Tags.AddUnique(ToolStationTag);
+
+		const FVector Right = Rotation.RotateVector(FVector(0.0f, 1.0f, 0.0f));
+		SpawnBuildPiece(
+			*World,
+			Location + Right * 58.0f + FVector(0.0f, 0.0f, 122.0f),
+			FVector(0.84f, 0.16f, 0.72f),
+			Rotation,
+			FLinearColor(0.13f, 0.14f, 0.12f, 1.0f),
+			TEXT("WB_PlayerBuild_ToolStationMotor"),
+			OutSpawnedActors,
+			0.72f,
+			0.44f);
+		SpawnBuildPiece(
+			*World,
+			Location - Right * 72.0f + FVector(0.0f, 0.0f, 116.0f),
+			FVector(0.56f, 0.20f, 0.54f),
+			Rotation,
+			Scrap,
+			TEXT("WB_PlayerBuild_ToolStationPress"),
+			OutSpawnedActors,
+			0.68f,
+			0.48f);
+		return true;
+	}
+
 	if (BuildTypeId == GeneratorType)
 	{
 		AStaticMeshActor* Body = SpawnBuildPiece(
