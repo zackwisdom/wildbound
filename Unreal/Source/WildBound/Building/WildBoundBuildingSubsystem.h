@@ -70,6 +70,7 @@ public:
 	FString GetShelterProgressionNameAt(const FVector& Location) const;
 	FString GetSafehouseStatusText() const;
 	bool IsPlayerNearSafehouseStatus() const;
+	float GetCraftSpeedMultiplierAt(const FVector& Location) const;
 
 	const TArray<FWildBoundPlacedBuildState>& GetPlacedBuildStates() const { return PlacedBuilds; }
 	void RestorePlacedBuilds(const TArray<FWildBoundPlacedBuildState>& SavedBuilds);
@@ -137,6 +138,7 @@ private:
 	bool TryApplyPieceSnap(FVector& InOutLocation, FRotator& InOutRotation) const;
 	bool IsDuplicatePlacement(const FVector& Location, FName IgnoreBuildType = NAME_None, int32 IgnoreBuildId = 0) const;
 	bool IsPowerAvailableAt(const FVector& Location) const;
+	bool IsBuildPowered(int32 BuildId) const;
 	bool IsElectricalBuild(FName BuildTypeId) const;
 	bool CanLinkPowerBuilds(int32 SourceBuildId, int32 TargetBuildId) const;
 	void TogglePowerLink(int32 SourceBuildId, int32 TargetBuildId);
