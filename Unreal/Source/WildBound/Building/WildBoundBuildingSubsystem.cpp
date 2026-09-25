@@ -538,6 +538,7 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 		RelocatingBuildId = 0;
 		CancelPlacement(false);
 
+		RefreshPowerLinkVisuals();
 		RefreshPoweredLights();
 		if (GEngine)
 		{
@@ -567,6 +568,7 @@ void UWildBoundBuildingSubsystem::TryPlaceActiveBuild()
 	}
 	PlacedBuilds.Add(State);
 	NextBuildId = FMath::Max(NextBuildId, BuildId + 1);
+	RefreshPowerLinkVisuals();
 	RefreshPoweredLights();
 
 	if (GEngine)
@@ -615,6 +617,8 @@ void UWildBoundBuildingSubsystem::CancelPlacement(bool bShowMessage)
 			&RestoredActors))
 		{
 			RegisterBuildActors(OriginalState.BuildId, RestoredActors);
+			RefreshPowerLinkVisuals();
+			RefreshPoweredLights();
 		}
 	}
 
@@ -1352,6 +1356,7 @@ void UWildBoundBuildingSubsystem::RestorePlacedBuilds(
 			NextBuildId = FMath::Max(NextBuildId, Restored.BuildId + 1);
 		}
 	}
+	RefreshPowerLinkVisuals();
 	RefreshPoweredLights();
 }
 
@@ -1430,6 +1435,23 @@ void UWildBoundBuildingSubsystem::DestroyAllPlacedBuildActors()
 	}
 
 	for (AActor* Actor : ToDestroy)
+	{
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
+		}
+	}
+
+	TArray<AActor*> LinkVisuals;
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (Actor && Actor->ActorHasTag(PowerLinkVisualTag))
+		{
+			LinkVisuals.Add(Actor);
+		}
+	}
+	for (AActor* Actor : LinkVisuals)
 	{
 		if (IsValid(Actor))
 		{
@@ -2259,11 +2281,20 @@ void UWildBoundBuildingSubsystem::DismantleBuild(int32 BuildId)
 	}
 
 	DestroyBuildActors(BuildId);
+	for (FWildBoundPlacedBuildState& Existing : PlacedBuilds)
+	{
+		Existing.LinkedBuildIds.Remove(BuildId);
+	}
 	PlacedBuilds.RemoveAll(
 		[BuildId](const FWildBoundPlacedBuildState& Existing)
 		{
 			return Existing.BuildId == BuildId;
 		});
+	if (PendingPowerLinkSourceBuildId == BuildId)
+	{
+		PendingPowerLinkSourceBuildId = 0;
+	}
+	RefreshPowerLinkVisuals();
 	RefreshPoweredLights();
 
 	if (GEngine)
