@@ -1480,25 +1480,63 @@ void UWildBoundBuildingSubsystem::UpdateUtilities()
 
 	for (FWildBoundPlacedBuildState& State : PlacedBuilds)
 	{
-		if (State.BuildTypeId != RainCollectorType
+		if (State.BuildTypeId == RainCollectorType
+			&& State.bUtilityEnabled
+			&& State.StoredUtilityUnits < RainCollectorCapacity)
+		{
+			State.UtilityProgress += 1.0f / RainWaterSecondsPerUnit;
+			while (State.UtilityProgress >= 1.0f
+				&& State.StoredUtilityUnits < RainCollectorCapacity)
+			{
+				State.UtilityProgress -= 1.0f;
+				++State.StoredUtilityUnits;
+				bUtilityStateChanged = true;
+			}
+			if (State.StoredUtilityUnits >= RainCollectorCapacity)
+			{
+				State.UtilityProgress = 0.0f;
+			}
+		}
+
+		if (State.BuildTypeId == GeneratorType
+			&& State.bUtilityEnabled
+			&& State.FuelSecondsRemaining > 0.0f)
+		{
+			State.FuelSecondsRemaining = FMath::Max(0.0f, State.FuelSecondsRemaining - 1.0f);
+			if (State.FuelSecondsRemaining <= 0.0f)
+			{
+				State.bUtilityEnabled = false;
+				bUtilityStateChanged = true;
+			}
+
+			for (int32 LinkedId : State.LinkedBuildIds)
+			{
+				FWildBoundPlacedBuildState* Battery = FindBuildState(LinkedId);
+				if (!Battery || Battery->BuildTypeId != PowerBankType)
+				{
+					continue;
+				}
+				Battery->StoredPower = FMath::Clamp(
+					Battery->StoredPower + GeneratorChargePerSecond,
+					0.0f,
+					BatteryCapacity);
+			}
+		}
+	}
+
+	for (FWildBoundPlacedBuildState& State : PlacedBuilds)
+	{
+		if (State.BuildTypeId != PowerBankType
 			|| !State.bUtilityEnabled
-			|| State.StoredUtilityUnits >= RainCollectorCapacity)
+			|| State.StoredPower <= 0.0f)
 		{
 			continue;
 		}
 
-		State.UtilityProgress += 1.0f / RainWaterSecondsPerUnit;
-		while (State.UtilityProgress >= 1.0f
-			&& State.StoredUtilityUnits < RainCollectorCapacity)
+		const float Load = GetConnectedLoadForBattery(State.BuildId);
+		if (Load > 0.0f)
 		{
-			State.UtilityProgress -= 1.0f;
-			++State.StoredUtilityUnits;
-			bUtilityStateChanged = true;
-		}
-
-		if (State.StoredUtilityUnits >= RainCollectorCapacity)
-		{
-			State.UtilityProgress = 0.0f;
+			State.StoredPower = FMath::Max(0.0f, State.StoredPower - Load);
 		}
 	}
 
@@ -1510,7 +1548,7 @@ void UWildBoundBuildingSubsystem::UpdateUtilities()
 			91708,
 			1.4f,
 			FColor(125, 175, 205),
-			TEXT("RAIN COLLECTOR   |   water captured"));
+			TEXT("BASE UTILITIES UPDATED"));
 	}
 }
 
@@ -1533,18 +1571,150 @@ void UWildBoundBuildingSubsystem::RefreshPoweredLights()
 	}
 }
 
-bool UWildBoundBuildingSubsystem::IsPowerAvailableAt(const FVector& Location) const
+void UWildBoundBuildingSubsystem::RefreshPowerLinkVisuals()
 {
-	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
+	UWorld* World = GetWorld();
+	if (!World)
 	{
-		if (State.BuildTypeId == PowerBankType
-			&& State.bUtilityEnabled
-			&& FVector::DistSquared2D(State.Location, Location) <= FMath::Square(UtilityPowerRadius))
+		return;
+	}
+
+	TArray<AActor*> OldLinks;
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (Actor && Actor->ActorHasTag(PowerLinkVisualTag))
 		{
-			return true;
+			OldLinks.Add(Actor);
+		}
+	}
+	for (AActor* Actor : OldLinks)
+	{
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
 		}
 	}
 
+	for (const FWildBoundPlacedBuildState& Source : PlacedBuilds)
+	{
+		if (!IsElectricalBuild(Source.BuildTypeId))
+		{
+			continue;
+		}
+
+		for (int32 TargetId : Source.LinkedBuildIds)
+		{
+			const FWildBoundPlacedBuildState* Target = FindBuildState(TargetId);
+			if (!Target)
+			{
+				continue;
+			}
+
+			SpawnPowerLinkVisual(
+				*World,
+				Source.Location + FVector(0.0f, 0.0f, 95.0f),
+				Target->Location + FVector(0.0f, 0.0f, 95.0f));
+		}
+	}
+}
+
+bool UWildBoundBuildingSubsystem::IsElectricalBuild(FName BuildTypeId) const
+{
+	return BuildTypeId == GeneratorType
+		|| BuildTypeId == PowerBankType
+		|| BuildTypeId == PoweredLightType;
+}
+
+bool UWildBoundBuildingSubsystem::CanLinkPowerBuilds(int32 SourceBuildId, int32 TargetBuildId) const
+{
+	const FWildBoundPlacedBuildState* Source = FindBuildState(SourceBuildId);
+	const FWildBoundPlacedBuildState* Target = FindBuildState(TargetBuildId);
+	if (!Source || !Target || SourceBuildId == TargetBuildId)
+	{
+		return false;
+	}
+
+	if (FVector::DistSquared2D(Source->Location, Target->Location) > FMath::Square(UtilityPowerRadius))
+	{
+		return false;
+	}
+
+	return (Source->BuildTypeId == GeneratorType && Target->BuildTypeId == PowerBankType)
+		|| (Source->BuildTypeId == PowerBankType && Target->BuildTypeId == PoweredLightType);
+}
+
+void UWildBoundBuildingSubsystem::TogglePowerLink(int32 SourceBuildId, int32 TargetBuildId)
+{
+	FWildBoundPlacedBuildState* Source = FindBuildState(SourceBuildId);
+	if (!Source || !CanLinkPowerBuilds(SourceBuildId, TargetBuildId))
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91712,
+				2.0f,
+				FColor(225, 145, 105),
+				TEXT("Invalid power link. Generator -> Battery Bank -> Powered Light."));
+		}
+		return;
+	}
+
+	if (Source->LinkedBuildIds.Contains(TargetBuildId))
+	{
+		Source->LinkedBuildIds.Remove(TargetBuildId);
+	}
+	else
+	{
+		Source->LinkedBuildIds.AddUnique(TargetBuildId);
+	}
+
+	RefreshPowerLinkVisuals();
+	RefreshPoweredLights();
+}
+
+float UWildBoundBuildingSubsystem::GetConnectedLoadForBattery(int32 BatteryBuildId) const
+{
+	const FWildBoundPlacedBuildState* Battery = FindBuildState(BatteryBuildId);
+	if (!Battery || Battery->BuildTypeId != PowerBankType)
+	{
+		return 0.0f;
+	}
+
+	float Load = 0.0f;
+	for (int32 LinkedId : Battery->LinkedBuildIds)
+	{
+		const FWildBoundPlacedBuildState* Target = FindBuildState(LinkedId);
+		if (Target && Target->BuildTypeId == PoweredLightType)
+		{
+			Load += PoweredLightLoadPerSecond;
+		}
+	}
+	return Load;
+}
+
+bool UWildBoundBuildingSubsystem::IsPowerAvailableAt(const FVector& Location) const
+{
+	for (const FWildBoundPlacedBuildState& Battery : PlacedBuilds)
+	{
+		if (Battery.BuildTypeId != PowerBankType
+			|| !Battery.bUtilityEnabled
+			|| Battery.StoredPower <= 0.0f)
+		{
+			continue;
+		}
+
+		for (int32 LinkedId : Battery.LinkedBuildIds)
+		{
+			const FWildBoundPlacedBuildState* Target = FindBuildState(LinkedId);
+			if (Target
+				&& Target->BuildTypeId == PoweredLightType
+				&& FVector::DistSquared2D(Target->Location, Location) <= FMath::Square(80.0f))
+			{
+				return true;
+			}
+		}
+	}
 	return false;
 }
 
@@ -1561,21 +1731,28 @@ FString UWildBoundBuildingSubsystem::GetUtilityInteractionPrompt(const AActor* A
 	{
 		if (State->StoredUtilityUnits > 0)
 		{
-			return FString::Printf(
-				TEXT("Collect rainwater x%d"),
-				State->StoredUtilityUnits);
+			return FString::Printf(TEXT("Collect rainwater x%d"), State->StoredUtilityUnits);
 		}
-
 		return FString::Printf(
 			TEXT("Rain collector - %d%%"),
 			FMath::RoundToInt(FMath::Clamp(State->UtilityProgress, 0.0f, 1.0f) * 100.0f));
 	}
 
+	if (State->BuildTypeId == GeneratorType)
+	{
+		return FString::Printf(
+			TEXT("Generator %s - fuel %.0fs | Shift+E refuel"),
+			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			State->FuelSecondsRemaining);
+	}
+
 	if (State->BuildTypeId == PowerBankType)
 	{
-		return State->bUtilityEnabled
-			? TEXT("Switch battery bank off")
-			: TEXT("Switch battery bank on");
+		return FString::Printf(
+			TEXT("Battery %s - %.0f%% - load %.2f/s"),
+			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			State->StoredPower,
+			GetConnectedLoadForBattery(State->BuildId));
 	}
 
 	return FString();
@@ -1602,11 +1779,7 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 		{
 			if (GEngine)
 			{
-				GEngine->AddOnScreenDebugMessage(
-					91709,
-					1.8f,
-					FColor(135, 175, 200),
-					TEXT("Rain collector is still filling."));
+				GEngine->AddOnScreenDebugMessage(91709, 1.8f, FColor(135, 175, 200), TEXT("Rain collector is still filling."));
 			}
 			return true;
 		}
@@ -1618,7 +1791,6 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 			{
 				break;
 			}
-
 			--State->StoredUtilityUnits;
 			++Collected;
 		}
@@ -1629,10 +1801,49 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 				91709,
 				2.0f,
 				Collected > 0 ? FColor(135, 190, 220) : FColor(220, 155, 105),
-				Collected > 0
-					? FString::Printf(TEXT("COLLECTED WATER x%d"), Collected)
+				Collected > 0 ? FString::Printf(TEXT("COLLECTED WATER x%d"), Collected)
 					: TEXT("Not enough backpack capacity for collected water."));
 		}
+		return true;
+	}
+
+	if (State->BuildTypeId == GeneratorType)
+	{
+		UWildBoundInventoryComponent* Inventory = GetPlayerInventory();
+		APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		const bool bRefuel = PlayerController
+			&& (PlayerController->IsInputKeyDown(EKeys::LeftShift)
+				|| PlayerController->IsInputKeyDown(EKeys::RightShift));
+
+		if (bRefuel)
+		{
+			if (Inventory && Inventory->RemoveItem(FName(TEXT("Fuel")), 1))
+			{
+				State->FuelSecondsRemaining += GeneratorFuelSecondsPerCan;
+				State->bUtilityEnabled = true;
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(91709, 2.0f, FColor(195, 190, 120), TEXT("GENERATOR REFUELED"));
+				}
+			}
+			else if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91709, 2.0f, FColor(225, 145, 105), TEXT("You need a Fuel Can."));
+			}
+			return true;
+		}
+
+		if (State->FuelSecondsRemaining <= 0.0f)
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(91709, 2.0f, FColor(225, 145, 105), TEXT("Generator is empty. Hold Shift and press E with a Fuel Can."));
+			}
+			return true;
+		}
+
+		State->bUtilityEnabled = !State->bUtilityEnabled;
+		RefreshPoweredLights();
 		return true;
 	}
 
@@ -1640,17 +1851,6 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 	{
 		State->bUtilityEnabled = !State->bUtilityEnabled;
 		RefreshPoweredLights();
-
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				91709,
-				2.0f,
-				State->bUtilityEnabled ? FColor(170, 205, 140) : FColor(180, 180, 165),
-				State->bUtilityEnabled
-					? TEXT("BATTERY BANK ONLINE")
-					: TEXT("BATTERY BANK OFFLINE"));
-		}
 		return true;
 	}
 
