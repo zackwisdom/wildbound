@@ -501,6 +501,13 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		TEXT("BUILD: REINFORCED WALL"),
 		TEXT("A braced defensive wall section. Two reinforced pieces near a powered shelter complete the first safehouse upgrade chain."),
 		{ Ingredient(TEXT("Wood"), 7), Ingredient(TEXT("ScrapMetal"), 6), Ingredient(TEXT("MechanicalParts"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildGenerator"),
+		TEXT("BuildGenerator"),
+		TEXT("BUILD: FUEL GENERATOR"),
+		TEXT("Burns scavenged Fuel Cans to charge linked battery banks. Wire it to a battery with L after placement."),
+		{ Ingredient(TEXT("ScrapMetal"), 8), Ingredient(TEXT("MechanicalParts"), 5), Ingredient(TEXT("Electronics"), 3), Ingredient(TEXT("Wire"), 4) });
 }
 
 void UWildBoundCraftingComponent::SetWorkbenchTab(bool bBuildTab)
