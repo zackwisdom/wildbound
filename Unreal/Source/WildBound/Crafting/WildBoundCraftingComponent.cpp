@@ -508,6 +508,27 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		TEXT("BUILD: FUEL GENERATOR"),
 		TEXT("Burns scavenged Fuel Cans to charge linked battery banks. Wire it to a battery with L after placement."),
 		{ Ingredient(TEXT("ScrapMetal"), 8), Ingredient(TEXT("MechanicalParts"), 5), Ingredient(TEXT("Electronics"), 3), Ingredient(TEXT("Wire"), 4) });
+
+	AddBuildRecipe(
+		TEXT("BuildWaterPurifier"),
+		TEXT("BuildWaterPurifier"),
+		TEXT("BUILD: ELECTRIC WATER PURIFIER"),
+		TEXT("When powered, automatically filters stored rainwater from nearby collectors and stores up to four clean Water units."),
+		{ Ingredient(TEXT("ScrapMetal"), 5), Ingredient(TEXT("Plastic"), 4), Ingredient(TEXT("Electronics"), 3), Ingredient(TEXT("Chemicals"), 2), Ingredient(TEXT("Wire"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildHeater"),
+		TEXT("BuildHeater"),
+		TEXT("BUILD: ELECTRIC HEATER"),
+		TEXT("A toggleable shelter heater. While powered near a cot, resting restores additional health."),
+		{ Ingredient(TEXT("ScrapMetal"), 5), Ingredient(TEXT("Electronics"), 2), Ingredient(TEXT("Wire"), 3), Ingredient(TEXT("MechanicalParts"), 1) });
+
+	AddBuildRecipe(
+		TEXT("BuildPoweredToolStation"),
+		TEXT("BuildPoweredToolStation"),
+		TEXT("BUILD: POWERED TOOL STATION"),
+		TEXT("A powered press and motor station. When linked near a workbench, advanced item crafting is completed 45% faster."),
+		{ Ingredient(TEXT("ScrapMetal"), 7), Ingredient(TEXT("MechanicalParts"), 4), Ingredient(TEXT("Electronics"), 3), Ingredient(TEXT("Wire"), 4) });
 }
 
 void UWildBoundCraftingComponent::SetWorkbenchTab(bool bBuildTab)
