@@ -347,6 +347,7 @@ void SWildBoundCraftingWidget::Construct(const FArguments& InArgs)
 									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(10)]
 									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(11)]
 									+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(12)]
+					+ SScrollBox::Slot().Padding(0.0f, 2.0f)[MakeRecipeButton(13)]
 								]
 							]
 						]
