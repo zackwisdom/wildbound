@@ -1975,6 +1975,28 @@ void UWildBoundBuildingSubsystem::UpdateManagementMode()
 		UseHint = TEXT("[C] CRAFT/BUILD   |   ");
 	}
 
+	FString LinkHint;
+	if (IsElectricalBuild(State->BuildTypeId))
+	{
+		if (PendingPowerLinkSourceBuildId == 0)
+		{
+			if (State->BuildTypeId == GeneratorType || State->BuildTypeId == PowerBankType)
+			{
+				LinkHint = TEXT("[L] START POWER LINK   |   ");
+			}
+		}
+		else
+		{
+			const FWildBoundPlacedBuildState* Source = FindBuildState(PendingPowerLinkSourceBuildId);
+			if (Source)
+			{
+				LinkHint = FString::Printf(
+					TEXT("[L] LINK FROM %s   |   "),
+					*GetBuildDisplayName(Source->BuildTypeId));
+			}
+		}
+	}
+
 	float HoldProgress = 0.0f;
 	if (PendingDismantleBuildId == BuildId
 		&& DismantleHoldStartedAt >= 0.0f
@@ -1993,13 +2015,60 @@ void UWildBoundBuildingSubsystem::UpdateManagementMode()
 				TEXT("HOLD [X] DISMANTLE %d%%"),
 				FMath::RoundToInt(HoldProgress * 100.0f))
 			: TEXT("HOLD [X] DISMANTLE / 60% REFUND");
+
 		Interaction->SetContextPrompt(
 			FString::Printf(
-				TEXT("%s%s   |   [R] RELOCATE   |   %s"),
+				TEXT("%s%s%s   |   [R] RELOCATE   |   %s"),
 				*UseHint,
+				*LinkHint,
 				*BuildName,
 				*DismantleHint),
 			35);
+	}
+
+	if (PlayerController->WasInputKeyJustPressed(EKeys::L) && IsElectricalBuild(State->BuildTypeId))
+	{
+		const bool bShift = PlayerController->IsInputKeyDown(EKeys::LeftShift)
+			|| PlayerController->IsInputKeyDown(EKeys::RightShift);
+
+		if (bShift)
+		{
+			if (FWildBoundPlacedBuildState* Mutable = FindBuildState(BuildId))
+			{
+				Mutable->LinkedBuildIds.Reset();
+				PendingPowerLinkSourceBuildId = 0;
+				RefreshPowerLinkVisuals();
+				RefreshPoweredLights();
+			}
+			return;
+		}
+
+		if (PendingPowerLinkSourceBuildId == 0)
+		{
+			if (State->BuildTypeId == GeneratorType || State->BuildTypeId == PowerBankType)
+			{
+				PendingPowerLinkSourceBuildId = BuildId;
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(
+						91712,
+						2.0f,
+						FColor(175, 205, 150),
+						TEXT("POWER LINK STARTED   |   aim at a compatible target and press L"));
+				}
+			}
+		}
+		else if (PendingPowerLinkSourceBuildId == BuildId)
+		{
+			PendingPowerLinkSourceBuildId = 0;
+		}
+		else
+		{
+			const int32 SourceId = PendingPowerLinkSourceBuildId;
+			PendingPowerLinkSourceBuildId = 0;
+			TogglePowerLink(SourceId, BuildId);
+		}
+		return;
 	}
 
 	if (PlayerController->WasInputKeyJustPressed(EKeys::R))
