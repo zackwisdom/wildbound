@@ -640,10 +640,14 @@ FText SWildBoundHUDWidget::GetConsumableFeedbackDetail() const
 		const int32 Percent = FMath::RoundToInt(Interaction->GetConsumableActionProgress() * 100.0f);
 		if (Interaction->IsConsumableActionCommitted())
 		{
+			if (Interaction->IsTreatmentInProgress())
+			{
+				return FText::FromString(FString::Printf(
+					TEXT("%d%% COMPLETE   |   TREATMENT APPLIED"),
+					Percent));
+			}
 			return FText::FromString(FString::Printf(
-				Interaction->IsTreatmentInProgress()
-					? TEXT("%d%% COMPLETE   |   TREATMENT APPLIED")
-					: TEXT("%d%% COMPLETE   |   CONSUMED"),
+				TEXT("%d%% COMPLETE   |   CONSUMED"),
 				Percent));
 		}
 		return FText::FromString(FString::Printf(TEXT("%d%% COMPLETE   |   ESC CANCEL"), Percent));

@@ -16,7 +16,7 @@
 #include "Engine/World.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
-#include "Components/CameraComponent.h"
+#include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
