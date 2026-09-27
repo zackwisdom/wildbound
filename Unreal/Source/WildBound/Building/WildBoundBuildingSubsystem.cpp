@@ -4,10 +4,12 @@
 #include "../Player/WildBoundInteractionComponent.h"
 #include "CollisionQueryParams.h"
 #include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/PointLight.h"
+#include "Engine/SpotLight.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
@@ -40,6 +42,14 @@ namespace
 	const FName PurifierTag(TEXT("WBWaterPurifier"));
 	const FName HeaterTag(TEXT("WBHeater"));
 	const FName ToolStationTag(TEXT("WBPoweredToolStation"));
+	const FName FloodlightTag(TEXT("WBFloodlightTower"));
+	const FName AlarmTag(TEXT("WBPerimeterAlarm"));
+	const FName AlarmBeaconTag(TEXT("WBPerimeterAlarmBeacon"));
+	const FName PoweredGateTag(TEXT("WBPoweredGate"));
+	const FName PoweredGatePanelTag(TEXT("WBPoweredGatePanel"));
+	const FName HostileTag(TEXT("WBHostile"));
+	const FName HostileAltTag(TEXT("WildBoundHostile"));
+	const FName EnemyTag(TEXT("Enemy"));
 
 	const FName FloorType(TEXT("BuildFloor"));
 	const FName WallType(TEXT("BuildWall"));
@@ -58,6 +68,9 @@ namespace
 	const FName PurifierType(TEXT("BuildWaterPurifier"));
 	const FName HeaterType(TEXT("BuildHeater"));
 	const FName ToolStationType(TEXT("BuildPoweredToolStation"));
+	const FName FloodlightType(TEXT("BuildFloodlightTower"));
+	const FName AlarmType(TEXT("BuildPerimeterAlarm"));
+	const FName PoweredGateType(TEXT("BuildPoweredGate"));
 
 	constexpr float BuildManagementDistance = 475.0f;
 	constexpr float DismantleHoldDuration = 0.75f;
@@ -73,6 +86,12 @@ namespace
 	constexpr float PurifierLoadPerSecond = 0.55f;
 	constexpr float HeaterLoadPerSecond = 0.75f;
 	constexpr float ToolStationLoadPerSecond = 0.65f;
+	constexpr float FloodlightLoadPerSecond = 0.48f;
+	constexpr float AlarmLoadPerSecond = 0.24f;
+	constexpr float PoweredGateMoveLoadPerSecond = 0.90f;
+	constexpr float PoweredGateMovePerSecond = 0.28f;
+	constexpr float AlarmDetectionRadius = 1250.0f;
+	constexpr float AlarmAlertSeconds = 5.0f;
 	constexpr float PurifierSecondsPerUnit = 45.0f;
 	constexpr int32 PurifierCapacity = 4;
 
@@ -211,6 +230,13 @@ namespace
 			0.42f);
 		Actor->SetActorScale3D(FVector(Distance / 100.0f, 0.035f, 0.035f));
 		return Actor;
+	}
+
+	bool IsHostileActor(const AActor& Actor)
+	{
+		return Actor.ActorHasTag(HostileTag)
+			|| Actor.ActorHasTag(HostileAltTag)
+			|| Actor.ActorHasTag(EnemyTag);
 	}
 
 	bool IsStructuralBuild(FName BuildTypeId)
@@ -1353,6 +1379,172 @@ bool UWildBoundBuildingSubsystem::SpawnPlacedBuild(
 		return true;
 	}
 
+	if (BuildTypeId == FloodlightType)
+	{
+		AStaticMeshActor* Pole = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 205.0f),
+			FVector(0.16f, 0.16f, 4.10f),
+			Rotation,
+			Scrap,
+			TEXT("WB_PlayerBuild_FloodlightPole"),
+			OutSpawnedActors,
+			0.64f,
+			0.56f);
+		if (!Pole)
+		{
+			return false;
+		}
+		Pole->Tags.AddUnique(InteractableTag);
+		Pole->Tags.AddUnique(FloodlightTag);
+
+		const FVector ForwardOffset = Rotation.RotateVector(FVector(36.0f, 0.0f, 0.0f));
+		SpawnBuildPiece(
+			*World,
+			Location + ForwardOffset + FVector(0.0f, 0.0f, 408.0f),
+			FVector(0.70f, 0.34f, 0.22f),
+			FRotator(Rotation.Pitch, Rotation.Yaw, -8.0f),
+			FLinearColor(0.16f, 0.17f, 0.15f, 1.0f),
+			TEXT("WB_PlayerBuild_FloodlightFixture"),
+			OutSpawnedActors,
+			0.62f,
+			0.56f);
+
+		ASpotLight* Light = World->SpawnActor<ASpotLight>(
+			Location + ForwardOffset + FVector(0.0f, 0.0f, 405.0f),
+			FRotator(-24.0f, Rotation.Yaw, 0.0f));
+		if (Light)
+		{
+			Light->Tags.AddUnique(PlayerBuildTag);
+			Light->Tags.AddUnique(FloodlightTag);
+#if WITH_EDITOR
+			Light->SetActorLabel(TEXT("WB_PlayerBuild_Floodlight"));
+#endif
+			if (USpotLightComponent* LightComponent = Cast<USpotLightComponent>(Light->GetLightComponent()))
+			{
+				LightComponent->SetIntensity(12500.0f);
+				LightComponent->SetAttenuationRadius(2400.0f);
+				LightComponent->SetInnerConeAngle(22.0f);
+				LightComponent->SetOuterConeAngle(43.0f);
+				LightComponent->SetLightColor(FLinearColor(0.88f, 0.93f, 1.0f));
+				LightComponent->SetCastShadows(true);
+				LightComponent->SetVisibility(false);
+			}
+			if (OutSpawnedActors)
+			{
+				OutSpawnedActors->Add(Light);
+			}
+		}
+		return true;
+	}
+
+	if (BuildTypeId == AlarmType)
+	{
+		AStaticMeshActor* Mast = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 112.0f),
+			FVector(0.12f, 0.12f, 2.20f),
+			Rotation,
+			Scrap,
+			TEXT("WB_PlayerBuild_PerimeterAlarmMast"),
+			OutSpawnedActors,
+			0.68f,
+			0.50f);
+		if (!Mast)
+		{
+			return false;
+		}
+		Mast->Tags.AddUnique(InteractableTag);
+		Mast->Tags.AddUnique(AlarmTag);
+
+		SpawnBuildPiece(
+			*World,
+			Location + Rotation.RotateVector(FVector(0.0f, -22.0f, 126.0f)),
+			FVector(0.48f, 0.20f, 0.58f),
+			Rotation,
+			FLinearColor(0.11f, 0.12f, 0.10f, 1.0f),
+			TEXT("WB_PlayerBuild_PerimeterAlarmControl"),
+			OutSpawnedActors,
+			0.72f,
+			0.44f);
+
+		APointLight* Beacon = World->SpawnActor<APointLight>(
+			Location + FVector(0.0f, 0.0f, 232.0f),
+			Rotation);
+		if (Beacon)
+		{
+			Beacon->Tags.AddUnique(PlayerBuildTag);
+			Beacon->Tags.AddUnique(AlarmBeaconTag);
+#if WITH_EDITOR
+			Beacon->SetActorLabel(TEXT("WB_PlayerBuild_PerimeterAlarmBeacon"));
+#endif
+			if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Beacon->GetLightComponent()))
+			{
+				LightComponent->SetIntensity(7000.0f);
+				LightComponent->SetAttenuationRadius(850.0f);
+				LightComponent->SetLightColor(FLinearColor(1.0f, 0.035f, 0.02f));
+				LightComponent->SetCastShadows(false);
+				LightComponent->SetVisibility(false);
+			}
+			if (OutSpawnedActors)
+			{
+				OutSpawnedActors->Add(Beacon);
+			}
+		}
+		return true;
+	}
+
+	if (BuildTypeId == PoweredGateType)
+	{
+		const FVector ForwardAxis = Rotation.RotateVector(FVector(1.0f, 0.0f, 0.0f));
+		for (float Side : {-178.0f, 178.0f})
+		{
+			SpawnBuildPiece(
+				*World,
+				Location + ForwardAxis * Side + FVector(0.0f, 0.0f, 125.0f),
+				FVector(0.20f, 0.34f, 2.50f),
+				Rotation,
+				Scrap,
+				TEXT("WB_PlayerBuild_PoweredGatePost"),
+				OutSpawnedActors,
+				0.62f,
+				0.62f);
+		}
+
+		AStaticMeshActor* Motor = SpawnBuildPiece(
+			*World,
+			Location - ForwardAxis * 205.0f + FVector(0.0f, 0.0f, 94.0f),
+			FVector(0.56f, 0.54f, 0.92f),
+			Rotation,
+			FLinearColor(0.11f, 0.12f, 0.10f, 1.0f),
+			TEXT("WB_PlayerBuild_PoweredGateMotor"),
+			OutSpawnedActors,
+			0.68f,
+			0.55f);
+		if (!Motor)
+		{
+			return false;
+		}
+		Motor->Tags.AddUnique(InteractableTag);
+		Motor->Tags.AddUnique(PoweredGateTag);
+
+		AStaticMeshActor* GatePanel = SpawnBuildPiece(
+			*World,
+			Location + FVector(0.0f, 0.0f, 122.0f),
+			FVector(3.25f, 0.16f, 2.30f),
+			Rotation,
+			FLinearColor(0.12f, 0.13f, 0.115f, 1.0f),
+			TEXT("WB_PlayerBuild_PoweredGatePanel"),
+			OutSpawnedActors,
+			0.66f,
+			0.66f);
+		if (GatePanel)
+		{
+			GatePanel->Tags.AddUnique(PoweredGatePanelTag);
+		}
+		return true;
+	}
+
 	if (BuildTypeId == GeneratorType)
 	{
 		AStaticMeshActor* Body = SpawnBuildPiece(
@@ -1715,6 +1907,75 @@ void UWildBoundBuildingSubsystem::UpdateUtilities()
 		}
 	}
 
+	APawn* PlayerPawn = nullptr;
+	if (UWorld* World = GetWorld())
+	{
+		if (APlayerController* PlayerController = World->GetFirstPlayerController())
+		{
+			PlayerPawn = PlayerController->GetPawn();
+		}
+
+		for (FWildBoundPlacedBuildState& State : PlacedBuilds)
+		{
+			if (State.BuildTypeId == AlarmType)
+			{
+				if (!State.bUtilityEnabled || !IsBuildPowered(State.BuildId))
+				{
+					State.UtilityProgress = 0.0f;
+					continue;
+				}
+
+				bool bHostileDetected = false;
+				for (TActorIterator<APawn> It(World); It; ++It)
+				{
+					APawn* Candidate = *It;
+					if (!Candidate || Candidate == PlayerPawn || !IsHostileActor(*Candidate))
+					{
+						continue;
+					}
+					if (FVector::DistSquared2D(Candidate->GetActorLocation(), State.Location)
+						<= FMath::Square(AlarmDetectionRadius))
+					{
+						bHostileDetected = true;
+						break;
+					}
+				}
+
+				if (bHostileDetected)
+				{
+					const bool bNewAlert = State.UtilityProgress <= 0.0f;
+					State.UtilityProgress = AlarmAlertSeconds;
+					if (bNewAlert && GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(
+							91716,
+							3.0f,
+							FColor(245, 65, 48),
+							TEXT("PERIMETER BREACH   |   HOSTILE DETECTED"));
+					}
+				}
+				else if (State.UtilityProgress > 0.0f)
+				{
+					State.UtilityProgress = FMath::Max(0.0f, State.UtilityProgress - 1.0f);
+				}
+			}
+			else if (State.BuildTypeId == PoweredGateType)
+			{
+				const float Target = State.StoredUtilityUnits > 0 ? 1.0f : 0.0f;
+				if (IsBuildPowered(State.BuildId)
+					&& !FMath::IsNearlyEqual(State.UtilityProgress, Target, 0.01f))
+				{
+					State.UtilityProgress = FMath::FInterpConstantTo(
+						State.UtilityProgress,
+						Target,
+						1.0f,
+						PoweredGateMovePerSecond);
+					bUtilityStateChanged = true;
+				}
+			}
+		}
+	}
+
 	for (FWildBoundPlacedBuildState& State : PlacedBuilds)
 	{
 		if (State.BuildTypeId != PowerBankType
@@ -1747,17 +2008,57 @@ void UWildBoundBuildingSubsystem::RefreshPoweredLights()
 {
 	for (const TPair<TWeakObjectPtr<AActor>, int32>& Pair : BuildIdByActor)
 	{
-		APointLight* Light = Cast<APointLight>(Pair.Key.Get());
-		if (!Light || !Light->ActorHasTag(PoweredLightTag))
+		AActor* Actor = Pair.Key.Get();
+		if (!Actor)
 		{
 			continue;
 		}
 
 		const FWildBoundPlacedBuildState* State = FindBuildState(Pair.Value);
-		const bool bPowered = State && IsBuildPowered(State->BuildId);
-		if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Light->GetLightComponent()))
+		if (!State)
 		{
-			LightComponent->SetVisibility(bPowered);
+			continue;
+		}
+
+		if (APointLight* Light = Cast<APointLight>(Actor))
+		{
+			if (Light->ActorHasTag(PoweredLightTag))
+			{
+				if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Light->GetLightComponent()))
+				{
+					LightComponent->SetVisibility(IsBuildPowered(State->BuildId));
+				}
+			}
+			else if (Light->ActorHasTag(AlarmBeaconTag))
+			{
+				const bool bAlert = IsBuildPowered(State->BuildId) && State->UtilityProgress > 0.0f;
+				if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Light->GetLightComponent()))
+				{
+					LightComponent->SetVisibility(bAlert);
+				}
+			}
+		}
+
+		if (ASpotLight* Light = Cast<ASpotLight>(Actor);
+			Light && Light->ActorHasTag(FloodlightTag))
+		{
+			if (USpotLightComponent* LightComponent = Cast<USpotLightComponent>(Light->GetLightComponent()))
+			{
+				LightComponent->SetVisibility(IsBuildPowered(State->BuildId));
+			}
+		}
+
+		if (Actor->ActorHasTag(PoweredGatePanelTag)
+			&& State->BuildTypeId == PoweredGateType)
+		{
+			const FVector SlideOffset = State->Rotation.RotateVector(
+				FVector(325.0f * FMath::Clamp(State->UtilityProgress, 0.0f, 1.0f), 0.0f, 0.0f));
+			Actor->SetActorLocationAndRotation(
+				State->Location + SlideOffset + FVector(0.0f, 0.0f, 122.0f),
+				State->Rotation,
+				false,
+				nullptr,
+				ETeleportType::TeleportPhysics);
 		}
 	}
 }
@@ -1817,7 +2118,10 @@ bool UWildBoundBuildingSubsystem::IsElectricalBuild(FName BuildTypeId) const
 		|| BuildTypeId == PoweredLightType
 		|| BuildTypeId == PurifierType
 		|| BuildTypeId == HeaterType
-		|| BuildTypeId == ToolStationType;
+		|| BuildTypeId == ToolStationType
+		|| BuildTypeId == FloodlightType
+		|| BuildTypeId == AlarmType
+		|| BuildTypeId == PoweredGateType;
 }
 
 bool UWildBoundBuildingSubsystem::CanLinkPowerBuilds(int32 SourceBuildId, int32 TargetBuildId) const
@@ -1838,7 +2142,10 @@ bool UWildBoundBuildingSubsystem::CanLinkPowerBuilds(int32 SourceBuildId, int32 
 		Target->BuildTypeId == PoweredLightType
 		|| Target->BuildTypeId == PurifierType
 		|| Target->BuildTypeId == HeaterType
-		|| Target->BuildTypeId == ToolStationType;
+		|| Target->BuildTypeId == ToolStationType
+		|| Target->BuildTypeId == FloodlightType
+		|| Target->BuildTypeId == AlarmType
+		|| Target->BuildTypeId == PoweredGateType;
 
 	return (Source->BuildTypeId == GeneratorType && Target->BuildTypeId == PowerBankType)
 		|| (Source->BuildTypeId == PowerBankType && bBatteryLoad);
@@ -1855,7 +2162,7 @@ void UWildBoundBuildingSubsystem::TogglePowerLink(int32 SourceBuildId, int32 Tar
 				91712,
 				2.0f,
 				FColor(225, 145, 105),
-				TEXT("Invalid power link. Generator -> Battery Bank -> powered utility."));
+				TEXT("Invalid power link. Generator -> Battery Bank -> powered utility/defense."));
 		}
 		return;
 	}
@@ -1905,6 +2212,22 @@ float UWildBoundBuildingSubsystem::GetConnectedLoadForBattery(int32 BatteryBuild
 		else if (Target->BuildTypeId == ToolStationType)
 		{
 			Load += ToolStationLoadPerSecond;
+		}
+		else if (Target->BuildTypeId == FloodlightType)
+		{
+			Load += FloodlightLoadPerSecond;
+		}
+		else if (Target->BuildTypeId == AlarmType)
+		{
+			Load += AlarmLoadPerSecond;
+		}
+		else if (Target->BuildTypeId == PoweredGateType)
+		{
+			const float TargetOpen = Target->StoredUtilityUnits > 0 ? 1.0f : 0.0f;
+			if (!FMath::IsNearlyEqual(Target->UtilityProgress, TargetOpen, 0.02f))
+			{
+				Load += PoweredGateMoveLoadPerSecond;
+			}
 		}
 	}
 	return Load;
@@ -2013,6 +2336,38 @@ FString UWildBoundBuildingSubsystem::GetUtilityInteractionPrompt(const AActor* A
 		return FString::Printf(
 			TEXT("Powered tools %s - %s"),
 			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			IsBuildPowered(State->BuildId) ? TEXT("POWERED") : TEXT("NO POWER"));
+	}
+
+	if (State->BuildTypeId == FloodlightType)
+	{
+		return FString::Printf(
+			TEXT("Floodlight %s - %s"),
+			State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF"),
+			IsBuildPowered(State->BuildId) ? TEXT("POWERED") : TEXT("NO POWER"));
+	}
+
+	if (State->BuildTypeId == AlarmType)
+	{
+		const TCHAR* Status = State->UtilityProgress > 0.0f
+			? TEXT("ALERT")
+			: (State->bUtilityEnabled ? TEXT("ARMED") : TEXT("DISARMED"));
+		return FString::Printf(
+			TEXT("Perimeter alarm %s - %s | Shift+E test"),
+			Status,
+			IsBuildPowered(State->BuildId) ? TEXT("POWERED") : TEXT("NO POWER"));
+	}
+
+	if (State->BuildTypeId == PoweredGateType)
+	{
+		const float Target = State->StoredUtilityUnits > 0 ? 1.0f : 0.0f;
+		const bool bMoving = !FMath::IsNearlyEqual(State->UtilityProgress, Target, 0.02f);
+		const TCHAR* GateStatus = bMoving
+			? (Target > State->UtilityProgress ? TEXT("OPENING") : TEXT("CLOSING"))
+			: (State->UtilityProgress >= 0.98f ? TEXT("OPEN") : TEXT("CLOSED"));
+		return FString::Printf(
+			TEXT("Powered gate %s - %s"),
+			GateStatus,
 			IsBuildPowered(State->BuildId) ? TEXT("POWERED") : TEXT("NO POWER"));
 	}
 
@@ -2161,7 +2516,9 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 		return true;
 	}
 
-	if (State->BuildTypeId == HeaterType || State->BuildTypeId == ToolStationType)
+	if (State->BuildTypeId == HeaterType
+		|| State->BuildTypeId == ToolStationType
+		|| State->BuildTypeId == FloodlightType)
 	{
 		State->bUtilityEnabled = !State->bUtilityEnabled;
 		if (GEngine)
@@ -2174,6 +2531,77 @@ bool UWildBoundBuildingSubsystem::TryUseUtility(AActor* Actor)
 					TEXT("%s %s"),
 					*GetBuildDisplayName(State->BuildTypeId),
 					State->bUtilityEnabled ? TEXT("ON") : TEXT("OFF")));
+		}
+		return true;
+	}
+
+	if (State->BuildTypeId == AlarmType)
+	{
+		APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		const bool bTest = PlayerController
+			&& (PlayerController->IsInputKeyDown(EKeys::LeftShift)
+				|| PlayerController->IsInputKeyDown(EKeys::RightShift));
+
+		if (bTest)
+		{
+			if (IsBuildPowered(State->BuildId))
+			{
+				State->UtilityProgress = AlarmAlertSeconds;
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(
+						91714,
+						2.0f,
+						FColor(235, 78, 58),
+						TEXT("PERIMETER ALARM TEST   |   ALERT ACTIVE"));
+				}
+			}
+			else if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91714,
+					2.0f,
+					FColor(225, 145, 105),
+					TEXT("Perimeter alarm needs a powered battery link."));
+			}
+			RefreshPoweredLights();
+			return true;
+		}
+
+		State->bUtilityEnabled = !State->bUtilityEnabled;
+		if (!State->bUtilityEnabled)
+		{
+			State->UtilityProgress = 0.0f;
+		}
+		RefreshPoweredLights();
+		return true;
+	}
+
+	if (State->BuildTypeId == PoweredGateType)
+	{
+		if (!IsBuildPowered(State->BuildId))
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					91715,
+					2.0f,
+					FColor(225, 145, 105),
+					TEXT("Powered gate needs a live battery link."));
+			}
+			return true;
+		}
+
+		State->StoredUtilityUnits = State->StoredUtilityUnits > 0 ? 0 : 1;
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				91715,
+				1.8f,
+				FColor(175, 205, 150),
+				State->StoredUtilityUnits > 0
+					? TEXT("POWERED GATE OPENING")
+					: TEXT("POWERED GATE CLOSING"));
 		}
 		return true;
 	}
@@ -2318,9 +2746,14 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 	float GeneratorFuel = 0.0f;
 	bool bGeneratorRunning = false;
 	int32 PoweredLights = 0;
+	int32 PoweredFloodlights = 0;
 	int32 PurifiedWater = 0;
 	bool bHeaterOnline = false;
 	bool bToolsOnline = false;
+	bool bAlarmArmed = false;
+	bool bAlarmAlert = false;
+	int32 GateCount = 0;
+	int32 OpenGates = 0;
 
 	for (const FWildBoundPlacedBuildState& State : PlacedBuilds)
 	{
@@ -2333,6 +2766,10 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 		if (State.BuildTypeId == RainCollectorType)
 		{
 			StoredWater += State.StoredUtilityUnits;
+		}
+		else if (State.BuildTypeId == PurifierType)
+		{
+			PurifiedWater += State.StoredUtilityUnits;
 		}
 		else if (State.BuildTypeId == ReinforcedFloorType || State.BuildTypeId == ReinforcedWallType)
 		{
@@ -2349,14 +2786,40 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 			GeneratorFuel += State.FuelSecondsRemaining;
 			bGeneratorRunning |= State.bUtilityEnabled && State.FuelSecondsRemaining > 0.0f;
 		}
-		else if (State.BuildTypeId == PoweredLightType && IsPowerAvailableAt(State.Location))
+		else if (State.BuildTypeId == PoweredLightType && IsBuildPowered(State.BuildId))
 		{
 			++PoweredLights;
 		}
+		else if (State.BuildTypeId == FloodlightType && IsBuildPowered(State.BuildId))
+		{
+			++PoweredFloodlights;
+		}
+		else if (State.BuildTypeId == HeaterType && IsBuildPowered(State.BuildId))
+		{
+			bHeaterOnline = true;
+		}
+		else if (State.BuildTypeId == ToolStationType && IsBuildPowered(State.BuildId))
+		{
+			bToolsOnline = true;
+		}
+		else if (State.BuildTypeId == AlarmType)
+		{
+			bAlarmArmed |= State.bUtilityEnabled && IsBuildPowered(State.BuildId);
+			bAlarmAlert |= State.UtilityProgress > 0.0f && IsBuildPowered(State.BuildId);
+		}
+		else if (State.BuildTypeId == PoweredGateType)
+		{
+			++GateCount;
+			if (State.UtilityProgress >= 0.98f)
+			{
+				++OpenGates;
+			}
+		}
 	}
 
+	const TCHAR* AlarmStatus = bAlarmAlert ? TEXT("ALERT") : (bAlarmArmed ? TEXT("ARMED") : TEXT("OFF"));
 	return FString::Printf(
-		TEXT("%s\nWATER  RAW %d  CLEAN %d\nPOWER  %.0f / %.0f  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS %d  HEAT %s  TOOLS %s\nREINFORCEMENT  %d PIECES"),
+		TEXT("%s\nWATER  RAW %d  CLEAN %d\nPOWER  %.0f / %.0f  LOAD %.2f/s\nGENERATOR  %s  FUEL %.0fs\nLIGHTS %d  FLOOD %d  HEAT %s  TOOLS %s\nDEFENSE  ALARM %s  GATES %d/%d OPEN\nREINFORCEMENT  %d PIECES"),
 		*GetShelterProgressionNameAt(Anchor),
 		StoredWater,
 		PurifiedWater,
@@ -2366,8 +2829,12 @@ FString UWildBoundBuildingSubsystem::GetSafehouseStatusText() const
 		bGeneratorRunning ? TEXT("RUNNING") : TEXT("OFF"),
 		GeneratorFuel,
 		PoweredLights,
+		PoweredFloodlights,
 		bHeaterOnline ? TEXT("ON") : TEXT("OFF"),
 		bToolsOnline ? TEXT("ON") : TEXT("OFF"),
+		AlarmStatus,
+		OpenGates,
+		GateCount,
 		ReinforcedPieces);
 }
 
@@ -2826,6 +3293,18 @@ TMap<FName, int32> UWildBoundBuildingSubsystem::GetMaterialCostsForBuild(
 	{
 		Add(TEXT("ScrapMetal"), 7); Add(TEXT("MechanicalParts"), 4); Add(TEXT("Electronics"), 3); Add(TEXT("Wire"), 4);
 	}
+	else if (BuildTypeId == FloodlightType)
+	{
+		Add(TEXT("ScrapMetal"), 6); Add(TEXT("Electronics"), 3); Add(TEXT("Wire"), 4); Add(TEXT("Plastic"), 2); Add(TEXT("MechanicalParts"), 2);
+	}
+	else if (BuildTypeId == AlarmType)
+	{
+		Add(TEXT("ScrapMetal"), 5); Add(TEXT("Electronics"), 4); Add(TEXT("Wire"), 5); Add(TEXT("Battery"), 1); Add(TEXT("Plastic"), 2);
+	}
+	else if (BuildTypeId == PoweredGateType)
+	{
+		Add(TEXT("ScrapMetal"), 12); Add(TEXT("MechanicalParts"), 6); Add(TEXT("Electronics"), 4); Add(TEXT("Wire"), 5); Add(TEXT("Wood"), 3);
+	}
 
 	return Costs;
 }
@@ -2849,6 +3328,9 @@ FString UWildBoundBuildingSubsystem::GetBuildDisplayName(FName BuildTypeId) cons
 	if (BuildTypeId == PurifierType) return TEXT("ELECTRIC WATER PURIFIER");
 	if (BuildTypeId == HeaterType) return TEXT("ELECTRIC HEATER");
 	if (BuildTypeId == ToolStationType) return TEXT("POWERED TOOL STATION");
+	if (BuildTypeId == FloodlightType) return TEXT("FLOODLIGHT TOWER");
+	if (BuildTypeId == AlarmType) return TEXT("ELECTRIC PERIMETER ALARM");
+	if (BuildTypeId == PoweredGateType) return TEXT("POWERED SECURITY GATE");
 	return TEXT("STRUCTURE");
 }
 
@@ -3023,6 +3505,9 @@ FVector UWildBoundBuildingSubsystem::GetBuildHalfExtents(FName BuildTypeId) cons
 	if (BuildTypeId == PurifierType) return FVector(58.0f, 48.0f, 150.0f);
 	if (BuildTypeId == HeaterType) return FVector(52.0f, 38.0f, 100.0f);
 	if (BuildTypeId == ToolStationType) return FVector(92.0f, 48.0f, 125.0f);
+	if (BuildTypeId == FloodlightType) return FVector(58.0f, 58.0f, 215.0f);
+	if (BuildTypeId == AlarmType) return FVector(52.0f, 52.0f, 125.0f);
+	if (BuildTypeId == PoweredGateType) return FVector(195.0f, 42.0f, 125.0f);
 	return FVector(50.0f, 50.0f, 50.0f);
 }
 

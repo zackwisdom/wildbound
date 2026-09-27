@@ -485,7 +485,7 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		TEXT("BuildPoweredLight"),
 		TEXT("BuildPoweredLight"),
 		TEXT("BUILD: POWERED LIGHT"),
-		TEXT("A warm utility light that automatically activates when placed within range of an online battery bank."),
+		TEXT("A warm utility light that activates while wired to a powered battery bank."),
 		{ Ingredient(TEXT("ScrapMetal"), 3), Ingredient(TEXT("Electronics"), 1), Ingredient(TEXT("Wire"), 2), Ingredient(TEXT("Plastic"), 1) });
 
 	AddBuildRecipe(
@@ -529,6 +529,27 @@ void UWildBoundCraftingComponent::BuildWorkbenchConstructionRecipes()
 		TEXT("BUILD: POWERED TOOL STATION"),
 		TEXT("A powered press and motor station. When linked near a workbench, advanced item crafting is completed 45% faster."),
 		{ Ingredient(TEXT("ScrapMetal"), 7), Ingredient(TEXT("MechanicalParts"), 4), Ingredient(TEXT("Electronics"), 3), Ingredient(TEXT("Wire"), 4) });
+
+	AddBuildRecipe(
+		TEXT("BuildFloodlightTower"),
+		TEXT("BuildFloodlightTower"),
+		TEXT("BUILD: FLOODLIGHT TOWER"),
+		TEXT("A high-output defensive floodlight. Wire it to a battery bank, then toggle it to illuminate the perimeter at significant continuous power cost."),
+		{ Ingredient(TEXT("ScrapMetal"), 6), Ingredient(TEXT("Electronics"), 3), Ingredient(TEXT("Wire"), 4), Ingredient(TEXT("Plastic"), 2), Ingredient(TEXT("MechanicalParts"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildPerimeterAlarm"),
+		TEXT("BuildPerimeterAlarm"),
+		TEXT("BUILD: ELECTRIC PERIMETER ALARM"),
+		TEXT("An armed powered sensor that detects hostile actors inside its perimeter and raises a visible base alert. Shift+E performs a test."),
+		{ Ingredient(TEXT("ScrapMetal"), 5), Ingredient(TEXT("Electronics"), 4), Ingredient(TEXT("Wire"), 5), Ingredient(TEXT("Battery"), 1), Ingredient(TEXT("Plastic"), 2) });
+
+	AddBuildRecipe(
+		TEXT("BuildPoweredGate"),
+		TEXT("BuildPoweredGate"),
+		TEXT("BUILD: POWERED SECURITY GATE"),
+		TEXT("A heavy sliding security gate. It must be wired to a live battery and draws a large burst of power only while opening or closing."),
+		{ Ingredient(TEXT("ScrapMetal"), 12), Ingredient(TEXT("MechanicalParts"), 6), Ingredient(TEXT("Electronics"), 4), Ingredient(TEXT("Wire"), 5), Ingredient(TEXT("Wood"), 3) });
 }
 
 void UWildBoundCraftingComponent::SetWorkbenchTab(bool bBuildTab)
