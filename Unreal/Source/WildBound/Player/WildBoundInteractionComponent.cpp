@@ -102,9 +102,12 @@ namespace
 	constexpr float FoodUseDuration = 2.10f;
 	constexpr float WaterCommitProgress = 0.60f;
 	constexpr float FoodCommitProgress = 0.68f;
-	constexpr float BasicMedicalTreatmentDuration = 2.40f;
-	constexpr float TraumaTreatmentDuration = 4.20f;
-	constexpr float RadiationTreatmentDuration = 2.80f;
+	constexpr float BasicMedicalTreatmentDuration = 2.75f;
+	constexpr float TraumaTreatmentDuration = 4.60f;
+	constexpr float RadiationTreatmentDuration = 3.00f;
+	constexpr float BasicMedicalCommitProgress = 0.68f;
+	constexpr float TraumaCommitProgress = 0.76f;
+	constexpr float RadiationCommitProgress = 0.62f;
 
 	bool ParseDroppedItem(const AActor& Actor, FName& OutItemId, int32& OutQuantity)
 	{
@@ -328,9 +331,15 @@ FLinearColor UWildBoundInteractionComponent::GetConsumableFeedbackColor() const
 
 	if (bTreatmentInProgress)
 	{
-		return PendingTreatmentItemId == RadTreatmentItemId
-			? FLinearColor(0.80f, 0.70f, 0.38f, 1.0f)
-			: FLinearColor(0.40f, 0.78f, 0.48f, 1.0f);
+		if (PendingTreatmentItemId == RadTreatmentItemId)
+		{
+			return FLinearColor(0.80f, 0.70f, 0.38f, 1.0f);
+		}
+		if (PendingTreatmentItemId == TraumaKitItemId)
+		{
+			return FLinearColor(0.82f, 0.32f, 0.28f, 1.0f);
+		}
+		return FLinearColor(0.40f, 0.78f, 0.48f, 1.0f);
 	}
 
 	return ConsumableResultColor;
@@ -956,10 +965,16 @@ void UWildBoundInteractionComponent::StartTreatment(FName ItemId)
 
 	PendingTreatmentItemId = ItemId;
 	TreatmentElapsedSeconds = 0.0f;
+	bTreatmentCommitted = false;
+	TreatmentCompletionMessage.Reset();
+	ConsumableResultText.Reset();
+	ConsumableResultExpiresAt = -1.0f;
 
 	if (ItemId == TraumaKitItemId)
 	{
 		TreatmentDurationSeconds = TraumaTreatmentDuration;
+		TreatmentCommitProgress = TraumaCommitProgress;
+		TreatmentCompletionColor = FLinearColor(0.82f, 0.32f, 0.28f, 1.0f);
 		if (Injury && Injury->HasFracture()) TreatmentActionLabel = TEXT("SPLINTING FRACTURE");
 		else if (Injury && Injury->HasBleeding()) TreatmentActionLabel = TEXT("STABILIZING TRAUMA");
 		else TreatmentActionLabel = TEXT("APPLYING TRAUMA KIT");
@@ -967,11 +982,15 @@ void UWildBoundInteractionComponent::StartTreatment(FName ItemId)
 	else if (ItemId == MedicalItemId)
 	{
 		TreatmentDurationSeconds = BasicMedicalTreatmentDuration;
+		TreatmentCommitProgress = BasicMedicalCommitProgress;
+		TreatmentCompletionColor = FLinearColor(0.40f, 0.78f, 0.48f, 1.0f);
 		TreatmentActionLabel = Injury && Injury->HasBleeding() ? TEXT("BANDAGING WOUNDS") : TEXT("APPLYING FIRST AID");
 	}
 	else if (ItemId == RadTreatmentItemId)
 	{
 		TreatmentDurationSeconds = RadiationTreatmentDuration;
+		TreatmentCommitProgress = RadiationCommitProgress;
+		TreatmentCompletionColor = FLinearColor(0.80f, 0.70f, 0.38f, 1.0f);
 		TreatmentActionLabel = TEXT("ADMINISTERING RAD TREATMENT");
 	}
 	else
@@ -981,6 +1000,8 @@ void UWildBoundInteractionComponent::StartTreatment(FName ItemId)
 	}
 
 	bTreatmentInProgress = true;
+	ShowTreatmentPresentation(ItemId);
+	UpdateTreatmentPresentation(0.0f);
 	SetTreatmentInputLock(true);
 	SetContextPrompt(FString::Printf(TEXT("%s  0%%   |   ESC CANCEL"), *TreatmentActionLabel), 100);
 }
@@ -992,7 +1013,7 @@ void UWildBoundInteractionComponent::UpdateTreatment(float DeltaTime, APlayerCon
 		return;
 	}
 
-	if (PlayerController.WasInputKeyJustPressed(EKeys::Escape))
+	if (!bTreatmentCommitted && PlayerController.WasInputKeyJustPressed(EKeys::Escape))
 	{
 		CancelTreatment(true);
 		return;
@@ -1000,7 +1021,8 @@ void UWildBoundInteractionComponent::UpdateTreatment(float DeltaTime, APlayerCon
 
 	const UWildBoundInventoryComponent* Inventory = GetInventoryComponent();
 	const UWildBoundSurvivalComponent* Survival = GetOwner() ? GetOwner()->FindComponentByClass<UWildBoundSurvivalComponent>() : nullptr;
-	if (!Inventory || !Inventory->HasItem(PendingTreatmentItemId, 1) || !Survival || !Survival->IsAlive())
+	if (!Inventory || !Survival || !Survival->IsAlive()
+		|| (!bTreatmentCommitted && !Inventory->HasItem(PendingTreatmentItemId, 1)))
 	{
 		CancelTreatment(false);
 		return;
@@ -1010,9 +1032,23 @@ void UWildBoundInteractionComponent::UpdateTreatment(float DeltaTime, APlayerCon
 		TreatmentElapsedSeconds + FMath::Max(0.0f, DeltaTime),
 		TreatmentDurationSeconds);
 
-	const int32 ProgressPercent = FMath::RoundToInt(GetTreatmentProgress() * 100.0f);
+	const float Progress = GetTreatmentProgress();
+	UpdateTreatmentPresentation(Progress);
+
+	if (!bTreatmentCommitted && Progress >= TreatmentCommitProgress)
+	{
+		CommitTreatment();
+		if (!bTreatmentInProgress)
+		{
+			return;
+		}
+	}
+
+	const int32 ProgressPercent = FMath::RoundToInt(Progress * 100.0f);
 	SetContextPrompt(
-		FString::Printf(TEXT("%s  %d%%   |   ESC CANCEL"), *TreatmentActionLabel, ProgressPercent),
+		bTreatmentCommitted
+			? FString::Printf(TEXT("%s  %d%%   |   TREATMENT APPLIED"), *TreatmentActionLabel, ProgressPercent)
+			: FString::Printf(TEXT("%s  %d%%   |   ESC CANCEL"), *TreatmentActionLabel, ProgressPercent),
 		100);
 
 	if (TreatmentElapsedSeconds >= TreatmentDurationSeconds - KINDA_SMALL_NUMBER)
@@ -1021,9 +1057,9 @@ void UWildBoundInteractionComponent::UpdateTreatment(float DeltaTime, APlayerCon
 	}
 }
 
-void UWildBoundInteractionComponent::CompleteTreatment()
+void UWildBoundInteractionComponent::CommitTreatment()
 {
-	if (!bTreatmentInProgress)
+	if (!bTreatmentInProgress || bTreatmentCommitted)
 	{
 		return;
 	}
@@ -1042,14 +1078,12 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 		return;
 	}
 
-	FString SuccessMessage;
-	FColor SuccessColor(170, 215, 165);
-
 	if (CompletedItem == MedicalItemId || CompletedItem == TraumaKitItemId)
 	{
 		const bool bTraumaKit = CompletedItem == TraumaKitItemId;
 		const float HealthBefore = Survival->Health;
 		const bool bHadTreatableInjury = Injury && (bTraumaKit ? Injury->CanUseTraumaKit() : Injury->CanUseBasicMedicalTreatment());
+
 		if (!Inventory->RemoveItem(CompletedItem, 1))
 		{
 			CancelTreatment(false);
@@ -1059,8 +1093,6 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 		const float HealAmount = bTraumaKit ? 80.0f : 45.0f;
 		Survival->Heal(HealAmount);
 
-		// The injury component normally detects a consumed medical item + health gain.
-		// If health was already full, there is no gain to detect, so apply the injury treatment explicitly.
 		if (bHadTreatableInjury && HealthBefore >= Survival->MaxHealth - KINDA_SMALL_NUMBER && Injury)
 		{
 			Injury->TreatWithMedicalSupplies(bTraumaKit);
@@ -1072,13 +1104,13 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 
 		if (bTraumaKit)
 		{
-			SuccessMessage = bHadTreatableInjury
+			TreatmentCompletionMessage = bHadTreatableInjury
 				? TEXT("TRAUMA TREATMENT COMPLETE   |   FRACTURE / BLEEDING STABILIZED   |   +80 HEALTH")
 				: TEXT("TRAUMA TREATMENT COMPLETE   |   +80 HEALTH");
 		}
 		else
 		{
-			SuccessMessage = bHadTreatableInjury
+			TreatmentCompletionMessage = bHadTreatableInjury
 				? TEXT("BANDAGING COMPLETE   |   BLEEDING CONTROLLED / PAIN REDUCED   |   +45 HEALTH")
 				: TEXT("FIRST AID COMPLETE   |   +45 HEALTH");
 		}
@@ -1096,8 +1128,7 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 		{
 			StatusEffects->RegisterRadiationTreatment();
 		}
-		SuccessMessage = TEXT("RADIATION TREATMENT COMPLETE   |   -30 DOSE   |   45s REDUCED INTAKE");
-		SuccessColor = FColor(205, 190, 145);
+		TreatmentCompletionMessage = TEXT("RADIATION TREATMENT COMPLETE   |   -30 DOSE   |   45s REDUCED INTAKE");
 	}
 	else
 	{
@@ -1105,23 +1136,46 @@ void UWildBoundInteractionComponent::CompleteTreatment()
 		return;
 	}
 
-	SuccessMessage += FString::Printf(
+	TreatmentCompletionMessage += FString::Printf(
 		TEXT("   |   x%d REMAINING"),
 		Inventory->GetItemCount(CompletedItem));
 
+	bTreatmentCommitted = true;
+}
+
+void UWildBoundInteractionComponent::CompleteTreatment()
+{
+	if (!bTreatmentInProgress)
+	{
+		return;
+	}
+
+	if (!bTreatmentCommitted)
+	{
+		CommitTreatment();
+		if (!bTreatmentInProgress || !bTreatmentCommitted)
+		{
+			return;
+		}
+	}
+
+	const FString SuccessMessage = TreatmentCompletionMessage;
+	const FLinearColor SuccessColor = TreatmentCompletionColor;
+
+	HideTreatmentPresentation();
 	bTreatmentInProgress = false;
+	bTreatmentCommitted = false;
 	PendingTreatmentItemId = NAME_None;
 	TreatmentElapsedSeconds = 0.0f;
 	TreatmentDurationSeconds = 0.0f;
+	TreatmentCommitProgress = 1.0f;
 	TreatmentActionLabel.Reset();
+	TreatmentCompletionMessage.Reset();
 	ContextPromptExpiresAt = -1.0f;
 	ContextPromptPriority = MIN_int32;
 	SetTreatmentInputLock(false);
 
-	SetConsumableResult(
-		SuccessMessage,
-		FLinearColor::FromSRGBColor(SuccessColor),
-		3.0f);
+	SetConsumableResult(SuccessMessage, SuccessColor, 3.0f);
 }
 
 void UWildBoundInteractionComponent::CancelTreatment(bool bShowMessage)
@@ -1131,22 +1185,221 @@ void UWildBoundInteractionComponent::CancelTreatment(bool bShowMessage)
 		return;
 	}
 
+	const bool bWasCommitted = bTreatmentCommitted;
+	HideTreatmentPresentation();
+
 	bTreatmentInProgress = false;
+	bTreatmentCommitted = false;
 	PendingTreatmentItemId = NAME_None;
 	TreatmentElapsedSeconds = 0.0f;
 	TreatmentDurationSeconds = 0.0f;
+	TreatmentCommitProgress = 1.0f;
 	TreatmentActionLabel.Reset();
+	TreatmentCompletionMessage.Reset();
 	ContextPromptExpiresAt = -1.0f;
 	ContextPromptPriority = MIN_int32;
 	SetTreatmentInputLock(false);
 
-	if (bShowMessage)
+	if (bShowMessage && !bWasCommitted)
 	{
 		SetConsumableResult(
 			TEXT("TREATMENT INTERRUPTED   |   ITEM NOT CONSUMED"),
 			FLinearColor(0.80f, 0.58f, 0.34f, 1.0f),
 			2.0f);
 	}
+}
+
+void UWildBoundInteractionComponent::ShowTreatmentPresentation(FName ItemId)
+{
+	EnsureQuickUsePresentation();
+	if (!QuickUsePrimaryVisual)
+	{
+		return;
+	}
+
+	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	UStaticMesh* CylinderMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+
+	if (ItemId == MedicalItemId && CubeMesh && CylinderMesh)
+	{
+		QuickUsePrimaryVisual->SetStaticMesh(CubeMesh);
+		QuickUsePrimaryVisual->SetRelativeScale3D(FVector(0.16f, 0.050f, 0.11f));
+		QuickUsePrimaryVisual->SetHiddenInGame(false);
+		QuickUsePrimaryVisual->SetVisibility(true);
+
+		if (QuickUseSecondaryVisual)
+		{
+			QuickUseSecondaryVisual->SetStaticMesh(CylinderMesh);
+			QuickUseSecondaryVisual->SetRelativeScale3D(FVector(0.050f, 0.050f, 0.042f));
+			QuickUseSecondaryVisual->SetHiddenInGame(false);
+			QuickUseSecondaryVisual->SetVisibility(true);
+		}
+	}
+	else if (ItemId == TraumaKitItemId && CubeMesh)
+	{
+		QuickUsePrimaryVisual->SetStaticMesh(CubeMesh);
+		QuickUsePrimaryVisual->SetRelativeScale3D(FVector(0.20f, 0.065f, 0.15f));
+		QuickUsePrimaryVisual->SetHiddenInGame(false);
+		QuickUsePrimaryVisual->SetVisibility(true);
+
+		if (QuickUseSecondaryVisual)
+		{
+			QuickUseSecondaryVisual->SetStaticMesh(CubeMesh);
+			QuickUseSecondaryVisual->SetRelativeScale3D(FVector(0.22f, 0.022f, 0.030f));
+			QuickUseSecondaryVisual->SetHiddenInGame(false);
+			QuickUseSecondaryVisual->SetVisibility(true);
+		}
+	}
+	else if (ItemId == RadTreatmentItemId && CylinderMesh)
+	{
+		QuickUsePrimaryVisual->SetStaticMesh(CylinderMesh);
+		QuickUsePrimaryVisual->SetRelativeScale3D(FVector(0.042f, 0.042f, 0.16f));
+		QuickUsePrimaryVisual->SetHiddenInGame(false);
+		QuickUsePrimaryVisual->SetVisibility(true);
+
+		if (QuickUseSecondaryVisual)
+		{
+			QuickUseSecondaryVisual->SetStaticMesh(CylinderMesh);
+			QuickUseSecondaryVisual->SetRelativeScale3D(FVector(0.025f, 0.025f, 0.065f));
+			QuickUseSecondaryVisual->SetHiddenInGame(false);
+			QuickUseSecondaryVisual->SetVisibility(true);
+		}
+	}
+}
+
+void UWildBoundInteractionComponent::UpdateTreatmentPresentation(float Progress)
+{
+	if (!QuickUsePrimaryVisual || PendingTreatmentItemId.IsNone())
+	{
+		return;
+	}
+
+	Progress = FMath::Clamp(Progress, 0.0f, 1.0f);
+
+	auto SmoothStep = [](float Alpha)
+	{
+		Alpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
+		return Alpha * Alpha * (3.0f - 2.0f * Alpha);
+	};
+
+	auto BlendRotation = [](const FRotator& A, const FRotator& B, float Alpha)
+	{
+		return FQuat::Slerp(A.Quaternion(), B.Quaternion(), Alpha).Rotator();
+	};
+
+	if (PendingTreatmentItemId == MedicalItemId)
+	{
+		const FVector KitStart(47.0f, 22.0f, -33.0f);
+		const FVector KitWork(34.0f, 17.0f, -20.0f);
+		const FVector KitFinish(48.0f, 23.0f, -34.0f);
+		const FRotator KitStartRot(-8.0f, -8.0f, 8.0f);
+		const FRotator KitWorkRot(5.0f, -3.0f, -8.0f);
+
+		const float RaiseAlpha = SmoothStep(FMath::Min(Progress / 0.24f, 1.0f));
+		const float LowerAlpha = Progress > 0.82f ? SmoothStep((Progress - 0.82f) / 0.18f) : 0.0f;
+		FVector KitLocation = FMath::Lerp(KitStart, KitWork, RaiseAlpha);
+		FRotator KitRotation = BlendRotation(KitStartRot, KitWorkRot, RaiseAlpha);
+		if (Progress > 0.82f)
+		{
+			KitLocation = FMath::Lerp(KitWork, KitFinish, LowerAlpha);
+			KitRotation = BlendRotation(KitWorkRot, KitStartRot, LowerAlpha);
+		}
+		QuickUsePrimaryVisual->SetRelativeLocationAndRotation(KitLocation, KitRotation);
+
+		if (QuickUseSecondaryVisual)
+		{
+			const float WorkAlpha = FMath::Clamp((Progress - 0.18f) / 0.64f, 0.0f, 1.0f);
+			const float Sweep = FMath::Sin(WorkAlpha * UE_TWO_PI * 2.4f);
+			const FVector BandageLocation(
+				26.0f + Sweep * 2.0f,
+				8.5f + Sweep * 6.0f,
+				-15.0f + FMath::Abs(Sweep) * 1.3f);
+			QuickUseSecondaryVisual->SetRelativeLocationAndRotation(
+				BandageLocation,
+				FRotator(90.0f, WorkAlpha * 520.0f, 0.0f));
+			if (bTreatmentCommitted)
+			{
+				QuickUseSecondaryVisual->SetRelativeScale3D(FVector(0.038f, 0.038f, 0.032f));
+			}
+		}
+	}
+	else if (PendingTreatmentItemId == TraumaKitItemId)
+	{
+		const FVector BagStart(50.0f, 24.0f, -35.0f);
+		const FVector BagWork(37.0f, 18.0f, -22.0f);
+		const float RaiseAlpha = SmoothStep(FMath::Min(Progress / 0.20f, 1.0f));
+		const float LowerAlpha = Progress > 0.88f ? SmoothStep((Progress - 0.88f) / 0.12f) : 0.0f;
+
+		FVector BagLocation = FMath::Lerp(BagStart, BagWork, RaiseAlpha);
+		FRotator BagRotation = BlendRotation(
+			FRotator(-8.0f, -10.0f, 8.0f),
+			FRotator(8.0f, -2.0f, -10.0f),
+			RaiseAlpha);
+		if (Progress > 0.88f)
+		{
+			BagLocation = FMath::Lerp(BagWork, BagStart, LowerAlpha);
+		}
+		QuickUsePrimaryVisual->SetRelativeLocationAndRotation(BagLocation, BagRotation);
+
+		if (QuickUseSecondaryVisual)
+		{
+			const float WorkAlpha = FMath::Clamp((Progress - 0.22f) / 0.64f, 0.0f, 1.0f);
+			const float Press = 0.5f + 0.5f * FMath::Sin(WorkAlpha * UE_TWO_PI * 1.8f);
+			const FVector SplintLocation(
+				23.0f - WorkAlpha * 3.0f,
+				6.0f + Press * 8.0f,
+				-17.0f + Press * 2.0f);
+			QuickUseSecondaryVisual->SetRelativeLocationAndRotation(
+				SplintLocation,
+				FRotator(0.0f, -18.0f + WorkAlpha * 12.0f, 62.0f));
+		}
+	}
+	else if (PendingTreatmentItemId == RadTreatmentItemId)
+	{
+		const FVector StartLocation(46.0f, 21.0f, -32.0f);
+		const FVector ReadyLocation(29.0f, 13.0f, -17.0f);
+		const FVector InjectionLocation(20.0f, 8.0f, -13.0f);
+		const FVector FinishLocation(47.0f, 22.0f, -33.0f);
+		const FRotator StartRotation(0.0f, -6.0f, 82.0f);
+		const FRotator ReadyRotation(-6.0f, -2.0f, 88.0f);
+		const FRotator InjectionRotation(4.0f, 2.0f, 92.0f);
+
+		FVector Location;
+		FRotator Rotation;
+		if (Progress < 0.28f)
+		{
+			const float Alpha = SmoothStep(Progress / 0.28f);
+			Location = FMath::Lerp(StartLocation, ReadyLocation, Alpha);
+			Rotation = BlendRotation(StartRotation, ReadyRotation, Alpha);
+		}
+		else if (Progress < 0.72f)
+		{
+			const float Alpha = SmoothStep((Progress - 0.28f) / 0.44f);
+			const float Jab = SmoothStep(FMath::Clamp(Alpha / 0.62f, 0.0f, 1.0f));
+			Location = FMath::Lerp(ReadyLocation, InjectionLocation, Jab);
+			Location.X += FMath::Sin(Alpha * UE_TWO_PI * 1.25f) * 0.7f;
+			Rotation = BlendRotation(ReadyRotation, InjectionRotation, Jab);
+		}
+		else
+		{
+			const float Alpha = SmoothStep((Progress - 0.72f) / 0.28f);
+			Location = FMath::Lerp(InjectionLocation, FinishLocation, Alpha);
+			Rotation = BlendRotation(InjectionRotation, StartRotation, Alpha);
+		}
+
+		QuickUsePrimaryVisual->SetRelativeLocationAndRotation(Location, Rotation);
+
+		if (QuickUseSecondaryVisual)
+		{
+			const FVector PlungerOffset = Rotation.RotateVector(FVector(0.0f, 0.0f, bTreatmentCommitted ? -9.0f : -13.0f));
+			QuickUseSecondaryVisual->SetRelativeLocationAndRotation(Location + PlungerOffset, Rotation);
+		}
+	}
+}
+
+void UWildBoundInteractionComponent::HideTreatmentPresentation()
+{
+	HideQuickUsePresentation();
 }
 
 void UWildBoundInteractionComponent::SetTreatmentInputLock(bool bLocked)

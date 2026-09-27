@@ -81,6 +81,13 @@ public:
 	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
 	bool IsQuickUseCommitted() const { return bQuickUseInProgress && bQuickUseCommitted; }
 
+	UFUNCTION(BlueprintPure, Category="WildBound|Consumable")
+	bool IsConsumableActionCommitted() const
+	{
+		return (bQuickUseInProgress && bQuickUseCommitted)
+			|| (bTreatmentInProgress && bTreatmentCommitted);
+	}
+
 	FLinearColor GetConsumableFeedbackColor() const;
 
 	void SetContextPrompt(const FString& Prompt, int32 Priority = 0);
@@ -115,10 +122,14 @@ private:
 	bool bLootWindowOpen = false;
 
 	bool bTreatmentInProgress = false;
+	bool bTreatmentCommitted = false;
 	FName PendingTreatmentItemId = NAME_None;
 	float TreatmentElapsedSeconds = 0.0f;
 	float TreatmentDurationSeconds = 0.0f;
+	float TreatmentCommitProgress = 1.0f;
 	FString TreatmentActionLabel;
+	FString TreatmentCompletionMessage;
+	FLinearColor TreatmentCompletionColor = FLinearColor(0.66f, 0.84f, 0.64f, 1.0f);
 
 	bool bQuickUseInProgress = false;
 	bool bQuickUseCommitted = false;
@@ -165,7 +176,11 @@ private:
 	void SetConsumableResult(const FString& Message, const FLinearColor& Color, float DurationSeconds = 2.6f);
 	void StartTreatment(FName ItemId);
 	void UpdateTreatment(float DeltaTime, class APlayerController& PlayerController);
+	void CommitTreatment();
 	void CompleteTreatment();
 	void CancelTreatment(bool bShowMessage = true);
+	void ShowTreatmentPresentation(FName ItemId);
+	void UpdateTreatmentPresentation(float Progress);
+	void HideTreatmentPresentation();
 	void SetTreatmentInputLock(bool bLocked);
 };
